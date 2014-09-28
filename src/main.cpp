@@ -13,6 +13,14 @@
 //-------------------------------
 
 int main(int argc, char** argv){
+  #ifdef __APPLE__
+    // Needed in OSX to force use of OpenGL3.2 
+    glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, 3);
+    glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 2);
+    glfwOpenWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwOpenWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  #endif 
+
   // Set up pathtracer stuff
   bool loadedScene = false;
   finishedRender = false;
