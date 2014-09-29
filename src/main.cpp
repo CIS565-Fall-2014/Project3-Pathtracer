@@ -13,13 +13,6 @@
 //-------------------------------
 
 int main(int argc, char** argv){
-  #ifdef __APPLE__
-    // Needed in OSX to force use of OpenGL3.2 
-    glfwWindowHint(GLFW_OPENGL_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_OPENGL_VERSION_MINOR, 2);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  #endif 
 
   // Set up pathtracer stuff
   bool loadedScene = false;
@@ -176,6 +169,14 @@ bool init(int argc, char* argv[]) {
       return false;
   }
 
+  #ifdef __APPLE__
+    // Needed in OSX to force use of OpenGL3.2
+    // We have to call these after glfwInit 
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  #endif 
   width = 800;
   height = 800;
   window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
@@ -226,7 +227,6 @@ void initPBO(){
 }
 
 void initCuda(){
-  // Use device with highest Gflops/s
   cudaGLSetGLDevice(0);
 
   // Clean up on program exit
@@ -278,11 +278,11 @@ void initVAO(void){
 }
 
 GLuint initShader() {
-  const char *attribLocations[] = { "Position", "Tex" };
+  const char *attribLocations[] = { "Position", "Texcoords" };
   GLuint program = glslUtility::createDefaultProgram(attribLocations, 2);
   GLint location;
   
-  glUseProgram(program);
+  //glUseProgram(program);
   if ((location = glGetUniformLocation(program, "u_image")) != -1)
   {
     glUniform1i(location, 0);

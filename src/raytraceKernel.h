@@ -6,7 +6,7 @@
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
 #ifndef RAYTRACEKERNEL_H
-#define PATHTRACEKERNEL_H
+#define RAYTRACEKERNEL_H
 
 #include <stdio.h>
 #include <thrust/random.h>

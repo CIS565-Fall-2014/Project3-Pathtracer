@@ -34,7 +34,7 @@ namespace glslUtility {
 		"	\n"
 		"   out vec4 fragColor; \n"
 		"	void main(void){ \n"
-		"		fragColor = texture2D(u_image, v_Texcoords); \n"
+		"		fragColor = texture(u_image, v_Texcoords); \n"
 		"	} \n";
 
 	typedef struct {
