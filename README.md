@@ -3,6 +3,8 @@ CIS 565 Project3 : CUDA Pathtracer
 
 Fall 2014
 
+Due Wed, 10/8 (submit without penalty until Sun, 10/12)
+
 ## INTRODUCTION
 In this project, you will implement a CUDA based pathtracer capable of
 generating pathtraced rendered images extremely quickly. Building a pathtracer can be viewed as a generalization of building a raytracer, so for those of you who have taken 460/560, the basic concept should not be very new to you. For those of you that have not taken
