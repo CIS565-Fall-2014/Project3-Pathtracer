@@ -54,7 +54,7 @@ in the Project properties.
 ## REQUIREMENTS
 In this project, you are given code for:
 
-* Loading, reading, and storing the TAKUAscene scene description format
+* Loading, reading, and storing the scene scene description format
 * Example functions that can run on both the CPU and GPU for generating random
   numbers, spherical intersection testing, and surface point sampling on cubes
 * A class for handling image operations and saving images
@@ -157,9 +157,9 @@ know two important points on how GLM is used in this project:
   in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is
   provided as multiplyMV() in intersections.h.
 
-## Scene FORMAT
-This project uses a custom scene description format, called TAKUAscene.
-TAKUAscene files are flat text files that describe all geometry, materials,
+## SCENE FORMAT
+This project uses a custom scene description format.
+Scene files are flat text files that describe all geometry, materials,
 lights, cameras, render settings, and animation frames inside of the scene.
 Items in the format are delimited by new lines, and comments can be added at
 the end of each line preceded with a double-slash.
@@ -216,7 +216,7 @@ Objects are defined in the following fashion:
 * ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
 * SCALE (float scalex) (float scaley) (float scalez)		//scale
 
-An example TAKUAscene file setting up two frames inside of a Cornell Box can be
+An example scene file setting up two frames inside of a Cornell Box can be
 found in the scenes/ directory.
 
 For meshes, note that the base code will only read in .obj files. For more 
