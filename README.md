@@ -157,7 +157,7 @@ know two important points on how GLM is used in this project:
   in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is
   provided as multiplyMV() in intersections.h.
 
-## TAKUAscene FORMAT
+## Scene FORMAT
 This project uses a custom scene description format, called TAKUAscene.
 TAKUAscene files are flat text files that describe all geometry, materials,
 lights, cameras, render settings, and animation frames inside of the scene.
