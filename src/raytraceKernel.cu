@@ -37,10 +37,25 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Function that does the initial raycast from the camera
+//ASSUMING VIEW AND UP vector are all normalized
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
   ray r;
-  r.origin = glm::vec3(0,0,0);
-  r.direction = glm::vec3(0,0,-1);
+  r.origin = eye;
+
+  glm::vec3 Pcenter = eye + view;
+
+  glm::vec3 right = glm::cross(view,up);
+
+  glm::vec3 Vy = glm::normalize(tan(fov.y) * up);
+  glm::vec3 Vx = glm::normalize(tan(fov.x) * right);
+
+
+
+  glm::vec2 normalizedPos = glm::vec2((x-(resolution.x/2))/(resolution.x/2),(y-(resolution.y/2))/(resolution.y/2));
+  glm::vec3 posOnImagePlane = Pcenter + normalizedPos.y * Vy + normalizedPos.x * Vx;
+
+  r.direction = glm::normalize(posOnImagePlane - eye);
+
   return r;
 }
 
@@ -99,7 +114,9 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
   if((x<=resolution.x && y<=resolution.y)){
 
-    colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+    //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+	  ray R =  raycastFromCameraKernel(resolution, time, x, y,cam.position, cam.view, cam.up, cam.fov);
+	  colors[index] = R.direction;
    }
 }
 
