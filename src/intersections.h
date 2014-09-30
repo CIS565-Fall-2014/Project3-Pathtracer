@@ -58,6 +58,56 @@ __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
   return r;
 }
 
+__host__ __device__ float calculateArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3){
+	float value1 = (p1[1] * p2[2] - p2[1] * p1[2]) + (p1[2] * p3[1] - p3[2] * p1[1]) + (p2[1] * p3[2]  - p3[1] * p2[2]);
+	float value2 = (p1[2] * p2[0] - p2[2] * p1[0]) + (p1[0] * p3[2] - p3[0] * p1[2]) + (p2[2] * p3[0]  - p3[2] * p2[0]);
+	float value3 = (p1[0] * p2[1] - p2[0] * p1[1]) + (p1[1] * p3[0] - p3[1] * p1[0]) + (p2[0] * p3[1]  - p3[0] * p2[1]);
+
+	float area = 0.5 * sqrt(value1 * value1 + value2 * value2 + value3 * value3);
+	return area;
+}
+
+
+__host__ __device__ float intersectPoly(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 faceNormal){
+
+  	//glm::vec3 normal = glm::cross(p2 - p1, p3 - p1);
+	glm::vec3 vec_Origin_P1(p1[0] - rayOrigin[0], p1[1] - rayOrigin[1], p1[2] - rayOrigin[2]);
+	
+	if(glm::dot(vec_Origin_P1, faceNormal) == 0){// on the surface
+		return -1;
+	}
+	else{
+		if(glm::dot(faceNormal, rayDir) == 0){//V0 is parallel with surface
+			return -1;
+		}
+		else
+		{	
+			float t;
+			t = glm::dot(faceNormal, p1 - rayOrigin) / glm::dot(faceNormal, rayDir);
+
+			if(t < 0)
+				return -1;
+			else
+			{
+				glm::vec3 pt = rayOrigin + rayDir * t;
+				float s = calculateArea(p1, p2, p3);
+				float s1 = calculateArea(pt, p2, p3) / s;
+				float s2 = calculateArea(p1, pt, p3) / s;
+				float s3 = calculateArea(p1, p2, pt) / s;
+
+				if(s1 <= 1 && s2 <= 1 && s3 <= 1 && abs(s1 + s2 + s3 - 1) < 0.000001)
+					//return t / rayLength;
+					return t;
+				else 
+					return -1;
+			}
+		}
+	}
+}
+
+
+
+
 // Gets 1/direction for a ray
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r){
   return glm::vec3(1.0/r.direction.x, 1.0/r.direction.y, 1.0/r.direction.z);
@@ -73,8 +123,86 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 
+	glm::vec3 ro = multiplyMV(box.inverseTransform, glm::vec4(r.origin,1.0f));
+	glm::vec3 rd = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction,0.0f)));
+
+	ray rt; 
+	rt.origin = ro; 
+	rt.direction = rd;
+
+
+	glm::vec3 p1(0.5, 0.5, 0.5);
+	glm::vec3 p2(-0.5, 0.5, 0.5);
+	glm::vec3 p3(0.5, -0.5, 0.5);
+	glm::vec3 p4(-0.5, -0.5, 0.5);
+	glm::vec3 p5(0.5, 0.5, -0.5);
+	glm::vec3 p6(-0.5, 0.5, -0.5);
+	glm::vec3 p7(0.5, -0.5, -0.5);
+	glm::vec3 p8(-0.5, -0.5, -0.5);
+
+	glm::vec3 normal_p1_p3_p7_p5(1,0,0);
+	glm::vec3 normal_p1_p5_p6_p2(0,1,0);
+	glm::vec3 normal_p1_p2_p4_p3(0,0,1);
+	glm::vec3 normal_p4_p2_p6_p8(-1,0,0);
+	glm::vec3 normal_p3_p4_p8_p7(0,-1,0);
+	glm::vec3 normal_p5_p7_p8_p6(0,0,-1);
+
+	float t1 = intersectPoly(ro, rd, p1, p2, p3, normal_p1_p2_p4_p3);
+	float t2 = intersectPoly(ro, rd, p2, p4, p3, normal_p1_p2_p4_p3);
+	float t3 = intersectPoly(ro, rd, p1, p7, p3, normal_p1_p3_p7_p5);
+	float t4 = intersectPoly(ro, rd, p1, p7, p5, normal_p1_p3_p7_p5);
+	float t5 = intersectPoly(ro, rd, p6, p7, p5, normal_p5_p7_p8_p6);
+	float t6 = intersectPoly(ro, rd, p6, p7, p8, normal_p5_p7_p8_p6);
+	float t7 = intersectPoly(ro, rd, p2, p8, p4, normal_p4_p2_p6_p8);
+	float t8 = intersectPoly(ro, rd, p2, p8, p6, normal_p4_p2_p6_p8);
+	float t9 = intersectPoly(ro, rd, p1, p6, p2, normal_p1_p5_p6_p2);
+	float t10 = intersectPoly(ro, rd, p1, p6, p5, normal_p1_p5_p6_p2);
+	float t11 = intersectPoly(ro, rd, p8, p4, p3, normal_p3_p4_p8_p7);
+	float t12 = intersectPoly(ro, rd, p8, p7, p3, normal_p3_p4_p8_p7);
+
+	float t = -1;
+	if((t1 != -1 && t == -1) || (t1 != -1 && t != -1 && t1 < t)){
+		t = t1;
+	}
+	if((t2 != -1 && t == -1) || (t2 != -1 && t != -1 && t2 < t)){
+		t = t2;
+	}
+	if((t3 != -1 && t == -1) || (t3 != -1 && t != -1 && t3 < t)){
+		t = t3;
+	}
+	if((t4 != -1 && t == -1) || (t4 != -1 && t != -1 && t4 < t)){
+		t = t4;
+	}
+	if((t5 != -1 && t == -1) || (t5 != -1 && t != -1 && t5 < t)){
+		t = t5;
+	}
+	if((t6 != -1 && t == -1) || (t6 != -1 && t != -1 && t6 < t)){
+		t = t6;
+	}
+	if((t7 != -1 && t == -1) || (t7 != -1 && t != -1 && t7 < t)){
+		t = t7;
+	}
+	if((t8 != -1 && t == -1) || (t8 != -1 && t != -1 && t8 < t)){
+		t = t8;
+	}
+	if((t9 != -1 && t == -1) || (t9 != -1 && t != -1 && t9 < t)){
+		t = t9;
+	}
+	if((t10 != -1 && t == -1) || (t10 != -1 && t != -1 && t10 < t))	{
+		t = t10;
+	}
+	if((t11 != -1 && t == -1) || (t11 != -1 && t != -1 && t11 < t))	{
+		t = t11;
+	}
+	if((t12 != -1 && t == -1) || (t12 != -1 && t != -1 && t12 < t))	{
+		t = t12;
+	}
+
     return -1;
 }
+
+
+
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
 // Sphere intersection test, return -1 if no intersection, otherwise, distance to intersection
