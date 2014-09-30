@@ -130,7 +130,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	rt.origin = ro; 
 	rt.direction = rd;
 
-
+	
 	glm::vec3 p1(0.5, 0.5, 0.5);
 	glm::vec3 p2(-0.5, 0.5, 0.5);
 	glm::vec3 p3(0.5, -0.5, 0.5);
@@ -147,56 +147,159 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	glm::vec3 normal_p3_p4_p8_p7(0,-1,0);
 	glm::vec3 normal_p5_p7_p8_p6(0,0,-1);
 
-	float t1 = intersectPoly(ro, rd, p1, p2, p3, normal_p1_p2_p4_p3);
-	float t2 = intersectPoly(ro, rd, p2, p4, p3, normal_p1_p2_p4_p3);
-	float t3 = intersectPoly(ro, rd, p1, p7, p3, normal_p1_p3_p7_p5);
-	float t4 = intersectPoly(ro, rd, p1, p7, p5, normal_p1_p3_p7_p5);
-	float t5 = intersectPoly(ro, rd, p6, p7, p5, normal_p5_p7_p8_p6);
-	float t6 = intersectPoly(ro, rd, p6, p7, p8, normal_p5_p7_p8_p6);
-	float t7 = intersectPoly(ro, rd, p2, p8, p4, normal_p4_p2_p6_p8);
-	float t8 = intersectPoly(ro, rd, p2, p8, p6, normal_p4_p2_p6_p8);
-	float t9 = intersectPoly(ro, rd, p1, p6, p2, normal_p1_p5_p6_p2);
-	float t10 = intersectPoly(ro, rd, p1, p6, p5, normal_p1_p5_p6_p2);
-	float t11 = intersectPoly(ro, rd, p8, p4, p3, normal_p3_p4_p8_p7);
-	float t12 = intersectPoly(ro, rd, p8, p7, p3, normal_p3_p4_p8_p7);
+
+	float tx1 = -1, tx2 = -1, ty1 = -1, ty2 = -1, tz1 = -1, tz2 = -1;
+	int xNormal = 0, yNormal = 0, zNormal = 0;
+
+	if(rd.x > 0 && ro.x < -0.5){
+		tx1 = intersectPoly(ro, rd, p2, p8, p4, normal_p4_p2_p6_p8);
+		tx2 = intersectPoly(ro, rd, p2, p6, p8, normal_p4_p2_p6_p8);
+		xNormal = -1;
+	}else if(rd.x < 0 && ro.x > 0.5){
+		tx1 = intersectPoly(ro, rd, p1, p3, p7, normal_p1_p3_p7_p5);
+		tx2 = intersectPoly(ro, rd, p1, p7, p5, normal_p1_p3_p7_p5);
+		xNormal = 1;
+	}
+
+	if(rd.y > 0 && ro.y < -0.5){
+		ty1 = intersectPoly(ro, rd, p3, p8, p7, normal_p3_p4_p8_p7);
+		ty2 = intersectPoly(ro, rd, p3, p4, p8, normal_p3_p4_p8_p7);
+		yNormal = -1;
+	}else if(rd.y < 0 && ro.y > 0.5){
+		ty1 = intersectPoly(ro, rd, p1, p6, p2, normal_p1_p5_p6_p2);
+		ty2 = intersectPoly(ro, rd, p1, p5, p6, normal_p1_p5_p6_p2);
+		yNormal = 1;
+	}
+
+	if(rd.z > 0 && ro.z < -0.5){
+		tz1 = intersectPoly(ro, rd, p6, p5, p7, normal_p5_p7_p8_p6);
+		tz2 = intersectPoly(ro, rd, p6, p7, p8, normal_p5_p7_p8_p6);
+		zNormal = -1;
+	}
+	else if(rd.z < 0 && ro.z > 0.5){
+		tz1 = intersectPoly(ro, rd, p1, p2, p3, normal_p1_p2_p4_p3);
+		tz2 = intersectPoly(ro, rd, p2, p4, p3, normal_p1_p2_p4_p3);
+		zNormal = 1;
+	}
 
 	float t = -1;
-	if((t1 != -1 && t == -1) || (t1 != -1 && t != -1 && t1 < t)){
-		t = t1;
+	glm::vec3 localNormal;
+	if((tx1 != -1 && t == -1) || (tx1 != -1 && t != -1 && tx1 < t)){
+		t = tx1;
+		if(xNormal == 1){
+			localNormal = normal_p1_p3_p7_p5;
+		}
+		else if(xNormal == -1){
+			localNormal = normal_p4_p2_p6_p8;
+		}
 	}
-	if((t2 != -1 && t == -1) || (t2 != -1 && t != -1 && t2 < t)){
-		t = t2;
+	if((tx2 != -1 && t == -1) || (tx2 != -1 && t != -1 && tx2 < t)){
+		t = tx2;
+		if(xNormal == 1){
+			localNormal = normal_p1_p3_p7_p5;
+		}
+		else if(xNormal == -1){
+			localNormal = normal_p4_p2_p6_p8;
+		}
 	}
-	if((t3 != -1 && t == -1) || (t3 != -1 && t != -1 && t3 < t)){
-		t = t3;
+	if((ty1 != -1 && t == -1) || (ty1 != -1 && t != -1 && ty1 < t)){
+		t = ty1;
+		if(yNormal == 1){
+			localNormal = normal_p1_p5_p6_p2;
+		}
+		else if(yNormal == -1){
+			localNormal = normal_p3_p4_p8_p7;
+		}
 	}
-	if((t4 != -1 && t == -1) || (t4 != -1 && t != -1 && t4 < t)){
-		t = t4;
+	if((ty2 != -1 && t == -1) || (ty2 != -1 && t != -1 && ty2 < t)){
+		t = ty2;
+		if(yNormal == 1){
+			localNormal = normal_p1_p5_p6_p2;
+		}
+		else if(yNormal == -1){
+			localNormal = normal_p3_p4_p8_p7;
+		}
 	}
-	if((t5 != -1 && t == -1) || (t5 != -1 && t != -1 && t5 < t)){
-		t = t5;
+	if((tz1 != -1 && t == -1) || (tz1 != -1 && t != -1 && tz1 < t)){
+		t = tz1;
+		if(zNormal == 1){
+			localNormal = normal_p1_p2_p4_p3;
+		}
+		else if(zNormal == -1){
+			localNormal = normal_p5_p7_p8_p6;
+		}
 	}
-	if((t6 != -1 && t == -1) || (t6 != -1 && t != -1 && t6 < t)){
-		t = t6;
+	if((tz2 != -1 && t == -1) || (tz2 != -1 && t != -1 && tz2 < t)){
+		t = tz2;
+		if(zNormal == 1){
+			localNormal = normal_p1_p2_p4_p3;
+		}
+		else if(zNormal == -1){
+			localNormal = normal_p5_p7_p8_p6;
+		}
 	}
-	if((t7 != -1 && t == -1) || (t7 != -1 && t != -1 && t7 < t)){
-		t = t7;
-	}
-	if((t8 != -1 && t == -1) || (t8 != -1 && t != -1 && t8 < t)){
-		t = t8;
-	}
-	if((t9 != -1 && t == -1) || (t9 != -1 && t != -1 && t9 < t)){
-		t = t9;
-	}
-	if((t10 != -1 && t == -1) || (t10 != -1 && t != -1 && t10 < t))	{
-		t = t10;
-	}
-	if((t11 != -1 && t == -1) || (t11 != -1 && t != -1 && t11 < t))	{
-		t = t11;
-	}
-	if((t12 != -1 && t == -1) || (t12 != -1 && t != -1 && t12 < t))	{
-		t = t12;
-	}
+	if(t == -1)
+		return -1;
+
+	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(rt, t), 1.0));
+
+	intersectionPoint = realIntersectionPoint;
+	normal = multiplyMV(box.transform, glm::vec4(localNormal, 0.0f));
+
+        
+	return glm::length(r.origin - realIntersectionPoint);
+
+	//float t1 = intersectPoly(ro, rd, p1, p2, p3, normal_p1_p2_p4_p3);
+	//float t2 = intersectPoly(ro, rd, p2, p4, p3, normal_p1_p2_p4_p3);
+	//float t3 = intersectPoly(ro, rd, p1, p7, p3, normal_p1_p3_p7_p5);
+	//float t4 = intersectPoly(ro, rd, p1, p7, p5, normal_p1_p3_p7_p5);
+	//float t5 = intersectPoly(ro, rd, p6, p7, p5, normal_p5_p7_p8_p6);
+	//float t6 = intersectPoly(ro, rd, p6, p7, p8, normal_p5_p7_p8_p6);
+	//float t7 = intersectPoly(ro, rd, p2, p8, p4, normal_p4_p2_p6_p8);
+	//float t8 = intersectPoly(ro, rd, p2, p8, p6, normal_p4_p2_p6_p8);
+	//float t9 = intersectPoly(ro, rd, p1, p6, p2, normal_p1_p5_p6_p2);
+	//float t10 = intersectPoly(ro, rd, p1, p6, p5, normal_p1_p5_p6_p2);
+	//float t11 = intersectPoly(ro, rd, p8, p4, p3, normal_p3_p4_p8_p7);
+	//float t12 = intersectPoly(ro, rd, p8, p7, p3, normal_p3_p4_p8_p7);
+
+
+	//float t = -1;
+	//if((t1 != -1 && t == -1) || (t1 != -1 && t != -1 && t1 < t)){
+	//	t = t1;
+	//}
+	//if((t2 != -1 && t == -1) || (t2 != -1 && t != -1 && t2 < t)){
+	//	t = t2;
+	//}
+	//if((t3 != -1 && t == -1) || (t3 != -1 && t != -1 && t3 < t)){
+	//	t = t3;
+	//}
+	//if((t4 != -1 && t == -1) || (t4 != -1 && t != -1 && t4 < t)){
+	//	t = t4;
+	//}
+	//if((t5 != -1 && t == -1) || (t5 != -1 && t != -1 && t5 < t)){
+	//	t = t5;
+	//}
+	//if((t6 != -1 && t == -1) || (t6 != -1 && t != -1 && t6 < t)){
+	//	t = t6;
+	//}
+	//if((t7 != -1 && t == -1) || (t7 != -1 && t != -1 && t7 < t)){
+	//	t = t7;
+	//}
+	//if((t8 != -1 && t == -1) || (t8 != -1 && t != -1 && t8 < t)){
+	//	t = t8;
+	//}
+	//if((t9 != -1 && t == -1) || (t9 != -1 && t != -1 && t9 < t)){
+	//	t = t9;
+	//}
+	//if((t10 != -1 && t == -1) || (t10 != -1 && t != -1 && t10 < t))	{
+	//	t = t10;
+	//}
+	//if((t11 != -1 && t == -1) || (t11 != -1 && t != -1 && t11 < t))	{
+	//	t = t11;
+	//}
+	//if((t12 != -1 && t == -1) || (t12 != -1 && t != -1 && t12 < t))	{
+	//	t = t12;
+	//}
 
     return -1;
 }
@@ -306,7 +409,18 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
 
-  return glm::vec3(0,0,0);
+	thrust::default_random_engine rng(hash(randomSeed));
+    thrust::uniform_real_distribution<float> u01(0,1);
+    thrust::uniform_real_distribution<float> u02(-1,1);
+
+	float russianRoulette1 = (float)u01(rng);
+	float russianRoulette2 = (float)u02(rng);
+
+	float xCoor = 0.5 * sqrt(1 - russianRoulette2 * russianRoulette2) * cos(russianRoulette1 * 2 * PI);
+	float yCoor = 0.5 * sqrt(1 - russianRoulette2 * russianRoulette2) * sin(russianRoulette1 * 2 * PI);
+	float zCoor = 0.5 * russianRoulette2;
+
+	return glm::vec3(xCoor, yCoor, zCoor);
 }
 
 #endif
