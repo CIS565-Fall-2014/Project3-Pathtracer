@@ -5,16 +5,17 @@
 //       Peter Kutz and Yining Karl Li's GPU Pathtracer: http://gpupathtracer.blogspot.com/
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
+#include <iostream>
 #include <stdio.h>
 #include <cuda.h>
 #include <cmath>
-
 #include "sceneStructs.h"
 #include "glm/glm.hpp"
 #include "utilities.h"
 #include "raytraceKernel.h"
 #include "intersections.h"
 #include "interactions.h"
+
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -37,10 +38,23 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Function that does the initial raycast from the camera
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){  
+  glm::vec3 A = glm::cross(view,up);
+  glm::vec3 B = glm::cross(A,view);
+  glm::vec3 M = eye + view;
+  float angley = fov.y;
+  float anglex= fov.x;
+  glm::vec3 H =  glm::normalize(A) * glm::length(view) * tan(glm::radians(anglex));
+  glm::vec3 V =  glm::normalize(B) * glm::length(view) * tan(glm::radians(angley));
+
+  float sx = ((float)x)/(resolution.x - 1);
+  float sy = ((float)y)/(resolution.y - 1);
+
+  glm::vec3 P = M + (2.0f*sx-1)* H + (2.0f*sy-1) * V;
+  glm::vec3 D = glm::normalize(P - eye);
   ray r;
-  r.origin = glm::vec3(0,0,0);
-  r.direction = glm::vec3(0,0,-1);
+  r.origin = eye;
+  r.direction = D;
   return r;
 }
 
@@ -118,7 +132,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   glm::vec3* cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
   cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
-  
+
   // package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
   for(int i=0; i<numberOfGeoms; i++){
@@ -136,7 +150,51 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   staticGeom* cudageoms = NULL;
   cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
   cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
-  
+
+  //materials
+  material* materialList = new material[numberOfMaterials];
+  for(int i=0; i<numberOfMaterials; i++){
+    material newMaterial;
+    newMaterial.color = materials[i].color;
+	newMaterial.specularExponent = materials[i].specularExponent;
+	newMaterial.specularColor = materials[i].specularColor;
+	newMaterial.hasReflective = materials[i].hasReflective;
+	newMaterial.hasRefractive = materials[i].hasRefractive;
+	newMaterial.indexOfRefraction = materials[i].indexOfRefraction;
+	newMaterial.hasScatter = materials[i].hasScatter;
+	newMaterial.absorptionCoefficient = materials[i].absorptionCoefficient;
+	newMaterial.reducedScatterCoefficient = materials[i].reducedScatterCoefficient;
+	newMaterial.emittance = materials[i].emittance;
+    materialList[i] = newMaterial;
+  }
+
+  material* cudamaterials = NULL;
+  cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
+  cudaMemcpy( cudamaterials, materialList, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+
+  //light
+  int count = 0;
+  for(int i=0; i<numberOfGeoms; i++)
+  {
+	  if(materials[geomList[i].materialid].emittance>0)
+		 count++;
+  }
+
+  int *lightIds = new int[count];
+  count = 0;
+  for(int i=0; i<numberOfGeoms; i++)
+  {
+	  if(materials[geomList[i].materialid].emittance>0)
+	  {
+		 lightIds[count] = i;
+		 count++;
+	  }
+  }
+
+  int *cudalightIds=NULL;
+  cudaMalloc((void**)&cudalightIds,count * sizeof(int));
+  cudaMemcpy( cudalightIds, lightIds,count * sizeof(int), cudaMemcpyHostToDevice);
+
   // package camera
   cameraData cam;
   cam.resolution = renderCam->resolution;
@@ -144,6 +202,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.view = renderCam->views[frame];
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
+  
+
 
   // kernel launches
   raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms);
@@ -156,7 +216,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // free up stuff, or else we'll leak memory like a madman
   cudaFree( cudaimage );
   cudaFree( cudageoms );
+  //Added
+  cudaFree( cudalightIds );
+  cudaFree( cudamaterials );
+  
   delete geomList;
+  //Added
+  delete materialList;
 
   // make certain the kernel has completed
   cudaThreadSynchronize();
