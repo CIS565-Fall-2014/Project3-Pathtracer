@@ -8,6 +8,14 @@
 #include "main.h"
 #define GLEW_STATIC
 
+
+////////////////////////////////////////////////////
+// Constants
+////////////////////////////////////////////////////
+
+const std::string SCENE_FILE_NAME = "sampleScene";
+
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -26,8 +34,9 @@ int main(int argc, char** argv){
     istringstream liness(argv[i]);
     getline(liness, header, '='); getline(liness, data, '=');
     if(strcmp(header.c_str(), "scene")==0){
-      renderScene = new scene(data);
-      loadedScene = true;
+		std::string full_scene_path = data + SCENE_FILE_NAME + ".txt"; // Danny was here.
+		renderScene = new scene(full_scene_path);
+		loadedScene = true;
     }else if(strcmp(header.c_str(), "frame")==0){
       targetFrame = atoi(data.c_str());
       singleFrameMode = true;
@@ -36,6 +45,7 @@ int main(int argc, char** argv){
 
   if(!loadedScene){
     cout << "Error: scene file needed!" << endl;
+	std::cin.ignore();
     return 0;
   }
 
