@@ -16,11 +16,14 @@
 // Some forward declarations
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
+__host__ __device__ float calculateArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3);
+__host__ __device__ float intersectPoly(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 faceNormal);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
+__host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed);
 
 // Handy dandy little hashing function that provides seeds for random number generation
 __host__ __device__ unsigned int hash(unsigned int a){
@@ -147,7 +150,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	glm::vec3 normal_p3_p4_p8_p7(0,-1,0);
 	glm::vec3 normal_p5_p7_p8_p6(0,0,-1);
 
-
+	/*
 	float tx1 = -1, tx2 = -1, ty1 = -1, ty2 = -1, tz1 = -1, tz2 = -1;
 	int xNormal = 0, yNormal = 0, zNormal = 0;
 
@@ -247,61 +250,72 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	normal = multiplyMV(box.transform, glm::vec4(localNormal, 0.0f));
 
         
+	return glm::length(r.origin - realIntersectionPoint);*/
+
+	float t1 = intersectPoly(ro, rd, p1, p2, p3, normal_p1_p2_p4_p3);
+	float t2 = intersectPoly(ro, rd, p2, p4, p3, normal_p1_p2_p4_p3);
+	float t3 = intersectPoly(ro, rd, p1, p7, p3, normal_p1_p3_p7_p5);
+	float t4 = intersectPoly(ro, rd, p1, p7, p5, normal_p1_p3_p7_p5);
+	float t5 = intersectPoly(ro, rd, p6, p7, p5, normal_p5_p7_p8_p6);
+	float t6 = intersectPoly(ro, rd, p6, p7, p8, normal_p5_p7_p8_p6);
+	float t7 = intersectPoly(ro, rd, p2, p8, p4, normal_p4_p2_p6_p8);
+	float t8 = intersectPoly(ro, rd, p2, p8, p6, normal_p4_p2_p6_p8);
+	float t9 = intersectPoly(ro, rd, p1, p6, p2, normal_p1_p5_p6_p2);
+	float t10 = intersectPoly(ro, rd, p1, p6, p5, normal_p1_p5_p6_p2);
+	float t11 = intersectPoly(ro, rd, p8, p4, p3, normal_p3_p4_p8_p7);
+	float t12 = intersectPoly(ro, rd, p8, p7, p3, normal_p3_p4_p8_p7);
+
+
+	float t = -1;
+	if((t1 != -1 && t == -1) || (t1 != -1 && t != -1 && t1 < t)){
+		t = t1;
+	}
+	if((t2 != -1 && t == -1) || (t2 != -1 && t != -1 && t2 < t)){
+		t = t2;
+	}
+	if((t3 != -1 && t == -1) || (t3 != -1 && t != -1 && t3 < t)){
+		t = t3;
+	}
+	if((t4 != -1 && t == -1) || (t4 != -1 && t != -1 && t4 < t)){
+		t = t4;
+	}
+	if((t5 != -1 && t == -1) || (t5 != -1 && t != -1 && t5 < t)){
+		t = t5;
+	}
+	if((t6 != -1 && t == -1) || (t6 != -1 && t != -1 && t6 < t)){
+		t = t6;
+	}
+	if((t7 != -1 && t == -1) || (t7 != -1 && t != -1 && t7 < t)){
+		t = t7;
+	}
+	if((t8 != -1 && t == -1) || (t8 != -1 && t != -1 && t8 < t)){
+		t = t8;
+	}
+	if((t9 != -1 && t == -1) || (t9 != -1 && t != -1 && t9 < t)){
+		t = t9;
+	}
+	if((t10 != -1 && t == -1) || (t10 != -1 && t != -1 && t10 < t))	{
+		t = t10;
+	}
+	if((t11 != -1 && t == -1) || (t11 != -1 && t != -1 && t11 < t))	{
+		t = t11;
+	}
+	if((t12 != -1 && t == -1) || (t12 != -1 && t != -1 && t12 < t))	{
+		t = t12;
+	}
+
+	if(t == -1)
+		return -1;
+
+	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(rt, t), 1.0));
+
+	intersectionPoint = realIntersectionPoint;
+	//normal = multiplyMV(box.transform, glm::vec4(localNormal, 0.0f));
+
+        
 	return glm::length(r.origin - realIntersectionPoint);
 
-	//float t1 = intersectPoly(ro, rd, p1, p2, p3, normal_p1_p2_p4_p3);
-	//float t2 = intersectPoly(ro, rd, p2, p4, p3, normal_p1_p2_p4_p3);
-	//float t3 = intersectPoly(ro, rd, p1, p7, p3, normal_p1_p3_p7_p5);
-	//float t4 = intersectPoly(ro, rd, p1, p7, p5, normal_p1_p3_p7_p5);
-	//float t5 = intersectPoly(ro, rd, p6, p7, p5, normal_p5_p7_p8_p6);
-	//float t6 = intersectPoly(ro, rd, p6, p7, p8, normal_p5_p7_p8_p6);
-	//float t7 = intersectPoly(ro, rd, p2, p8, p4, normal_p4_p2_p6_p8);
-	//float t8 = intersectPoly(ro, rd, p2, p8, p6, normal_p4_p2_p6_p8);
-	//float t9 = intersectPoly(ro, rd, p1, p6, p2, normal_p1_p5_p6_p2);
-	//float t10 = intersectPoly(ro, rd, p1, p6, p5, normal_p1_p5_p6_p2);
-	//float t11 = intersectPoly(ro, rd, p8, p4, p3, normal_p3_p4_p8_p7);
-	//float t12 = intersectPoly(ro, rd, p8, p7, p3, normal_p3_p4_p8_p7);
 
-
-	//float t = -1;
-	//if((t1 != -1 && t == -1) || (t1 != -1 && t != -1 && t1 < t)){
-	//	t = t1;
-	//}
-	//if((t2 != -1 && t == -1) || (t2 != -1 && t != -1 && t2 < t)){
-	//	t = t2;
-	//}
-	//if((t3 != -1 && t == -1) || (t3 != -1 && t != -1 && t3 < t)){
-	//	t = t3;
-	//}
-	//if((t4 != -1 && t == -1) || (t4 != -1 && t != -1 && t4 < t)){
-	//	t = t4;
-	//}
-	//if((t5 != -1 && t == -1) || (t5 != -1 && t != -1 && t5 < t)){
-	//	t = t5;
-	//}
-	//if((t6 != -1 && t == -1) || (t6 != -1 && t != -1 && t6 < t)){
-	//	t = t6;
-	//}
-	//if((t7 != -1 && t == -1) || (t7 != -1 && t != -1 && t7 < t)){
-	//	t = t7;
-	//}
-	//if((t8 != -1 && t == -1) || (t8 != -1 && t != -1 && t8 < t)){
-	//	t = t8;
-	//}
-	//if((t9 != -1 && t == -1) || (t9 != -1 && t != -1 && t9 < t)){
-	//	t = t9;
-	//}
-	//if((t10 != -1 && t == -1) || (t10 != -1 && t != -1 && t10 < t))	{
-	//	t = t10;
-	//}
-	//if((t11 != -1 && t == -1) || (t11 != -1 && t != -1 && t11 < t))	{
-	//	t = t11;
-	//}
-	//if((t12 != -1 && t == -1) || (t12 != -1 && t != -1 && t12 < t))	{
-	//	t = t12;
-	//}
-
-    return -1;
 }
 
 
@@ -419,8 +433,11 @@ __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float ra
 	float xCoor = 0.5 * sqrt(1 - russianRoulette2 * russianRoulette2) * cos(russianRoulette1 * 2 * PI);
 	float yCoor = 0.5 * sqrt(1 - russianRoulette2 * russianRoulette2) * sin(russianRoulette1 * 2 * PI);
 	float zCoor = 0.5 * russianRoulette2;
+	glm::vec3 localRandPoint = glm::vec3(xCoor, yCoor, zCoor);
 
-	return glm::vec3(xCoor, yCoor, zCoor);
+	glm::vec3 randPoint = multiplyMV(sphere.transform, glm::vec4(localRandPoint, 1.0f));
+
+	return randPoint;
 }
 
 #endif

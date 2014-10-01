@@ -38,10 +38,24 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 // TODO: IMPLEMENT THIS FUNCTION
 // Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
-  ray r;
-  r.origin = glm::vec3(0,0,0);
-  r.direction = glm::vec3(0,0,-1);
-  return r;
+	ray r;
+	//r.origin = glm::vec3(0,0,0);
+	//r.direction = glm::vec3(0,0,-1);
+
+	view = glm::normalize(view);
+	glm::vec3 vecA = glm::normalize(glm::cross(view, up));// center to right
+	glm::vec3 vecB = glm::normalize(glm::cross(vecA, view));// center to up
+
+	glm::vec3 vecV = vecB * glm::length(view) * (float)tan(fov.y *2/ 180.0f * PI) * (1.0f - (1.0f + y * 2.0f) /resolution.y);
+	glm::vec3 vecH = vecA * glm::length(view) * (float)tan(fov.x *2/ 180.0f * PI) * (1.0f - (1.0f + x * 2.0f) /resolution.x);
+
+	glm::vec3 rayDir = glm::normalize(view + vecV + vecH);
+
+	r.origin = eye;
+	r.direction = rayDir;
+
+
+	return r;
 }
 
 //Kernel that blacks out a given image buffer
@@ -93,14 +107,67 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms){
 
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);
 
-  if((x<=resolution.x && y<=resolution.y)){
+	if((x < resolution.x && y < resolution.y )){
+		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+		
+		float dis = -1;
+		glm::vec3 intersectionPoint(0,0,0);
+		glm::vec3 intersectionNormal(0,0,0);
+		for(int i = 0; i < numberOfGeoms; ++i){
+			if(i == 1){
 
-    colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
-   }
+				switch(geoms[i].type){
+				case SPHERE:
+					{
+					//float newdis = sphereIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
+					//if(newdis != -1)
+					//	dis = newdis;
+					break;
+							}
+				case CUBE:
+					{
+					float newdis = boxIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
+					if(newdis != -1)
+						dis = newdis;
+					break;
+					}
+				case MESH:
+					break;
+				}
+			}
+		}
+		glm::vec3 colorBRDF = glm::vec3(0,0,0);
+		if(dis != -1)
+			colorBRDF = glm::vec3(50,0,0);
+		else{
+			colorBRDF = glm::vec3(0,0,0);
+		}
+		glm::vec3 colorReflect = glm::vec3(0,0,0);;// = raytraceRay(resolution, time, ;
+
+		//glm::vec3 testColor(abs(r.direction.x), abs( r.direction.y), abs(r.direction.z));
+		//if(testColor.x < 0)
+		//	testColor.x = 0;
+		//else if(testColor.x > 255)
+		//	testColor.x = 255;
+
+		//if(testColor.y < 0)
+		//	testColor.y = 0;
+		//else if(testColor.y > 255)
+		//	testColor.y = 255;
+		//
+		//if(testColor.z < 0)
+		//	testColor.z = 0;
+		//else if(testColor.z > 255)
+		//	testColor.z = 255;
+		colors[index] = colorBRDF + colorReflect;
+		//colors[index] = testColor;//glm::vec3(r.origin.x * 255, r.origin.y* 255, r.origin.z* 255);// colorBRDF + colorReflect;// generateRandomNumberFromThread(resolution, time, x, y);
+	}
+
+
 }
 
 // TODO: FINISH THIS FUNCTION
