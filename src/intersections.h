@@ -74,7 +74,7 @@ __host__ __device__ float calculateArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3
 __host__ __device__ float intersectPoly(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 faceNormal){
 
   	//glm::vec3 normal = glm::cross(p2 - p1, p3 - p1);
-	glm::vec3 vec_Origin_P1(p1[0] - rayOrigin[0], p1[1] - rayOrigin[1], p1[2] - rayOrigin[2]);
+	glm::vec3 vec_Origin_P1(rayOrigin[0] - p1[0], rayOrigin[1] - p1[1], rayOrigin[2] - p1[2]);
 	
 	if(glm::dot(vec_Origin_P1, faceNormal) == 0){// on the surface
 		return -1;
