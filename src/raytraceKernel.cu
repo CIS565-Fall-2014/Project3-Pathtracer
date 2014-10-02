@@ -101,27 +101,50 @@ __host__ __device__ glm::vec3 getSpecularColor(glm::vec3* light, glm::vec3* ligh
 __host__ __device__ glm::vec3 getDiffuseColor(glm::vec3* light, glm::vec3* lightColor, int numberOfLight, glm::vec3 faceNormal, glm::vec3 materialColor){
 	glm::vec3 diffuseColor(0,0,0);
 
+
+	//float testR = faceNormal.x;
+	//if(testR < 0)
+	//	testR = 0;
+	//float testG = faceNormal.y;
+	//if(testG < 0)
+	//	testG = 0;
+	//float testB = faceNormal.z;
+	//if(testB < 0)
+	//	testB = 0;
+	//diffuseColor = glm::vec3(testR, testG, testB);
+
+	//diffuseColor = materialColor;
+
 	for(int i = 0; i < numberOfLight ; i++){
+		//diffuseColor = materialColor;
 		float newDiffuseTerm = glm::dot(-1.0f * light[i], faceNormal);
 		if(newDiffuseTerm < 0)
 			newDiffuseTerm = 0;
 
-		diffuseColor.x += newDiffuseTerm * materialColor.x * lightColor[i].x;
-		diffuseColor.y += newDiffuseTerm * materialColor.y * lightColor[i].y;
-		diffuseColor.z += newDiffuseTerm * materialColor.z * lightColor[i].z;
+		//if(newDiffuseTerm > 0)
+		//	newDiffuseTerm = 1;
+		diffuseColor.x += materialColor.x * lightColor[i].x;
+		diffuseColor.y += materialColor.y * lightColor[i].y;
+		diffuseColor.z += materialColor.z * lightColor[i].z;
+
+		//diffuseColor.x += newDiffuseTerm * materialColor.x * lightColor[i].x;
+		//diffuseColor.y += newDiffuseTerm * materialColor.y * lightColor[i].y;
+		//diffuseColor.z += newDiffuseTerm * materialColor.z * lightColor[i].z;
 	}
 
-	if(diffuseColor.x > 1)
-		diffuseColor = diffuseColor / diffuseColor.x;
-	if(diffuseColor.y > 1)
-		diffuseColor = diffuseColor / diffuseColor.y;
-	if(diffuseColor.z > 1)
-		diffuseColor = diffuseColor / diffuseColor.z;
+	diffuseColor /= numberOfLight;
+
+	//if(diffuseColor.x > 1)
+	//	diffuseColor = diffuseColor / diffuseColor.x;
+	//if(diffuseColor.y > 1)
+	//	diffuseColor = diffuseColor / diffuseColor.y;
+	//if(diffuseColor.z > 1)
+	//	diffuseColor = diffuseColor / diffuseColor.z;
 
 	return diffuseColor;
 }
 
-__host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lightPos, glm::vec3* light2HitPtArray, glm::vec3* lightColor, int numberOfLights,
+__host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lightPos, glm::vec3* light2HitPtArray, glm::vec3* lightColor, glm::vec3* lightColorWithoutObstruct,int numberOfLights,
 												material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms){
 
 	if(depth <= 0)
@@ -193,11 +216,14 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 			ray hitPt2LightRay;
 			hitPt2LightRay.origin = newEyePositionOut;
 			hitPt2LightRay.direction = glm::normalize(lightPos[i] - newEyePositionOut);
-			
+			float shortestDisHitPt2Light = glm::length(lightPos[i] - newEyePositionOut);
 
 			bool lightObstructCheck = false;
 
 			for(int i = 0; i < numberOfGeoms; ++i){
+				if(materials[i].emittance != 0)//if this is a emitter, then the light will not be obstructed
+					continue;
+
 				float disHitPt2Light = -1;
 				glm::vec3 objIntersectPt(0, 0, 0);
 				glm::vec3 objIntersectN(0, 0, 0);
@@ -212,7 +238,7 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 						break;
 				}
 
-				if((disHitPt2Light != -1 && shortestDis == -1) || (disHitPt2Light != -1 && shortestDis != -1 && disHitPt2Light < shortestDis && disHitPt2Light > 0)){
+				if(disHitPt2Light != -1 &&  disHitPt2Light < shortestDisHitPt2Light && disHitPt2Light > 0){
 					lightObstructCheck = true;
 					break;
 				}
@@ -220,6 +246,7 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 
 			if(lightObstructCheck == false){
 				light2HitPtArray[numberOfLightWithoutObsctruct] = glm::normalize(newEyePositionOut - lightPos[i]);
+				lightColorWithoutObstruct[numberOfLightWithoutObsctruct] = lightColor[i];
 				numberOfLightWithoutObsctruct++;
 			}
 
@@ -229,7 +256,7 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 		//Reflect Color
 		glm::vec3 reflectColor;
 		if(mate.hasReflective == 1)
-			reflectColor = raytraceRecursive(newReflectRay, --depth, lightPos, light2HitPtArray, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
+			reflectColor = raytraceRecursive(newReflectRay, --depth, lightPos, light2HitPtArray, lightColor, lightColorWithoutObstruct, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
 		else if(mate.hasReflective == 0)
 			reflectColor = glm::vec3(0, 0, 0);
 
@@ -242,17 +269,15 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 
 
 		//Diffuse Color
-		glm::vec3 diffuseColor = getDiffuseColor(light2HitPtArray, lightColor, numberOfLightWithoutObsctruct, intersectionNormal, mate.color);
+		glm::vec3 diffuseColor = getDiffuseColor(light2HitPtArray, lightColorWithoutObstruct, numberOfLightWithoutObsctruct, intersectionNormal, mate.color);
 
 		//Specular Color
-		//glm::vec3 specularColor = getSpecularColor(light2HitPtArray, lightColor, numberOfLightWithoutObsctruct, r, intersectionNormal, mate.specularColor, mate.specularExponent);
+		//glm::vec3 specularColor = getSpecularColor(light2HitPtArray, lightColorWithoutObstruct, numberOfLightWithoutObsctruct, r, intersectionNormal, mate.specularColor, mate.specularExponent);
 
-		glm::vec3 currentPtColor = reflectColor + mate.color;
+		glm::vec3 currentPtColor = diffuseColor;// + reflectColor;
 		return currentPtColor;
 	}
 
-
-	return glm::vec3(0,0,0);
 }
 
 //Kernel that blacks out a given image buffer
@@ -303,7 +328,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
                             material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms,
-							glm::vec3* lightPos, glm::vec3* lightRay, glm::vec3* lightColor, int numberOfLights ){
+							glm::vec3* lightPos, glm::vec3* lightRay, glm::vec3* lightColor, glm::vec3* lightColorWithoutObstruct,int numberOfLights ){
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -313,7 +338,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 		
 			
-		glm::vec3 newColorEnergy =raytraceRecursive(r, rayDepth, lightPos, lightRay, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
+		glm::vec3 newColorEnergy =raytraceRecursive(r, rayDepth, lightPos, lightRay, lightColor, lightColorWithoutObstruct, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
 		glm::vec3 oldColorEnergy = colors[index] * (time - 1);
 		glm::vec3 newColor = (newColorEnergy + oldColorEnergy) / time;
 
@@ -340,46 +365,87 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
-  int traceDepth = 1; //determines how many bounces the raytracer traces
-  int numberOfLights = 1;
+	int traceDepth = 1; //determines how many bounces the raytracer traces
+	int numberOfLights = 100;
 
-  // set up crucial magic
-  int tileSize = 8;
-  dim3 threadsPerBlock(tileSize, tileSize);
-  dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
+	// set up crucial magic
+	int tileSize = 8;
+	dim3 threadsPerBlock(tileSize, tileSize);
+	dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
   
-  // send image to GPU
-  glm::vec3* cudaimage = NULL;
-  cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-  cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+	// send image to GPU
+	glm::vec3* cudaimage = NULL;
+	cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+	cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
-  // package geometry and materials and sent to GPU
-  staticGeom* geomList = new staticGeom[numberOfGeoms];
-  for(int i=0; i<numberOfGeoms; i++){
-    staticGeom newStaticGeom;
-    newStaticGeom.type = geoms[i].type;
-    newStaticGeom.materialid = geoms[i].materialid;
-    newStaticGeom.translation = geoms[i].translations[frame];
-    newStaticGeom.rotation = geoms[i].rotations[frame];
-    newStaticGeom.scale = geoms[i].scales[frame];
-    newStaticGeom.transform = geoms[i].transforms[frame];
-    newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
-    geomList[i] = newStaticGeom;
-  }
+	// package geometry and materials and sent to GPU
+	staticGeom* geomList = new staticGeom[numberOfGeoms];
+	for(int i=0; i<numberOfGeoms; i++){
+		staticGeom newStaticGeom;
+		newStaticGeom.type = geoms[i].type;
+		newStaticGeom.materialid = geoms[i].materialid;
+		newStaticGeom.translation = geoms[i].translations[frame];
+		newStaticGeom.rotation = geoms[i].rotations[frame];
+		newStaticGeom.scale = geoms[i].scales[frame];
+		newStaticGeom.transform = geoms[i].transforms[frame];
+		newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+		geomList[i] = newStaticGeom;
+	}
   
-  staticGeom* cudageoms = NULL;
-  cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
-  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+	staticGeom* cudageoms = NULL;
+	cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
+	cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
   
-  material* cudaMaterials = NULL;
-  cudaMalloc((void**)&cudaMaterials, numberOfMaterials*sizeof(material));
-  cudaMemcpy( cudaMaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+	material* cudaMaterials = NULL;
+	cudaMalloc((void**)&cudaMaterials, numberOfMaterials*sizeof(material));
+	cudaMemcpy( cudaMaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+
+	glm::vec3* lightSource = new glm::vec3[numberOfLights];
+	glm::vec3* lightColor = new glm::vec3[numberOfLights];
+
+	int numberOfLightSource = 0;
+	
+	for(int i = 0; i < numberOfGeoms; ++i){
+		if(materials[i].emittance != 0){
+		numberOfLightSource++;
+		}
+	}
+
+	int totalNumberOfLights = numberOfLights;
+	int accumulateIndex = 0;
+	bool boolCeil = false;
+	int objIndex = 0; 
+	while(totalNumberOfLights > 0 && objIndex < numberOfGeoms){
+		if(materials[objIndex].emittance == 0){
+			++objIndex;
+			continue;
+		}
 
 
-  glm::vec3* lightSource = new glm::vec3[numberOfLights];
-  for(int i = 0; i < numberOfLights; ++i){
-	lightSource[i] = getRandomPointOnCube(geomList[8], iterations);
-  }
+		int numberOfLightPerSource;
+		if(boolCeil)
+			numberOfLightPerSource = (int)ceil((float) totalNumberOfLights / numberOfLightSource);
+		else
+			numberOfLightPerSource = (int)floor((float) totalNumberOfLights / numberOfLightSource);
+		for(int i = 0; i < numberOfLightPerSource; ++i){
+			lightSource[accumulateIndex + i] = getRandomPointOnCube(geomList[objIndex], (float)iterations * i );
+			lightColor[accumulateIndex + i] = materials[objIndex].color / 15.0f * materials[objIndex].emittance; 
+		}
+
+		accumulateIndex += numberOfLightPerSource;
+		--numberOfLightSource;
+		totalNumberOfLights -= numberOfLightPerSource;
+		boolCeil = !boolCeil;
+		++objIndex;
+	}
+
+	//for(int i = 0; i < numberOfLights; ++i){
+	//	lightSource[i] =  getRandomPointOnCube(geomList[8], (float)iterations * i );
+	//	lightColor[i] = glm::vec3(1,1,1);
+	//}
+
+ 
+
 
   glm::vec3* cudaLightPos = NULL;
   cudaMalloc((void**)&cudaLightPos, numberOfLights *sizeof(glm::vec3));
@@ -390,6 +456,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   glm::vec3* cudaLightColor = NULL;
   cudaMalloc((void**)&cudaLightColor, numberOfLights *sizeof(glm::vec3));
+  cudaMemcpy( cudaLightColor, lightColor, numberOfLights * sizeof(glm::vec3), cudaMemcpyHostToDevice);
+
+  glm::vec3* cudaLightColorWithoutObstruct = NULL;
+  cudaMalloc((void**)&cudaLightColorWithoutObstruct, numberOfLights *sizeof(glm::vec3));
+
 
   // package camera
   cameraData cam;
@@ -401,7 +472,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   // kernel launches
   raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaMaterials, numberOfMaterials, 
-														cudageoms, numberOfGeoms, cudaLightPos, cudaLightRay, cudaLightColor, numberOfLights);
+														cudageoms, numberOfGeoms, cudaLightPos, cudaLightRay, cudaLightColor, cudaLightColorWithoutObstruct, numberOfLights);
 
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
@@ -417,6 +488,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudaLightColor );
   delete geomList;
   delete lightSource; 
+  delete lightColor;
 
   // make certain the kernel has completed
   cudaThreadSynchronize();

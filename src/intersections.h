@@ -246,8 +246,10 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(rt, t), 1.0));
 
 	intersectionPoint = realIntersectionPoint;
-	normal = multiplyMV(box.transform, glm::vec4(localNormal, 0.0f));
-
+	
+	//localNormal = glm::vec3(1,0,0);
+	normal = glm::normalize( multiplyMV(box.transform, glm::vec4(localNormal, 0.0f)));
+	
         
 	return glm::length(r.origin - realIntersectionPoint);
 /*
