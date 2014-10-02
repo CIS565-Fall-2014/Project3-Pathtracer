@@ -46,8 +46,8 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	glm::vec3 vecA = glm::normalize(glm::cross(view, up));// center to right
 	glm::vec3 vecB = glm::normalize(glm::cross(vecA, view));// center to up
 
-	glm::vec3 vecV = vecB * glm::length(view) * (float)tan(fov.y *2/ 180.0f * PI) * (1.0f - (1.0f + y * 2.0f) /resolution.y);
-	glm::vec3 vecH = vecA * glm::length(view) * (float)tan(fov.x *2/ 180.0f * PI) * (1.0f - (1.0f + x * 2.0f) /resolution.x);
+	glm::vec3 vecV = vecB * glm::length(view) * (float)tan(fov.y/ 180.0f * PI) * (1.0f - (1.0f + y * 2.0f) /resolution.y);
+	glm::vec3 vecH = vecA * glm::length(view) * (float)tan(fov.x/ 180.0f * PI) * (1.0f - (1.0f + x * 2.0f) /resolution.x);
 
 	glm::vec3 rayDir = glm::normalize(view + vecV + vecH);
 
@@ -58,7 +58,135 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	return r;
 }
 
-__host__ __device__ glm::vec3 raytraceReflectray(ray r, int depth){
+__host__ __device__ glm::vec3 getSpecularColor(ray* light, int lightCount, glm::vec3* lightColor, ray r, glm::vec3 faceNormal, float specularExp){
+	//float specularColorR = 0;
+	//float specularColorG = 0;
+	//float specularColorB = 0;
+	glm::vec3 specularColor(0,0,0);
+
+	for(int i = 0; i < lightCount ; i++)
+	{
+		glm::vec3 reflectLight = -1.0f * glm::normalize( light[i].direction - faceNormal * 2.0f * glm::dot(light[i].direction, faceNormal));
+		//reflectLight = -1.0f * reflectLight / sqrt(dot(reflectLight, reflectLight));
+
+		//float alpha = acos(glm::dot(r.direction, reflectLight));
+		//float specularTerm = pow(cos(alpha), specularExp);
+		float specularTerm = 0.0f;
+		float dotProduct = glm::dot(r.direction, reflectLight);
+		if(dotProduct < 0)
+			specularTerm = 0;
+		else{
+			specularTerm = pow(glm::dot(r.direction, reflectLight), specularExp);
+		}
+		//if(specularTerm < 0.0)
+		//	specularTerm = 0.0f;
+		//else if(specularTerm > 1.0)
+		//	specularTerm = 1.0f;
+
+		//specularColorR += specularTerm * lightColor[i].x;
+		//specularColorG += specularTerm * lightColor[i].y;
+		//specularColorB += specularTerm * lightColor[i].z;
+
+		specularColor += specularTerm * lightColor[i];
+	}
+	
+	//return glm::vec3(specularColorR, specularColorG, specularColorB);
+	return specularColor;
+}
+
+//__host__ __device__ glm::vec3 getDiffuseColor(ray* light, int lightCount, glm::vec3* lightColor, ray r, glm::vec3 faceNormal){
+//	return glm::vec3(0,0,0);
+//}
+
+__host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, /*glm::vec3* lightPos, int lightCount,*/ material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms){
+
+	if(depth <= 0)
+		return glm::vec3(0,0,0);
+
+	bool hitCheck = false;
+	float shortestDis = -1;
+	int hitObjectIndex = -1;
+	glm::vec3 intersectionPoint(0,0,0);
+	glm::vec3 intersectionNormal(0,0,0);
+
+	for(int i = 0; i < numberOfGeoms; ++i){
+		float dis = -1;
+		glm::vec3 objIntersectPt(0, 0, 0);
+		glm::vec3 objIntersectN(0, 0, 0);
+		switch(geoms[i].type){
+			case SPHERE:
+				dis = sphereIntersectionTest(geoms[i], r, objIntersectPt, objIntersectN);
+				break;
+			case CUBE:
+				dis = boxIntersectionTest(geoms[i], r, objIntersectPt, objIntersectN);
+				break;
+			case MESH:
+				break;
+		}
+
+		if((dis != -1 && shortestDis == -1) || (dis != -1 && shortestDis != -1 && dis < shortestDis && dis > 0)){
+			hitCheck = true;
+			shortestDis = dis;
+			intersectionPoint = objIntersectPt;
+			intersectionNormal = objIntersectN;
+			hitObjectIndex = i;
+
+
+		}
+	}
+	if(hitCheck == false){
+
+
+		return glm::vec3(0,0,0);
+	}
+	else{
+		material mate = materials[hitObjectIndex];
+
+		
+		if(mate.emittance != 0){ //hit light, so terminate the ray
+			return mate.color * mate.emittance / 5.0f;
+		}
+
+		ray newRay;
+		newRay.origin = glm::vec3(0,0,0);
+		newRay.direction = glm::vec3(0,0,0);
+
+
+
+		//glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)EPSILON;//給一個epsloon避免ray打進去face裡面
+		//glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)EPSILON;//給一個epsloon讓ray打進去face裡面
+
+		//glm::vec3* light2HitPtArray = new glm::vec3[lightCount];
+		//float* disLight2HitPtArray = new float[lightCount];
+
+		//for(int i = 0 ; i < lightCount ; i++){
+		//	light2HitPtArray[i] = glm::normalize(newEyePositionOut - lightPos[i]);
+		//	disLight2HitPtArray[i] = glm::length(light2HitPtArray[i]);
+		//}
+
+
+		//Reflect Color
+		glm::vec3 reflectColor;
+		if(mate.hasReflective != 0)//TODO  Check if really use this attribute
+			reflectColor = raytraceRecursive(newRay, --depth, /*lightPos, lightCount,*/ materials, numberOfMaterials, geoms, numberOfGeoms);
+		else
+			reflectColor = glm::vec3(0, 0, 0);
+
+		//Refract Color
+
+
+		//Diffuse Color
+
+
+		//Specular Color
+
+		//getSpecularColor(ray* light, int lightCount, glm::vec3* lightColor, ray r, glm::vec3 faceNormal, float specularExp);
+
+		glm::vec3 currentPtColor = reflectColor + mate.color;
+		return currentPtColor;
+	}
+
+
 	return glm::vec3(0,0,0);
 }
 
@@ -110,6 +238,10 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
                             material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms){
+	
+	//int lightCount = 1;
+	//glm::vec3* lightPosArray = new glm::vec3[lightCount];
+	//lightPosArray[0] = glm::vec3(0,0,0);
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -118,84 +250,16 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 	if((x < resolution.x && y < resolution.y )){
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 		
-		float dis = -1;
-		glm::vec3 intersectionPoint(0,0,0);
-		glm::vec3 intersectionNormal(0,0,0);
-		int colorIndex = -1;
-
-		while(rayDepth > 0){
 			
-			for(int i = 0; i < numberOfGeoms; ++i){
-				glm::vec3 objIntersectPt(0, 0, 0);
-				glm::vec3 objIntersectN(0, 0, 0);
-				float newdis = -1;
-				switch(geoms[i].type){
-					case SPHERE:
-						newdis = sphereIntersectionTest(geoms[i], r, objIntersectPt, objIntersectN);
-						break;
-					case CUBE:
-						newdis = boxIntersectionTest(geoms[i], r, objIntersectPt, objIntersectN);
-						break;
-					case MESH:
-						break;
-				}
-				if((newdis != -1 && dis == -1) || (newdis != -1 && dis != -1 && newdis < dis && newdis > 0)){
-					dis = newdis;
-					intersectionPoint = objIntersectPt;
-					intersectionNormal = objIntersectN;
-					colorIndex = i;
+		glm::vec3 newColorEnergy =raytraceRecursive(r, rayDepth, /*lightPosArray, lightCount,*/ materials, numberOfMaterials, geoms, numberOfGeoms);
+		glm::vec3 oldColorEnergy = colors[index] * (time - 1);
+		glm::vec3 newColor = (newColorEnergy + oldColorEnergy) / time;
+		colors[index] = newColor;
 
-					material mate = materials[i];
+		 //glm::vec3 colorReflect = glm::vec3(0,0,0);;// = raytraceRay(resolution, time, ;
 
-					//mate.
-				}
+		//colors[index] = colorBRDF + colorReflect;
 
-			}
-
-			//r.direction
-			//r.origin
-			--rayDepth; 
-		}
-
-		glm::vec3 colorBRDF = glm::vec3(0,0,0);
-		if(dis != -1){
-			switch(colorIndex){
-			case 0:
-				colorBRDF = glm::vec3(50,0,0);
-				break;
-			case 1:
-				colorBRDF = glm::vec3(0,50,0);
-				break;
-			case 2:
-				colorBRDF = glm::vec3(0,0,50);
-				break;
-			case 3:
-				colorBRDF = glm::vec3(50,50,0);
-				break;
-			case 4:
-				colorBRDF = glm::vec3(50,0,50);
-				break;
-			case 5:
-				colorBRDF = glm::vec3(0,50,50);
-				break;
-			case 6:
-				colorBRDF = glm::vec3(50,50,50);
-				break;
-			case 7:
-				colorBRDF = glm::vec3(50,100,0);
-				break;
-			case 8:
-				colorBRDF = glm::vec3(50,0,100);
-				break;
-			}
-		}
-		else{
-			colorBRDF = glm::vec3(0,0,0);
-		}
-		glm::vec3 colorReflect = glm::vec3(0,0,0);;// = raytraceRay(resolution, time, ;
-
-		colors[index] = colorBRDF + colorReflect;
-		//colors[index] = testColor;//glm::vec3(r.origin.x * 255, r.origin.y* 255, r.origin.z* 255);// colorBRDF + colorReflect;// generateRandomNumberFromThread(resolution, time, x, y);
 	}
 
 
@@ -238,6 +302,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   material* cudaMaterials = NULL;
   cudaMalloc((void**)&cudaMaterials, numberOfMaterials*sizeof(material));
   cudaMemcpy( cudaMaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+
+
+
 
   // package camera
   cameraData cam;
