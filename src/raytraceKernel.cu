@@ -98,7 +98,7 @@ __host__ __device__ glm::vec3 getSpecularColor(ray* light, int lightCount, glm::
 //	return glm::vec3(0,0,0);
 //}
 
-__host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, /*glm::vec3* lightPos, int lightCount,*/ material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms){
+__host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lightPos, int numberOfLights, material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms){
 
 	if(depth <= 0)
 		return glm::vec3(0,0,0);
@@ -168,7 +168,7 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, /*glm::vec3* l
 		//Reflect Color
 		glm::vec3 reflectColor;
 		if(mate.hasReflective != 0)//TODO  Check if really use this attribute
-			reflectColor = raytraceRecursive(newRay, --depth, /*lightPos, lightCount,*/ materials, numberOfMaterials, geoms, numberOfGeoms);
+			reflectColor = raytraceRecursive(newRay, --depth, lightPos, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
 		else
 			reflectColor = glm::vec3(0, 0, 0);
 
@@ -237,11 +237,8 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms){
-	
-	//int lightCount = 1;
-	//glm::vec3* lightPosArray = new glm::vec3[lightCount];
-	//lightPosArray[0] = glm::vec3(0,0,0);
+                            material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms,
+							glm::vec3* lightPos, int numberOfLights ){
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -251,7 +248,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 		
 			
-		glm::vec3 newColorEnergy =raytraceRecursive(r, rayDepth, /*lightPosArray, lightCount,*/ materials, numberOfMaterials, geoms, numberOfGeoms);
+		glm::vec3 newColorEnergy =raytraceRecursive(r, rayDepth, lightPos, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
 		glm::vec3 oldColorEnergy = colors[index] * (time - 1);
 		glm::vec3 newColor = (newColorEnergy + oldColorEnergy) / time;
 		colors[index] = newColor;
@@ -270,6 +267,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
   int traceDepth = 1; //determines how many bounces the raytracer traces
+  int numberOfLights = 1;
 
   // set up crucial magic
   int tileSize = 8;
@@ -304,6 +302,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMemcpy( cudaMaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
 
 
+  glm::vec3* lightSource = new glm::vec3[numberOfLights];
+  for(int i = 0; i < numberOfLights; ++i){
+	lightSource[i] = getRandomPointOnCube(geomList[8], iterations);
+  }
+
+  glm::vec3* cudaLights = NULL;
+  cudaMalloc((void**)&cudaLights, numberOfLights *sizeof(glm::vec3));
+  cudaMemcpy( cudaLights, lightSource, numberOfLights * sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
 
   // package camera
@@ -315,7 +321,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.fov = renderCam->fov;
 
   // kernel launches
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms);
+  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLights, numberOfLights);
 
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
@@ -325,7 +331,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // free up stuff, or else we'll leak memory like a madman
   cudaFree( cudaimage );
   cudaFree( cudageoms );
+  cudaFree( cudaMaterials );
+  cudaFree( cudaLights );
   delete geomList;
+  delete lightSource; 
 
   // make certain the kernel has completed
   cudaThreadSynchronize();
