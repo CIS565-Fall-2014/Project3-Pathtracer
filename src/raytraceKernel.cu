@@ -32,7 +32,11 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
   thrust::default_random_engine rng(hash(index*time));
   thrust::uniform_real_distribution<float> u01(0,1);
 
-  return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
+  float a = (float) u01(rng);
+  float b = (float) u01(rng);
+  float c = (float) u01(rng);
+  glm::vec3 returnValue(a,b,c);
+  return returnValue;
 }
 
 // TODO: IMPLEMENT THIS FUNCTION
@@ -58,15 +62,15 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	return r;
 }
 
-__host__ __device__ glm::vec3 getSpecularColor(ray* light, int lightCount, glm::vec3* lightColor, ray r, glm::vec3 faceNormal, float specularExp){
+__host__ __device__ glm::vec3 getSpecularColor(glm::vec3* light, glm::vec3* lightColor, int numberOfLight, ray r, glm::vec3 faceNormal, glm::vec3 materialSpecularColor, float specularExp){
 	//float specularColorR = 0;
 	//float specularColorG = 0;
 	//float specularColorB = 0;
 	glm::vec3 specularColor(0,0,0);
 
-	for(int i = 0; i < lightCount ; i++)
+	for(int i = 0; i < numberOfLight ; i++)
 	{
-		glm::vec3 reflectLight = -1.0f * glm::normalize( light[i].direction - faceNormal * 2.0f * glm::dot(light[i].direction, faceNormal));
+		glm::vec3 reflectLight = -1.0f * glm::normalize( light[i] - faceNormal * 2.0f * glm::dot(light[i], faceNormal));
 		//reflectLight = -1.0f * reflectLight / sqrt(dot(reflectLight, reflectLight));
 
 		//float alpha = acos(glm::dot(r.direction, reflectLight));
@@ -94,11 +98,31 @@ __host__ __device__ glm::vec3 getSpecularColor(ray* light, int lightCount, glm::
 	return specularColor;
 }
 
-//__host__ __device__ glm::vec3 getDiffuseColor(ray* light, int lightCount, glm::vec3* lightColor, ray r, glm::vec3 faceNormal){
-//	return glm::vec3(0,0,0);
-//}
+__host__ __device__ glm::vec3 getDiffuseColor(glm::vec3* light, glm::vec3* lightColor, int numberOfLight, glm::vec3 faceNormal, glm::vec3 materialColor){
+	glm::vec3 diffuseColor(0,0,0);
 
-__host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lightPos, int numberOfLights, material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms){
+	for(int i = 0; i < numberOfLight ; i++){
+		float newDiffuseTerm = glm::dot(-1.0f * light[i], faceNormal);
+		if(newDiffuseTerm < 0)
+			newDiffuseTerm = 0;
+
+		diffuseColor.x += newDiffuseTerm * materialColor.x * lightColor[i].x;
+		diffuseColor.y += newDiffuseTerm * materialColor.y * lightColor[i].y;
+		diffuseColor.z += newDiffuseTerm * materialColor.z * lightColor[i].z;
+	}
+
+	if(diffuseColor.x > 1)
+		diffuseColor = diffuseColor / diffuseColor.x;
+	if(diffuseColor.y > 1)
+		diffuseColor = diffuseColor / diffuseColor.y;
+	if(diffuseColor.z > 1)
+		diffuseColor = diffuseColor / diffuseColor.z;
+
+	return diffuseColor;
+}
+
+__host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lightPos, glm::vec3* light2HitPtArray, glm::vec3* lightColor, int numberOfLights,
+												material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms){
 
 	if(depth <= 0)
 		return glm::vec3(0,0,0);
@@ -130,57 +154,98 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 			intersectionPoint = objIntersectPt;
 			intersectionNormal = objIntersectN;
 			hitObjectIndex = i;
-
-
 		}
 	}
+
 	if(hitCheck == false){
-
-
 		return glm::vec3(0,0,0);
 	}
 	else{
 		material mate = materials[hitObjectIndex];
-
+		
 		
 		if(mate.emittance != 0){ //hit light, so terminate the ray
 			return mate.color * mate.emittance / 5.0f;
 		}
 
-		ray newRay;
-		newRay.origin = glm::vec3(0,0,0);
-		newRay.direction = glm::vec3(0,0,0);
 
+		glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)EPSILON;//給一個epsloon避免ray打進去face裡面
+		glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)EPSILON;//給一個epsloon讓ray打進去face裡面
+		
+		//Create Reflect Ray
+		ray newReflectRay;
+		newReflectRay.origin = newEyePositionOut;
+		newReflectRay.direction = glm::normalize( r.direction - intersectionNormal * 2.0f * glm::dot(r.direction, intersectionNormal));
 
+		//Create random number
+		thrust::default_random_engine rng(hash(depth * intersectionPoint.x));//TODO 
+		thrust::uniform_real_distribution<float> u01(0,1);
 
-		//glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)EPSILON;//給一個epsloon避免ray打進去face裡面
-		//glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)EPSILON;//給一個epsloon讓ray打進去face裡面
+   
 
-		//glm::vec3* light2HitPtArray = new glm::vec3[lightCount];
-		//float* disLight2HitPtArray = new float[lightCount];
+		ray newDiffuseRay;
+		newDiffuseRay.origin  = newEyePositionOut;
+		newReflectRay.direction = calculateRandomDirectionInHemisphere(intersectionNormal, (float)u01(rng), (float)u01(rng));
 
-		//for(int i = 0 ; i < lightCount ; i++){
-		//	light2HitPtArray[i] = glm::normalize(newEyePositionOut - lightPos[i]);
-		//	disLight2HitPtArray[i] = glm::length(light2HitPtArray[i]);
-		//}
+		int numberOfLightWithoutObsctruct = 0;
+
+		for(int i = 0 ; i < numberOfLights ; i++){
+			ray hitPt2LightRay;
+			hitPt2LightRay.origin = newEyePositionOut;
+			hitPt2LightRay.direction = glm::normalize(lightPos[i] - newEyePositionOut);
+			
+
+			bool lightObstructCheck = false;
+
+			for(int i = 0; i < numberOfGeoms; ++i){
+				float disHitPt2Light = -1;
+				glm::vec3 objIntersectPt(0, 0, 0);
+				glm::vec3 objIntersectN(0, 0, 0);
+				switch(geoms[i].type){
+					case SPHERE:
+						disHitPt2Light = sphereIntersectionTest(geoms[i], hitPt2LightRay, objIntersectPt, objIntersectN);
+						break;
+					case CUBE:
+						disHitPt2Light = boxIntersectionTest(geoms[i], hitPt2LightRay, objIntersectPt, objIntersectN);
+						break;
+					case MESH:
+						break;
+				}
+
+				if((disHitPt2Light != -1 && shortestDis == -1) || (disHitPt2Light != -1 && shortestDis != -1 && disHitPt2Light < shortestDis && disHitPt2Light > 0)){
+					lightObstructCheck = true;
+					break;
+				}
+			}
+
+			if(lightObstructCheck == false){
+				light2HitPtArray[numberOfLightWithoutObsctruct] = glm::normalize(newEyePositionOut - lightPos[i]);
+				numberOfLightWithoutObsctruct++;
+			}
+
+		}
 
 
 		//Reflect Color
 		glm::vec3 reflectColor;
-		if(mate.hasReflective != 0)//TODO  Check if really use this attribute
-			reflectColor = raytraceRecursive(newRay, --depth, lightPos, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
-		else
+		if(mate.hasReflective == 1)
+			reflectColor = raytraceRecursive(newReflectRay, --depth, lightPos, light2HitPtArray, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
+		else if(mate.hasReflective == 0)
 			reflectColor = glm::vec3(0, 0, 0);
 
 		//Refract Color
+		glm::vec3 refractColor;
+		if(mate.hasRefractive == 1)
+			refractColor = glm::vec3(0,0,0);
+		else if(mate.hasRefractive == 0)
+			refractColor = glm::vec3(0,0,0);
 
 
 		//Diffuse Color
-
+		glm::vec3 diffuseColor = getDiffuseColor(light2HitPtArray, lightColor, numberOfLightWithoutObsctruct, intersectionNormal, mate.color);
 
 		//Specular Color
-
-		//getSpecularColor(ray* light, int lightCount, glm::vec3* lightColor, ray r, glm::vec3 faceNormal, float specularExp);
+		//glm::vec3 specularColor = getSpecularColor(light2HitPtArray, lightColor, numberOfLightWithoutObsctruct, r, intersectionNormal, mate.specularColor, mate.specularExponent);
 
 		glm::vec3 currentPtColor = reflectColor + mate.color;
 		return currentPtColor;
@@ -238,7 +303,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
                             material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms,
-							glm::vec3* lightPos, int numberOfLights ){
+							glm::vec3* lightPos, glm::vec3* lightRay, glm::vec3* lightColor, int numberOfLights ){
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -248,15 +313,24 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 		
 			
-		glm::vec3 newColorEnergy =raytraceRecursive(r, rayDepth, lightPos, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
+		glm::vec3 newColorEnergy =raytraceRecursive(r, rayDepth, lightPos, lightRay, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
 		glm::vec3 oldColorEnergy = colors[index] * (time - 1);
 		glm::vec3 newColor = (newColorEnergy + oldColorEnergy) / time;
-		colors[index] = newColor;
+
+		//if(colors[index].x == 0){
+		//	colors[index] = glm::vec3(1,0,0);
+		//}else if(colors[index].x == 1){
+		//	colors[index] = glm::vec3(1,0,1);
+		//}
+
+
+		//colors[index] = newColor;
 
 		 //glm::vec3 colorReflect = glm::vec3(0,0,0);;// = raytraceRay(resolution, time, ;
 
 		//colors[index] = colorBRDF + colorReflect;
-
+		//colors[index] = generateRandomNumberFromThread(resolution, 0, 0, 0);
+		colors[index] = newColor;
 	}
 
 
@@ -307,10 +381,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	lightSource[i] = getRandomPointOnCube(geomList[8], iterations);
   }
 
-  glm::vec3* cudaLights = NULL;
-  cudaMalloc((void**)&cudaLights, numberOfLights *sizeof(glm::vec3));
-  cudaMemcpy( cudaLights, lightSource, numberOfLights * sizeof(glm::vec3), cudaMemcpyHostToDevice);
+  glm::vec3* cudaLightPos = NULL;
+  cudaMalloc((void**)&cudaLightPos, numberOfLights *sizeof(glm::vec3));
+  cudaMemcpy( cudaLightPos, lightSource, numberOfLights * sizeof(glm::vec3), cudaMemcpyHostToDevice);
+  
+  glm::vec3* cudaLightRay = NULL;
+  cudaMalloc((void**)&cudaLightRay, numberOfLights *sizeof(glm::vec3));
 
+  glm::vec3* cudaLightColor = NULL;
+  cudaMalloc((void**)&cudaLightColor, numberOfLights *sizeof(glm::vec3));
 
   // package camera
   cameraData cam;
@@ -321,7 +400,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.fov = renderCam->fov;
 
   // kernel launches
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLights, numberOfLights);
+  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaMaterials, numberOfMaterials, 
+														cudageoms, numberOfGeoms, cudaLightPos, cudaLightRay, cudaLightColor, numberOfLights);
 
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
@@ -332,7 +412,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudaimage );
   cudaFree( cudageoms );
   cudaFree( cudaMaterials );
-  cudaFree( cudaLights );
+  cudaFree( cudaLightPos );
+  cudaFree( cudaLightRay );
+  cudaFree( cudaLightColor );
   delete geomList;
   delete lightSource; 
 
