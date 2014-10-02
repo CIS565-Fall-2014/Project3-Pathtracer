@@ -30,7 +30,7 @@ set(GLEW_LIBRARY_DIR ${CMAKE_LIBRARY_PATH})
 #Find up and set up core dependency libs
 find_library(GLFW_LIBRARY "glfw3" HINTS ${GLFW_LIBRARY_DIR})
 find_package(GLUT)
-find_package(OPENGL)
+find_package(OpenGL)
 find_package(GLEW)
 
 set(CORELIBS ${GLFW_LIBRARY} ${GLUT_LIBRARY} ${OPENGL_LIBRARY} ${GLEW_LIBRARY})
@@ -42,6 +42,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(CORELIBS ${CORELIBS} ${IOKIT})
 	#Link against libstdc++ since CUDA doesn't support libc++ yet
 	set(CUDA_NVCC_FLAGS "--compiler-options;-stdlib=libstdc++;")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 #Linux specific hacks/fixes
@@ -51,7 +52,7 @@ endif()
 
 #Compiler flag magic
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -m64 -msse2 -stdlib=libstdc++")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -m64 -msse2")
 elseif(WIN32)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
