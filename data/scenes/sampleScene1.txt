@@ -122,7 +122,7 @@ material 0
 frame 0
 TRANS       0 0 0
 ROTAT       0 0 90
-SCALE       .01 10 10 
+SCALE       0.1 10 10 
 
 OBJECT 1
 cube
@@ -130,7 +130,7 @@ material 0
 frame 0
 TRANS       0 5 -5
 ROTAT       0 90 0
-SCALE       .01 10 10 
+SCALE       0.1 10 10 
 
 OBJECT 2
 cube
@@ -138,7 +138,7 @@ material 0
 frame 0
 TRANS       0 10 0
 ROTAT       0 0 90
-SCALE       .01 10 10
+SCALE       .1 10 10
 
 OBJECT 3
 cube
@@ -146,7 +146,7 @@ material 1
 frame 0
 TRANS       -5 5 0
 ROTAT       0 0 0
-SCALE       .01 10 10
+SCALE       .1 10 10
 
 OBJECT 4
 cube
@@ -154,7 +154,7 @@ material 2
 frame 0
 TRANS       5 5 0
 ROTAT       0 0 0
-SCALE       .01 10 10
+SCALE       .1 10 10
 
 OBJECT 5
 sphere
@@ -179,7 +179,6 @@ frame 0
 TRANS       -2 5 -2
 ROTAT       0 180 0
 SCALE       3 3 3
-
 
 OBJECT 8
 cube

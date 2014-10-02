@@ -13,6 +13,8 @@
 #include "cudaMat4.h"
 #include "utilities.h"
 
+#define FAR_CLIPPING_DISTANCE 999999999.0f
+
 // Some forward declarations
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
@@ -20,6 +22,7 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float intersectionTest(staticGeom * geoms,int num,ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
 
 // Handy dandy little hashing function that provides seeds for random number generation
@@ -69,11 +72,138 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
+__host__ __device__ float intersectionTest(staticGeom * geoms,int num, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, int & hitMaterialID)
+{
+	float hitDist(FAR_CLIPPING_DISTANCE);
+	bool hitSomething = false;
+	
+	//loop through all geometries
+	for(int i=0;i<num;i++)
+	{
+		glm::vec3 interPt(0.0f);
+		glm::vec3 interNorm(0.0f);
+		float d(0.0f);
+		if(geoms[i].type == SPHERE) d = sphereIntersectionTest(geoms[i], r,interPt, interNorm);
+		else if(geoms[i].type == CUBE) d = boxIntersectionTest(geoms[i], r,interPt, interNorm);
+		//when hitting a surface that's closer than previous hit
+		if(d > 0.0f && d < hitDist)
+		{
+			hitSomething = true;
+			hitDist = d;
+
+			intersectionPoint = interPt;
+			normal = interNorm;
+			hitMaterialID = geoms[i].materialid;
+		}
+	}
+
+	return (hitSomething) ? hitDist: -1.0f;
+}
+
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+  const float INFINITY_DISTANCE = 999999999.0f;
 
-    return -1;
+  glm::vec3 ro = multiplyMV(box.inverseTransform, glm::vec4(r.origin,1.0f));
+  glm::vec3 rd = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction,0.0f)));
+
+  //transform ray
+  ray rt;
+  rt.origin = ro;
+  rt.direction = rd;
+
+  float Tnear(-INFINITY_DISTANCE) , Tfar(INFINITY_DISTANCE);
+  //intersect X slab
+  {
+	  float dx = rd.x;
+	  float ox = ro.x;
+	  //parallel case
+	  if(dx == 0.0f) 
+	  {
+		  if(abs(ox) > 0.5f) return -1;
+	  }
+	  float t1,t2;
+
+	  t1 = (-0.5f - ox)/(dx);
+	  t2 = (0.5f - ox)/(dx);
+
+	  if(min(t1,t2)>Tnear) Tnear=min(t1,t2);
+
+      if(max(t1,t2)<Tfar) Tfar=max(t1,t2);
+
+	  if(Tnear>Tfar) return -1;
+		
+	  if(Tfar<0) return -1;
+
+  }
+
+  //intersect Y slab
+  {
+	  float dy = rd.y;
+	  float oy = ro.y;
+	  //parallel case
+	  if(dy == 0.0f) 
+	  {
+		  if(abs(oy) > 0.5f) return -1;
+	  }
+	  float t1,t2;
+
+	  t1 = (-0.5f - oy)/(dy);
+	  t2 = (0.5f - oy)/(dy);
+
+	  if(min(t1,t2)>Tnear) Tnear=min(t1,t2);
+
+      if(max(t1,t2)<Tfar) Tfar=max(t1,t2);
+
+	  if(Tnear>Tfar) return -1;
+		
+	  if(Tfar<0) return -1;
+
+  }
+
+  //intersect Z slab
+  {
+	  float dz = rd.z;
+	  float oz = ro.z;
+	  //parallel case
+	  if(dz == 0.0f) 
+	  {
+		  if(abs(oz) > 0.5f) return -1;
+	  }
+	  float t1,t2;
+
+	  t1 = (-0.5f - oz)/(dz);
+	  t2 = (0.5f - oz)/(dz);
+
+	  if(min(t1,t2)>Tnear) Tnear=min(t1,t2);
+
+      if(max(t1,t2)<Tfar) Tfar=max(t1,t2);
+
+	  if(Tnear>Tfar) return -1;
+		
+	  if(Tfar<0) return -1;
+
+  }
+
+
+  glm::vec3 intPt, intNorm;
+  intPt = getPointOnRay(rt,Tnear); 
+	
+  if(intPt.y >= 0.5f - EPSILON) intNorm = glm::vec3(0.0f,1.0f,0.0f);
+	
+  else if(intPt.y <= -0.5f + EPSILON) intNorm = glm::vec3(0.0,-1.0f,0.0f);
+	
+  else if(intPt.x >= 0.5f - EPSILON) intNorm = glm::vec3(1.0f,0.0f,0.0f);
+	
+  else if(intPt.x <= -0.5f + EPSILON) intNorm = glm::vec3(-1.0f,0.0f,0.0f);
+	
+  else if(intPt.z >= 0.5f - EPSILON) intNorm = glm::vec3(0.0f,0.0f,1.0f);
+	
+  else if(intPt.z <= -0.5f + EPSILON) intNorm = glm::vec3(0.0f,0.0f,-1.0f);
+
+  intersectionPoint = multiplyMV(box.transform, glm::vec4(intPt,1.0f));	
+  normal = glm::normalize(multiplyMV(box.transform, glm::vec4(intNorm,0.0f)));
+  return glm::length(intersectionPoint - r.origin);
 }
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.

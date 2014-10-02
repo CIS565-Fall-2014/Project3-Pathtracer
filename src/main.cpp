@@ -8,6 +8,8 @@
 #include "main.h"
 #define GLEW_STATIC
 
+#define NUM_OF_CAMERA_RAY_PER_PIXEL 1
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -88,7 +90,11 @@ void runCuda(){
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
+
+  //initialize raypool
+  ray * rayPool; int rayPoolSize(renderCam->resolution.x * renderCam->resolution.y);
+  cudaMalloc((void **)&rayPool,rayPoolSize * sizeof(ray));
+
   if(iterations < renderCam->iterations){
     uchar4 *dptr=NULL;
     iterations++;
@@ -104,9 +110,9 @@ void runCuda(){
     for (int i=0; i < renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
-  
+
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, rayPool, rayPoolSize, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -155,6 +161,8 @@ void runCuda(){
       finishedRender = false;
     }
   }
+
+  cudaFree(rayPool);
 }
 
 //-------------------------------
