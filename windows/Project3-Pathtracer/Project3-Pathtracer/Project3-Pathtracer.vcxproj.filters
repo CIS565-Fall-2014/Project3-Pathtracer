@@ -71,6 +71,9 @@
     <ClCompile Include="..\..\..\external\src\stb_image\stb_image.c">
       <Filter>Source Files\stb_image</Filter>
     </ClCompile>
+    <ClCompile Include="temp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\..\..\src\raytraceKernel.cu">
