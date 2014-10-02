@@ -128,8 +128,8 @@ OBJECT 1
 cube
 material 0
 frame 0
-TRANS       0 0 0
-ROTAT       0 0 90
+TRANS       0 5 -5
+ROTAT       0 90 0
 SCALE       .1 10 10 
 
 OBJECT 2

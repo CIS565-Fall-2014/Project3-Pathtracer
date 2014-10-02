@@ -73,7 +73,6 @@ __host__ __device__ float calculateArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3
 
 __host__ __device__ float intersectPoly(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 faceNormal){
 
-  	//glm::vec3 normal = glm::cross(p2 - p1, p3 - p1);
 	glm::vec3 vec_Origin_P1(rayOrigin[0] - p1[0], rayOrigin[1] - p1[1], rayOrigin[2] - p1[2]);
 	
 	if(glm::dot(vec_Origin_P1, faceNormal) == 0){// on the surface
@@ -150,7 +149,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	glm::vec3 normal_p3_p4_p8_p7(0,-1,0);
 	glm::vec3 normal_p5_p7_p8_p6(0,0,-1);
 
-	/*
+	
 	float tx1 = -1, tx2 = -1, ty1 = -1, ty2 = -1, tz1 = -1, tz2 = -1;
 	int xNormal = 0, yNormal = 0, zNormal = 0;
 
@@ -250,8 +249,8 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	normal = multiplyMV(box.transform, glm::vec4(localNormal, 0.0f));
 
         
-	return glm::length(r.origin - realIntersectionPoint);*/
-
+	return glm::length(r.origin - realIntersectionPoint);
+/*
 	float t1 = intersectPoly(ro, rd, p1, p2, p3, normal_p1_p2_p4_p3);
 	float t2 = intersectPoly(ro, rd, p2, p4, p3, normal_p1_p2_p4_p3);
 	float t3 = intersectPoly(ro, rd, p1, p7, p3, normal_p1_p3_p7_p5);
@@ -315,7 +314,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
         
 	return glm::length(r.origin - realIntersectionPoint);
 
-
+	*/
 }
 
 
