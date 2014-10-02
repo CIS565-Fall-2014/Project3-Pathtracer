@@ -36,6 +36,7 @@ int main(int argc, char** argv){
 
   if(!loadedScene){
     cout << "Error: scene file needed!" << endl;
+	getchar();
     return 0;
   }
 
@@ -55,7 +56,6 @@ int main(int argc, char** argv){
     // GLFW main loop
     mainLoop();
   }
-
   return 0;
 }
 
