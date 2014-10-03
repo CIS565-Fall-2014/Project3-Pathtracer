@@ -8,6 +8,8 @@
 
 #include "intersections.h"
 
+#define RAY_SPAWN_OFFSET 0.01f
+
 struct Fresnel {
   float reflectionCoefficient;
   float transmissionCoefficient;
@@ -96,11 +98,31 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
 // Returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
-__host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
-                                       AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
-                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m){
+__host__ __device__ int calculateBSDF(ray& r, float randSeed,glm::vec3 intersect, glm::vec3 normal, material mat){
 
-  return 1;
+	thrust::default_random_engine eng(hash(randSeed));
+	thrust::uniform_real_distribution<float> distribution(0.0f,1.0f);
+
+	float dice = (float)distribution((eng));
+	
+	//diffuse
+	if(dice <mat.diffuseCoe)
+	{
+		r.direction = calculateRandomDirectionInHemisphere(normal,(float)distribution((eng)),(float)distribution(eng));
+		r.origin = intersect + RAY_SPAWN_OFFSET * normal;
+		r.color *= mat.color;
+	}
+
+	//specular reflection
+	else
+	{
+		r.direction = glm::reflect(r.direction,normal);
+		r.origin = intersect + RAY_SPAWN_OFFSET * normal;
+		r.color *= mat.specularColor;
+	}
+
+
+	return 0;
 };
 
 #endif

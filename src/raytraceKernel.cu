@@ -16,7 +16,7 @@
 #include "intersections.h"
 #include "interactions.h"
 
-#define TRACE_DEPTH 1
+#define TRACE_DEPTH 5
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -72,7 +72,7 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
 }
 
 //Kernel that writes the image to the OpenGL PBO directly.
-__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image){
+__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image, float iterations){
   
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -81,9 +81,9 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   if(x<=resolution.x && y<=resolution.y){
 
       glm::vec3 color;
-      color.x = image[index].x*255.0;
-      color.y = image[index].y*255.0;
-      color.z = image[index].z*255.0;
+	  color.x = image[index].x*255.0/iterations;
+      color.y = image[index].y*255.0/iterations;
+      color.z = image[index].z*255.0/iterations;
 
       if(color.x>255){
         color.x = 255;
@@ -105,53 +105,17 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   }
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
-// Core raytracer kernel
-__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms){
-
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
-
-  if((x<=resolution.x && y<=resolution.y)){
-
-	  ray R =  raycastFromCameraKernel(resolution, time, x, y,cam.position, cam.view, cam.up, cam.fov * ((float)PI / 180.0f));
-	  
-	  //hit info
-	  float hitDist(FAR_CLIPPING_DISTANCE);
-	  glm::vec3 hitPos, hitNorm;
-	  int hitMatID;
-	
-	  //loop through all geometries
-	  for(int i=0;i<numberOfGeoms;i++)
-	  {
-		  glm::vec3 interPt(0.0f);
-		  glm::vec3 interNorm(0.0f);
-		  float d(0.0f);
-		  if(geoms[i].type == SPHERE) d = sphereIntersectionTest(geoms[i], R,interPt, interNorm);
-		  else if(geoms[i].type == CUBE) d = boxIntersectionTest(geoms[i], R,interPt, interNorm);
-		  //when hitting a surface that's closer than previous hit
-		  if(d > 0.0f && d < hitDist)
-		  {
-			  hitDist = d;
-			  hitPos = interPt;
-			  hitNorm = interNorm;
-			  hitMatID = geoms[i].materialid;
-		  }
-	  }
-	  colors[index] = (hitDist < 0.0f || hitDist >= FAR_CLIPPING_DISTANCE) ? glm::vec3(0.0f,0.0f,1.0f) : glm::vec3(0.8f*glm::dot(hitNorm,-R.direction));
-	  //colors[index] = (hitDist >= FAR_CLIPPING_DISTANCE) ? glm::vec3(0.0f) : hitNorm;
-	  //colors[index] = (hitDist >= FAR_CLIPPING_DISTANCE) ? glm::vec3(0.0f) : glm::vec3(1.0f,0.0f,0.0f);
-	  //colors[index] = R.direction;
-   }
-}
-
-__global__ void pathtraceRays(ray * raypool,glm::vec3* colors, int N,staticGeom* geoms,  int numOfGeoms, material * materials, int numOfMats)
+__global__ void pathtraceRays(ray * raypool,glm::vec3* colors, int N, float iterations, int depth, staticGeom* geoms,  int numOfGeoms, material * materials, int numOfMats)
 {
+
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
 	if(index < N)
 	{
+		if(!raypool[index].isActive) return;  //isActive can be removed when stream compaction is done
+
+		float randSeed = (iterations + 1.0f) * ((float) index + 1.0f) * (float) (depth + 1.0f);
+
 		//gather hit info
 		glm::vec3 intersectionPoint;
 		glm::vec3 normal;
@@ -166,15 +130,24 @@ __global__ void pathtraceRays(ray * raypool,glm::vec3* colors, int N,staticGeom*
 			return;
 		}
 		
+		material hitMaterial = materials[hitMatID];
+
 		//if hit light
-		if(materials[hitMatID].emittance > EPSILON)
+		if(hitMaterial.emittance > EPSILON)
 		{
-			colors[raypool[index].pixelIndex]  = glm::vec3(1.0f);
+			//colors[raypool[index].pixelIndex]  = colors[raypool[index].pixelIndex] + hitMaterial.emittance * hitMaterial.color*raypool[index].color /((float)iterations);
+			colors[raypool[index].pixelIndex]  += hitMaterial.emittance * hitMaterial.color*raypool[index].color;
+			raypool[index].isActive = false;
+			return;
 		}
 		
 		else
 		{
-			colors[raypool[index].pixelIndex]  = glm::vec3(0.8f*glm::dot(normal,-raypool[index].direction));
+			//specular
+			calculateBSDF(raypool[index],randSeed, intersectionPoint, normal, hitMaterial);
+
+			//colors [raypool[index].pixelIndex]  = glm::vec3(0.0f);
+			//colors[raypool[index].pixelIndex]  = glm::vec3(0.8f*glm::dot(normal,-raypool[index].direction));
 		}
 
 	}
@@ -192,15 +165,11 @@ __global__ void generateInitialCamRays(ray * pool,glm::vec2 resolution, float it
 	R.pixelIndex = x + (resolution.x * y);
 	pool[index] = R;
 }
+
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, ray * rayPool, int poolSize, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos,  glm::vec3 * cudaimage,camera* renderCam, ray * rayPool, int poolSize, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
 	
 	//MEMORY MANAGEMENT////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// send image to GPU
-	glm::vec3* cudaimage = NULL;
-	cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-	cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
-  
 	// package geometry and materials and sent to GPU
 	staticGeom* geomList = new staticGeom[numberOfGeoms];
 	for(int i=0; i<numberOfGeoms; i++){
@@ -243,12 +212,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, ray * rayPool, int pool
 	generateInitialCamRays<<<fullBlocksPerGrid,threadsPerBlock>>>(rayPool,renderCam->resolution, float(iterations), cam);
 
 	//trace rays
-	pathtraceRays<<<ceil((float)poolSize/(float)blockSize),blockSize>>>(rayPool,cudaimage,poolSize, cudageoms, numberOfGeoms,cudamaterials, numberOfMaterials);
+	for(int i = 0;i < TRACE_DEPTH; i++)
+	{
+		pathtraceRays<<<ceil((float)poolSize/(float)blockSize),blockSize>>>(rayPool,cudaimage,poolSize, iterations, i, cudageoms, numberOfGeoms,cudamaterials, numberOfMaterials);
+	}
 
-	// kernel launches
-	//raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, TRACE_DEPTH, cudaimage, cudageoms, numberOfGeoms);
 
-	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
+
+	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,(float) iterations);
 
 
 
@@ -257,7 +228,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, ray * rayPool, int pool
 	cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
 	// free up stuff, or else we'll leak memory like a madman
-	cudaFree( cudaimage );
 	cudaFree( cudageoms );
 	cudaFree( cudamaterials);
 	delete geomList;
@@ -267,4 +237,46 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, ray * rayPool, int pool
 
 	checkCUDAError("Kernel failed!");
  
+}
+
+
+// TODO: IMPLEMENT THIS FUNCTION
+__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
+                            staticGeom* geoms, int numberOfGeoms){
+
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  int index = x + (y * resolution.x);
+
+  if((x<=resolution.x && y<=resolution.y)){
+
+	  ray R =  raycastFromCameraKernel(resolution, time, x, y,cam.position, cam.view, cam.up, cam.fov * ((float)PI / 180.0f));
+	  
+	  //hit info
+	  float hitDist(FAR_CLIPPING_DISTANCE);
+	  glm::vec3 hitPos, hitNorm;
+	  int hitMatID;
+	
+	  //loop through all geometries
+	  for(int i=0;i<numberOfGeoms;i++)
+	  {
+		  glm::vec3 interPt(0.0f);
+		  glm::vec3 interNorm(0.0f);
+		  float d(0.0f);
+		  if(geoms[i].type == SPHERE) d = sphereIntersectionTest(geoms[i], R,interPt, interNorm);
+		  else if(geoms[i].type == CUBE) d = boxIntersectionTest(geoms[i], R,interPt, interNorm);
+		  //when hitting a surface that's closer than previous hit
+		  if(d > 0.0f && d < hitDist)
+		  {
+			  hitDist = d;
+			  hitPos = interPt;
+			  hitNorm = interNorm;
+			  hitMatID = geoms[i].materialid;
+		  }
+	  }
+	  colors[index] = (hitDist < 0.0f || hitDist >= FAR_CLIPPING_DISTANCE) ? glm::vec3(0.0f,0.0f,1.0f) : glm::vec3(0.8f*glm::dot(hitNorm,-R.direction));
+	  //colors[index] = (hitDist >= FAR_CLIPPING_DISTANCE) ? glm::vec3(0.0f) : hitNorm;
+	  //colors[index] = (hitDist >= FAR_CLIPPING_DISTANCE) ? glm::vec3(0.0f) : glm::vec3(1.0f,0.0f,0.0f);
+	  //colors[index] = R.direction;
+   }
 }

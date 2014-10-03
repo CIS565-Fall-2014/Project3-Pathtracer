@@ -137,6 +137,16 @@ std::istream& utilityCore::safeGetline(std::istream& is, std::string& t)
         }
     }
 }
+
+float utilityCore::getCurrentTime()
+{
+	LARGE_INTEGER litmp;
+	QueryPerformanceFrequency(&litmp);
+	double dff =(double)litmp.QuadPart;
+	QueryPerformanceCounter(&litmp);
+	double t =(double)litmp.QuadPart;
+	return t/dff;
+}
 //-----------------------------
 //-------GLM Printers----------
 //-----------------------------

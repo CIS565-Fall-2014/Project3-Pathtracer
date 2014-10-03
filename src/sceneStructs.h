@@ -66,6 +66,7 @@ struct camera {
 
 struct material{
 	glm::vec3 color;
+	float diffuseCoe;
 	float specularExponent;
 	glm::vec3 specularColor;
 	float hasReflective;

@@ -6,6 +6,7 @@
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
 #include "main.h"
+#include "utilities.h"
 #define GLEW_STATIC
 
 #define NUM_OF_CAMERA_RAY_PER_PIXEL 1
@@ -54,10 +55,21 @@ int main(int argc, char** argv){
 
   // Initialize CUDA and GL components
   if (init(argc, argv)) {
+	//initialize raypool
+	rayPoolSize = renderCam->resolution.x * renderCam->resolution.y;
+	cudaMalloc((void **)&rayPool,rayPoolSize * sizeof(ray));
+
+	// init image to GPU
+	cudaMalloc((void**)&cudaImageBuffer, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+	cudaMemcpy( cudaImageBuffer, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+
     // GLFW main loop
     mainLoop();
   }
 
+  
+  cudaFree(rayPool);
+  cudaFree(cudaImageBuffer);
   return 0;
 }
 
@@ -88,81 +100,77 @@ void mainLoop() {
 
 void runCuda(){
 
-  // Map OpenGL buffer object for writing from CUDA on a single GPU
-  // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-
-  //initialize raypool
-  ray * rayPool; int rayPoolSize(renderCam->resolution.x * renderCam->resolution.y);
-  cudaMalloc((void **)&rayPool,rayPoolSize * sizeof(ray));
-
-  if(iterations < renderCam->iterations){
-    uchar4 *dptr=NULL;
-    iterations++;
-    cudaGLMapBufferObject((void**)&dptr, pbo);
+	// Map OpenGL buffer object for writing from CUDA on a single GPU
+	// No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
+	if(iterations < renderCam->iterations){
+		uchar4 *dptr=NULL;
+		iterations++;
+		cudaGLMapBufferObject((void**)&dptr, pbo);
   
-    // pack geom and material arrays
-    geom* geoms = new geom[renderScene->objects.size()];
-    material* materials = new material[renderScene->materials.size()];
+		// pack geom and material arrays
+		geom* geoms = new geom[renderScene->objects.size()];
+		material* materials = new material[renderScene->materials.size()];
     
-    for (int i=0; i < renderScene->objects.size(); i++) {
-      geoms[i] = renderScene->objects[i];
-    }
-    for (int i=0; i < renderScene->materials.size(); i++) {
-      materials[i] = renderScene->materials[i];
-    }
-
-    // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, rayPool, rayPoolSize, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+		for (int i=0; i < renderScene->objects.size(); i++) {
+			geoms[i] = renderScene->objects[i];
+		}
+		for (int i=0; i < renderScene->materials.size(); i++) {
+			materials[i] = renderScene->materials[i];
+		}
+		float startTime = utilityCore::getCurrentTime();
+		// execute the kernel
+		cudaRaytraceCore(dptr,cudaImageBuffer, renderCam, rayPool, rayPoolSize, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+		float endTime =  utilityCore::getCurrentTime();
+		float len = endTime - startTime;
+		if(iterations%10 ==0) cout<<1000.0f*len<<" ms"<<endl;
     
-    // unmap buffer object
-    cudaGLUnmapBufferObject(pbo);
-  } else {
+		// unmap buffer object
+		cudaGLUnmapBufferObject(pbo);
+		} else {
 
-    if (!finishedRender) {
-      // output image file
-      image outputImage(renderCam->resolution.x, renderCam->resolution.y);
+		if (!finishedRender) {
+		// output image file
+		image outputImage(renderCam->resolution.x, renderCam->resolution.y);
 
-      for (int x=0; x < renderCam->resolution.x; x++) {
-        for (int y=0; y < renderCam->resolution.y; y++) {
-          int index = x + (y * renderCam->resolution.x);
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
-        }
-      }
+			for (int x=0; x < renderCam->resolution.x; x++) {
+				for (int y=0; y < renderCam->resolution.y; y++) {
+					int index = x + (y * renderCam->resolution.x);
+					outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
+			}
+		}
       
-      gammaSettings gamma;
-      gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; 
-      outputImage.setGammaSettings(gamma);
-      string filename = renderCam->imageName;
-      string s;
-      stringstream out;
-      out << targetFrame;
-      s = out.str();
-      utilityCore::replaceString(filename, ".bmp", "."+s+".bmp");
-      utilityCore::replaceString(filename, ".png", "."+s+".png");
-      outputImage.saveImageRGB(filename);
-      cout << "Saved frame " << s << " to " << filename << endl;
-      finishedRender = true;
-      if (singleFrameMode==true) {
-        cudaDeviceReset(); 
-        exit(0);
-      }
-    }
-    if (targetFrame < renderCam->frames-1) {
+		gammaSettings gamma;
+		gamma.applyGamma = true;
+		gamma.gamma = 1.0;
+		gamma.divisor = 1.0; 
+		outputImage.setGammaSettings(gamma);
+		string filename = renderCam->imageName;
+		string s;
+		stringstream out;
+		out << targetFrame;
+		s = out.str();
+		utilityCore::replaceString(filename, ".bmp", "."+s+".bmp");
+		utilityCore::replaceString(filename, ".png", "."+s+".png");
+		outputImage.saveImageRGB(filename);
+		cout << "Saved frame " << s << " to " << filename << endl;
+		finishedRender = true;
+		if (singleFrameMode==true) {
+			cudaDeviceReset(); 
+			exit(0);
+		}
+		}
+		if (targetFrame < renderCam->frames-1) {
 
-      // clear image buffer and move onto next frame
-      targetFrame++;
-      iterations = 0;
-      for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
-        renderCam->image[i] = glm::vec3(0,0,0);
-      }
-      cudaDeviceReset(); 
-      finishedRender = false;
-    }
-  }
-
-  cudaFree(rayPool);
+			// clear image buffer and move onto next frame
+			targetFrame++;
+			iterations = 0;
+			for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
+			renderCam->image[i] = glm::vec3(0,0,0);
+		}
+		cudaDeviceReset(); 
+		finishedRender = false;
+		}
+	}
 }
 
 //-------------------------------
