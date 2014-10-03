@@ -16,7 +16,7 @@
 #include "intersections.h"
 #include "interactions.h"
 
-#define TRACE_DEPTH 5
+#define TRACE_DEPTH 10
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -143,11 +143,8 @@ __global__ void pathtraceRays(ray * raypool,glm::vec3* colors, int N, float iter
 		
 		else
 		{
-			//specular
+			//BSDF handles ray interaction with surface
 			calculateBSDF(raypool[index],randSeed, intersectionPoint, normal, hitMaterial);
-
-			//colors [raypool[index].pixelIndex]  = glm::vec3(0.0f);
-			//colors[raypool[index].pixelIndex]  = glm::vec3(0.8f*glm::dot(normal,-raypool[index].direction));
 		}
 
 	}
@@ -203,7 +200,7 @@ void cudaRaytraceCore(uchar4* PBOpos,  glm::vec3 * cudaimage,camera* renderCam, 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	
 	
 	//kernel config 
-	int tileSize = 8;
+	int tileSize = 32;
 	int blockSize = 128;
 	dim3 threadsPerBlock(tileSize, tileSize);
 	dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));

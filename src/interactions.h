@@ -51,16 +51,43 @@ __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm
   return glm::vec3(0,0,0);
 }
 
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
-  Fresnel fresnel;
+//calculate fresnel
+__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float n1, float n2, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
+	Fresnel fresnel;
 
-  fresnel.reflectionCoefficient = 1;
-  fresnel.transmissionCoefficient = 0;
-  return fresnel;
+	//safety normalize
+	incident = glm::normalize(incident);
+	transmissionDirection = glm::normalize(transmissionDirection);
+	normal = glm::normalize(normal);
+
+	float cosIncident =  glm::dot(incident,-normal);
+	float cosTransmitted =glm::dot(transmissionDirection,-normal);
+	float sinIncident = sin(acos(cosIncident));
+
+	//case of total internal reflection
+	if(n2 < n1)
+	{
+		if( abs(sinIncident-(n2/n1)) < EPSILON)
+		{
+			fresnel.reflectionCoefficient = 1.0f;
+			fresnel.transmissionCoefficient = 0.0f;
+			return fresnel;
+		}
+	}
+
+	float RS = abs( (n1*cosIncident - n2* cosTransmitted)/(n1*cosIncident + n2* cosTransmitted))
+			* abs( (n1*cosIncident - n2* cosTransmitted)/(n1*cosIncident + n2* cosTransmitted));
+
+	float RP = abs( (n1*cosTransmitted - n2* cosIncident)/(n1*cosTransmitted + n2* cosIncident))
+			* abs( (n1*cosTransmitted - n2* cosIncident)/(n1*cosTransmitted + n2* cosIncident));
+
+	fresnel.reflectionCoefficient = (RS + RP) * 0.5f;
+
+	fresnel.transmissionCoefficient = 1.0f - fresnel.reflectionCoefficient;
+	return fresnel;
 }
 
-// LOOK: This function demonstrates cosine weighted random direction generation in a sphere!
+//This function demonstrates cosine weighted random direction generation in a hemi-sphere!
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2) {
     
     // Crucial difference between this and calculateRandomDirectionInSphere: THIS IS COSINE WEIGHTED!
@@ -104,7 +131,6 @@ __host__ __device__ int calculateBSDF(ray& r, float randSeed,glm::vec3 intersect
 	thrust::uniform_real_distribution<float> distribution(0.0f,1.0f);
 
 	float dice = (float)distribution((eng));
-	
 	//diffuse
 	if(dice <mat.diffuseCoe)
 	{
@@ -113,15 +139,66 @@ __host__ __device__ int calculateBSDF(ray& r, float randSeed,glm::vec3 intersect
 		r.color *= mat.color;
 	}
 
-	//specular reflection
+	//other interactions
 	else
 	{
-		r.direction = glm::reflect(r.direction,normal);
-		r.origin = intersect + RAY_SPAWN_OFFSET * normal;
-		r.color *= mat.specularColor;
+		//compute common paras
+		bool isInsideOut = glm::dot(r.direction,normal) > 0.0f;
+		float n1 = isInsideOut ? mat.indexOfRefraction : 1.0f;
+		float n2 = isInsideOut ? 1.0f : mat.indexOfRefraction;
+		glm::vec3 reflectDir = glm::reflect(r.direction,normal);
+		glm::vec3 transmitDir = glm::refract(r.direction,(isInsideOut) ? -normal: normal,n1/n2);
+
+		//reflect only
+		if(mat.hasReflective && !mat.hasRefractive)
+		{
+			r.direction = reflectDir;
+			r.origin = intersect + RAY_SPAWN_OFFSET * ((isInsideOut) ? (-normal): normal) ;
+			r.color *= mat.specularColor;
+			return 1;
+		}
+
+		//refract only
+		else if(!mat.hasReflective && mat.hasRefractive)
+		{
+			r.direction = transmitDir;
+			r.origin = intersect + RAY_SPAWN_OFFSET *  ((!isInsideOut) ? (-normal): normal);
+			r.color *= mat.color;
+			return 2;
+		}
+
+		else if(!mat.hasReflective && !mat.hasRefractive)
+		{
+			return 0;
+		}
+
+		//both refract and reflect, using fresnel
+		else
+		{
+			Fresnel fres = calculateFresnel(normal,r.direction,n1,n2,reflectDir,transmitDir);
+			float newDice = (float)distribution((eng));
+			//fres.reflectionCoefficient = 0.3f;
+			//fres.transmissionCoefficient = 0.7f;
+			//to reflect
+			if( newDice < fres.reflectionCoefficient)
+			//if( dice < (1.0f -mat.diffuseCoe) * fres.reflectionCoefficient + mat.diffuseCoe)
+			{
+				r.direction = reflectDir;
+				r.origin = intersect + RAY_SPAWN_OFFSET * ((isInsideOut) ? (-normal): normal) ;
+				r.color *= mat.specularColor;
+				return 1;
+			}
+
+			//transmit
+			else
+			{
+				r.direction = transmitDir;
+				r.origin = intersect + RAY_SPAWN_OFFSET *  ((!isInsideOut) ? (-normal): normal);
+				r.color *= mat.color;
+				return 2;
+			}
+		}		
 	}
-
-
 	return 0;
 };
 
