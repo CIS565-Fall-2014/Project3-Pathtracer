@@ -52,25 +52,42 @@ glm::vec3 generateRandomNumberFromThread( glm::vec2 resolution,
 __host__
 __device__
 ray raycastFromCameraKernel( glm::vec2 resolution,
-							 float time,
+							 float current_iteration,
 							 int x,
 							 int y,
-							 glm::vec3 eye,
-							 glm::vec3 view,
-							 glm::vec3 up,
+							 glm::vec3 eyep,
+							 glm::vec3 vdir,
+							 glm::vec3 uvec,
 							 glm::vec2 fov )
 {
 	// TODO: Supersampled anti-aliasing.
 	// TODO: Depth of field.
 	// TODO: Motion blur.
 
+	// TODO: Compute a, m, h, and v otuside this method since they remain constant between rays.
+
+	// A - cross product of C and U
+	glm::vec3 a = glm::cross( vdir, uvec );
+	
+	// M - midpoint of frame buffer
+	glm::vec3 m = eyep + vdir;
+
+	// H - horizontal NDC value; parallel to A
+	glm::vec3 h = ( a * glm::length( vdir ) * ( float )tan( fov.x * ( PI / 180.0f ) ) ) / glm::length( a );
+	
+	// V - vertical NDC value; parallel to B
+	glm::vec3 v = glm::vec3( 0.0f, resolution.y * glm::length( h ) / resolution.x, 0.0f );
+
+	float sx = ( float )x / ( resolution.x - 1.0f );
+	float sy = 1.0f - ( ( float )y / ( resolution.y - 1.0f ) ); // TODO: The -1 here might flip the image vertically.
+	//float sy = ( float )y / ( resolution.y - 1.0f );
+
+	glm::vec3 image_point = m + ( ( 2.0f * sx - 1.0f ) * h ) + ( ( 2.0f * sy - 1.0f ) * v );
+	glm::vec3 dir = image_point - eyep;
+
 	ray r;
-	r.origin = glm::vec3( 0.0f,
-						  0.0f,
-						  0.0f );
-	r.direction = glm::vec3( 0.0f,
-							 0.0f,
-							 -1.0f );
+	r.origin = eyep;
+	r.direction = glm::normalize( dir );
 	return r;
 }
 
@@ -143,11 +160,29 @@ void raytraceRay( glm::vec2 resolution,
 	int index = x + ( y * resolution.x );
 
 	if ( ( x <= resolution.x && y <= resolution.y ) ) {
+		ray r = raycastFromCameraKernel( resolution,
+										 current_iteration,
+										 x,
+										 y,
+										 cam.position,
+										 cam.view,
+										 cam.up,
+										 cam.fov );
 
-		// TODO: Generate a ray by calling raycastFromCameraKernel(). 
+		// Coloring the output image to test for correct ray direction computations.
+		glm::vec3 dir_test = r.direction;
+		if ( dir_test.x < 0.0f ) {
+			dir_test.x *= -1.0f;
+		}
+		if ( dir_test.y < 0.0f ) {
+			dir_test.y *= -1.0f;
+		}
+		if ( dir_test.z < 0.0f ) {
+			dir_test.z *= -1.0f;
+		}
+		image[index] = dir_test;
 
-		// TODO: Replace this random color with the computed pixel color.
-		image[index] = generateRandomNumberFromThread( resolution, current_iteration, x, y );
+		//image[index] = generateRandomNumberFromThread( resolution, current_iteration, x, y );
 	}
 }
 
@@ -219,8 +254,6 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	cam.view = render_cam->views[frame];
 	cam.up = render_cam->ups[frame];
 	cam.fov = render_cam->fov;
-
-	// TODO: Allocate GPU camera and send camera to GPU?
 
 	// TODO: Create a pool of rays to raycast?
 	// TODO: Call raycastFromCameraKernel(), probably.
