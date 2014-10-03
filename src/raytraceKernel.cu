@@ -105,15 +105,16 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
-#define MINNUM 0.001f
-__global__ void RaytraceColor(ray* remainrays,int raysnum,int currdepth,int maxdepth,
+__global__ void PathTraceColor(ray* remainrays,int raysnum,int currdepth,int maxdepth,
 	staticGeom* geoms, int numberOfGeoms, int* lightIndex, int lightNum,material* materials,float time)
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if(index<=raysnum)
 	{
 		ray r = remainrays[index];
+		if(!r.exist) return;
 
+		//clear all ray if currdepth == maxdepth
 		if(currdepth==maxdepth)
 		{
 			r.exist = false;
@@ -126,6 +127,7 @@ __global__ void RaytraceColor(ray* remainrays,int raysnum,int currdepth,int maxd
 		int IntersectgeomId = -1;
 		Intersect = Intersecttest(r,InterSectP,InterSectN,geoms,numberOfGeoms,IntersectgeomId);
 
+		//if the ray intersect with nothing, give it black/backgroundcolor
 		if(Intersect==false)
 		{
 			r.raycolor = glm::vec3(0,0,0);
@@ -135,38 +137,25 @@ __global__ void RaytraceColor(ray* remainrays,int raysnum,int currdepth,int maxd
 		}
 
 		material currMaterial = materials[geoms[IntersectgeomId].materialid];	
+		bool IsLight = false;
 		for(int i=0;i<lightNum;i++)
 		{
 			if(IntersectgeomId==lightIndex[i])
-			{
-				r.raycolor = r.raycolor * currMaterial.color * currMaterial.emittance;
-				r.exist = false;
-			}
+				IsLight = true;
 		}
 
-		if(currMaterial.hasReflective>MINNUM)
+		if(IsLight)
 		{
-			glm::vec3 VR = glm::reflect(r.direction, InterSectN);
-			r.origin = InterSectP + VR * (float)MINNUM;
-			r.direction = VR;
-		}
-		else if(currMaterial.hasRefractive > MINNUM)
-		{
-			glm::vec3 VR = glm::reflect(r.direction, InterSectN);
-			r.origin = InterSectP + VR * (float)MINNUM;
-			r.direction = VR;
+			r.raycolor = r.raycolor * currMaterial.color * currMaterial.emittance;
+			r.exist = false;
 		}
 		else
 		{
 			int seed = time * index * (currdepth + 1);
-			thrust::default_random_engine rng(hash(seed));
-			thrust::uniform_real_distribution<float> u01(0,1);
-			r.direction = calculateRandomDirectionInHemisphere(InterSectN, (float)u01(rng), (float)u01(rng));
-			r.origin = InterSectP + MINNUM * r.direction;
-			//r.exist = false;  
+		    calculateBSDF(r,InterSectP,InterSectN,currMaterial,seed,currdepth);	
+			r.raycolor = r.raycolor * currMaterial.color;
 		}
-
-		r.raycolor = r.raycolor * currMaterial.color ;
+		
 
 		remainrays[index] = r;		
 	}
@@ -192,12 +181,14 @@ __global__ void InitRays(ray* rays, glm::vec2 resolution, cameraData cam, float 
 
 	if((x<=resolution.x && y<=resolution.y))
 	{
-		//thrust::default_random_engine rng(hash(index*time));
-		//thrust::uniform_real_distribution<float> u01(-1.0, 1.0);
-		ray r = raycastFromCameraKernel(resolution,0.0f, x, y,cam.position,cam.view,cam.up,cam.fov);
+		//anti-aliasing
+		thrust::default_random_engine rng(hash(index*time));
+		thrust::uniform_real_distribution<float> u01(0, 1);
+		ray r = raycastFromCameraKernel(resolution,0.0f, x + float(u01(rng)) -0.5f, y+float(u01(rng))-0.5f,cam.position,cam.view,cam.up,cam.fov);
 		r.exist = true;
 		r.initindex = index;
 		r.raycolor = glm::vec3(1,1,1);
+		r.IOR = 1.0f;
 		rays[index] = r;
 	}
 }
@@ -206,7 +197,7 @@ __global__ void InitRays(ray* rays, glm::vec2 resolution, cameraData cam, float 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
 
-	int traceDepth = 5; //determines how many bounces the raytracer traces
+	int traceDepth = 8; //determines how many bounces the raytracer traces
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -305,7 +296,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	// kernel launches
 	for(int i=0;i<=traceDepth;i++)
 	{
-		RaytraceColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudarays,numberOfInitrays,i,traceDepth,cudageoms,numberOfGeoms,cudalightIds,lcount,cudamaterials,(float)iterations);
+		PathTraceColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudarays,numberOfInitrays,i,traceDepth,cudageoms,numberOfGeoms,cudalightIds,lcount,cudamaterials,(float)iterations);
+
 	    AddColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudaimage, cudarays,numberOfInitrays);
 	}
 

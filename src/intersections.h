@@ -108,7 +108,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	ray rt; rt.origin = ro; rt.direction = rd;
 
 	float sign=1.0f;
-	if(abs(rt.origin.x)-0.5<=0.0f&&abs(rt.origin.y)-0.5<=0.0f&&abs(rt.origin.z)-0.5<=0.0f)
+	if(abs(rt.origin.x)-0.5<0&&abs(rt.origin.y)-0.5<0&&abs(rt.origin.z)-0.5<0)
 		sign=-1.0f;
 
 	double tnear = -999999;
@@ -164,7 +164,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(P, 1.0));
 
 	intersectionPoint = realIntersectionPoint;
-	normal = glm::normalize(sign * multiplyMV(box.transinverseTransform, glm::vec4(normal,0)));
+	normal = glm::normalize(sign * multiplyMV(box.transform, glm::vec4(normal,0)));
 
 	return glm::length(r.origin - realIntersectionPoint);
 }
@@ -177,6 +177,10 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
         
   glm::vec3 ro = multiplyMV(sphere.inverseTransform, glm::vec4(r.origin,1.0f));
   glm::vec3 rd = glm::normalize(multiplyMV(sphere.inverseTransform, glm::vec4(r.direction,0.0f)));
+
+  float sign=1.0f;
+  if(sqrt(glm::dot(ro,ro))<radius)
+	  sign=-1.0f;
 
   ray rt; rt.origin = ro; rt.direction = rd;
   
@@ -204,7 +208,7 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   glm::vec3 realOrigin = multiplyMV(sphere.transform, glm::vec4(0,0,0,1));
 
   intersectionPoint = realIntersectionPoint;
-  normal = glm::normalize(realIntersectionPoint - realOrigin);
+  normal = glm::normalize(sign*(realIntersectionPoint - realOrigin));
         
   return glm::length(r.origin - realIntersectionPoint);
 }

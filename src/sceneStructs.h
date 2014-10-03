@@ -19,6 +19,7 @@ struct ray {
 	bool exist;
 	glm::vec3 raycolor;
 	int initindex;
+	float IOR; //REFRIOR
 };
 
 struct geom {

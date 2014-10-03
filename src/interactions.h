@@ -38,23 +38,49 @@ __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, Abs
   return false;
 }
 
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION 
+//Useless as I caculate ray in/out of object in intersection test and just use glm::refract
 __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
   return glm::vec3(0,0,0);
 }
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+//Useless as I caculate ray in/out of object in intersection test and just use glm::reflect
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
   //nothing fancy here
   return glm::vec3(0,0,0);
 }
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
+__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 rdirect, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
   Fresnel fresnel;
+  float n1 = incidentIOR;
+  float n2 = transmittedIOR;
+  float n = n1 / n2;
 
-  fresnel.reflectionCoefficient = 1;
-  fresnel.transmissionCoefficient = 0;
+  rdirect = glm::normalize(rdirect);
+  normal = glm::normalize(normal);
+  float c1 = glm::dot(-rdirect, normal);
+  float c2 = 1 - (n*n)*(1 - c1*c1);
+
+  if(c2>=0)
+  {
+	  c2 = sqrt(c2);
+	  float R1 = glm::abs( (n1*c1 - n2*c2) / (n1*c1 + n2*c2) ) * glm::abs( (n1*c1 - n2*c2) / (n1*c1 + n2*c2) );
+	  float R2 = glm::abs( (n1*c2 - n2*c1) / (n1*c2 + n2*c1) ) * glm::abs( (n1*c2 - n2*c1) / (n1*c2 + n2*c1) );
+
+	  float R = (R1 + R2) / 2.0f;
+	  float T = 1.0 - R;
+
+	  fresnel.reflectionCoefficient   = R;
+	  fresnel.transmissionCoefficient = T;
+  }
+  else
+  {
+	  fresnel.reflectionCoefficient   = 1.0f;
+	  fresnel.transmissionCoefficient = 0;
+  }
+
   return fresnel;
 }
 
@@ -100,6 +126,66 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
 // Returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
+#define MINNUM 0.001f
+__host__ __device__ int calculateBSDF(ray& r, glm::vec3 InterSectP,glm::vec3 InterSectN, material m,float randomSeed,int depth){
+
+	thrust::uniform_real_distribution<float> u01(0,1);
+	thrust::default_random_engine rng(hash(randomSeed));
+	float russianRoulette = (float)u01(rng);
+	if(depth>5 && russianRoulette < 0.2){   //russian roulette rule: ray is absorbed
+		r.exist = false;
+	}
+	//Only diffuse
+	if(m.hasReflective<MINNUM&&m.hasRefractive<MINNUM)	
+	{
+		//diffuse reflect
+		r.direction = calculateRandomDirectionInHemisphere(InterSectN, (float)u01(rng), (float)u01(rng));
+		r.origin = InterSectP + MINNUM * r.direction;
+		r.IOR = 1.0f;
+		return 0;
+	}
+
+	float oldIOR = r.IOR;
+	float newIOR = m.indexOfRefraction;
+	glm::vec3 reflectR = glm::reflect(r.direction, InterSectN);
+	glm::vec3 refractR;
+	Fresnel fresnel;
+
+	if(m.hasRefractive>MINNUM)
+	{			
+		float reflect_range = -1;
+		float IOR12 = oldIOR/newIOR;
+		refractR = glm::refract(r.direction,InterSectN,IOR12);
+		fresnel = calculateFresnel(InterSectN,r.direction,oldIOR,newIOR,reflectR,refractR);
+
+		//return reflect ray,refract ray randomly depends on their Coefficients
+		if(m.hasReflective>MINNUM) 
+			reflect_range =  fresnel.reflectionCoefficient;  
+
+		if((float)u01(rng)<reflect_range)
+		{
+			r.direction = reflectR;
+			r.origin = InterSectP + MINNUM * r.direction;
+			r.IOR = newIOR;
+			return 1;
+		}
+		else
+		{
+			r.IOR = newIOR;
+			r.direction = refractR;
+			r.origin = InterSectP + MINNUM * r.direction;
+			return 2;
+		}
+	}
+	else
+	{
+		r.IOR = 1.0f;
+		r.direction = reflectR;
+		r.origin = InterSectP + MINNUM * r.direction;
+		return 1;
+	}
+};
+
 __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
                                        AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
                                        glm::vec3& color, glm::vec3& unabsorbedColor, material m){

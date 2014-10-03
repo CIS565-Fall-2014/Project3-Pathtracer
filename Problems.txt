@@ -1,0 +1,2 @@
+White points on diffuse sphere: Russian to eliminate diffuse less than 0.2
+Fresnel: c1 maybe less than zero
