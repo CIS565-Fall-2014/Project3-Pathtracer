@@ -328,10 +328,12 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);
 	glm::vec3 pixelColor(0, 0, 0);
+
+	int currentDepth = 0;
 	if((x < resolution.x && y < resolution.y )){
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
-		/*
-		while(rayDepth > 0){
+		
+		while(currentDepth < rayDepth){
 		
 
 			glm::vec3 directRadiance;
@@ -368,6 +370,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 
 			if(hitCheck == false){ //Terminate the ray
+				radianceBuffer[currentDepth + index * rayDepth] = glm::vec3(0,0,0);
 				directRadiance = glm::vec3(0,0,0);
 				//TODO: save the direct radiance
 				break;
@@ -376,6 +379,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				material mate = materials[hitObjectIndex];
 		
 				if(mate.emittance != 0){ //hit light, so terminate the ray
+					radianceBuffer[currentDepth + index * rayDepth] = mate.color * mate.emittance / 5.0f;
 					directRadiance = mate.color * mate.emittance / 5.0f;
 					//TODO: save the direct radiance
 					break;
@@ -429,28 +433,28 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 				//Direct Radiance
 				directRadiance /= numberOfLights;
-
+				radianceBuffer[currentDepth + index * rayDepth] = directRadiance;
 
 			}
 
 
-			--rayDepth;
+			++currentDepth;
 		}
 
 		glm::vec3 radiance;
 		for(int d = rayDepth; d > 0; --d){
 
-			radiance = directRadiance[d-1] + (float)DEPTH_WEIGHT * radiance;
+			radiance = radianceBuffer[d - 1 + index * rayDepth] + (float)DEPTH_WEIGHT * radiance;
 
 			//newRadiance = DirectMat1 * L + DEPTH_WEIGHT * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L + weigth3 * indirectMat3 ) )
 			//Radiance = DirectMat1 * L + weigth1 * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L ) )
-		}*/
+		}
 
-		glm::vec3 newColorEnergy = raytraceRecursive(r, rayDepth, lightPos, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
+		//glm::vec3 newColorEnergy = raytraceRecursive(r, rayDepth, lightPos, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
 
 
-		glm::vec3 oldColorEnergy = colors[index] * (time - 1);
-		glm::vec3 newColor = (newColorEnergy + oldColorEnergy) / time;
+		glm::vec3 accumulateRadiance = colors[index] * (time - 1);
+		glm::vec3 newColor = (radiance + accumulateRadiance) / time;
 
 
 
