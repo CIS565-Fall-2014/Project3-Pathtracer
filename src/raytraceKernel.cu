@@ -347,7 +347,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
 	int traceDepth = 1; //determines how many bounces the raytracer traces
-	int numberOfLights = 1;
+	int numberOfLights = 100;
 
 	// set up crucial magic
 	int tileSize = 8;
