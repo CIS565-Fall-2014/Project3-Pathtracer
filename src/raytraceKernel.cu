@@ -320,7 +320,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
-__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
+__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors, glm::vec3* radianceBuffer,
                             material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms,
 							glm::vec3* lightPos, glm::vec3* lightColor, int numberOfLights ){
 
@@ -333,10 +333,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 		/*
 		while(rayDepth > 0){
 		
-			//Radiance = DirectMat1 * L + weigth1 * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L + weigth3 * indirectMat3 ) )
-			//Radiance = DirectMat1 * L + weigth1 * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L ) )
-			glm::vec3 directRadiance;
 
+			glm::vec3 directRadiance;
 
 			bool hitCheck = false;
 			float shortestDis = -1;
@@ -386,12 +384,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)EPSILON;//給一個epsloon避免ray打進去face裡面
 				glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)EPSILON;//給一個epsloon讓ray打進去face裡面
 
-				//Diffuse Color
-				glm::vec3 diffuseColor = glm::vec3(0, 0, 0);
-
-				//Specular Color
-				glm::vec3 specularColor = glm::vec3(0, 0, 0);
-
+				//Direct Radiance
+				glm::vec3 directRadiance = glm::vec3(0, 0, 0);
 
 				for(int i = 0 ; i < numberOfLights ; i++){
 					ray hitPt2LightRay;
@@ -427,24 +421,14 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 					if(lightObstructCheck == false){
 
-						diffuseColor += getDiffuseColor(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], intersectionNormal, mate.color);
-						if(mate.specularExponent >= 1)
-							specularColor += getSpecularColor(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], r, intersectionNormal, mate.specularColor, mate.specularExponent);
+						directRadiance += getDirectRadiance(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], r, intersectionNormal, mate.color, mate.specularColor, mate.specularExponent);
 					}
 
 				}
 
 
 				//Direct Radiance
-				diffuseColor /= numberOfLights;
-				specularColor /= numberOfLights;
-			
-
-				directRadiance = diffuseColor + specularColor;
-
-				if(rayDepth == 1){
-					return glm::vec3(0,0,0); // No indirect radiance
-				}
+				directRadiance /= numberOfLights;
 
 
 			}
@@ -453,9 +437,13 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 			--rayDepth;
 		}
 
-		glm::vec3 newRadiance;
-		for(int d = rayDepth; d >= 0; --d){
+		glm::vec3 radiance;
+		for(int d = rayDepth; d > 0; --d){
+
+			radiance = directRadiance[d-1] + (float)DEPTH_WEIGHT * radiance;
+
 			//newRadiance = DirectMat1 * L + DEPTH_WEIGHT * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L + weigth3 * indirectMat3 ) )
+			//Radiance = DirectMat1 * L + weigth1 * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L ) )
 		}*/
 
 		glm::vec3 newColorEnergy = raytraceRecursive(r, rayDepth, lightPos, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
@@ -492,6 +480,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
 	cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
+	//Create radiance buffer
+	glm::vec3* cudaRadianceBuffer = NULL;
+	cudaMalloc((void**)&cudaRadianceBuffer, traceDepth * (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3));
+
 	// package geometry and materials and sent to GPU
 	staticGeom* geomList = new staticGeom[numberOfGeoms];
 	for(int i=0; i<numberOfGeoms; i++){
@@ -566,16 +558,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	glm::vec3* cudaLightPos = NULL;
 	cudaMalloc((void**)&cudaLightPos, numberOfLights *sizeof(glm::vec3));
 	cudaMemcpy( cudaLightPos, lightSource, numberOfLights * sizeof(glm::vec3), cudaMemcpyHostToDevice);
-  
-	glm::vec3* cudaLightRay = NULL;
-	cudaMalloc((void**)&cudaLightRay, numberOfLights *sizeof(glm::vec3));
 
 	glm::vec3* cudaLightColor = NULL;
 	cudaMalloc((void**)&cudaLightColor, numberOfLights *sizeof(glm::vec3));
 	cudaMemcpy( cudaLightColor, lightColor, numberOfLights * sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
-	glm::vec3* cudaLightColorWithoutObstruct = NULL;
-	cudaMalloc((void**)&cudaLightColorWithoutObstruct, numberOfLights *sizeof(glm::vec3));
+
+
 
 
 	// package camera
@@ -587,8 +576,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cam.fov = renderCam->fov;
 
 	// kernel launches
-	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaMaterials, numberOfMaterials, 
-														cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights);
+	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
+														cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights);
 
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
@@ -597,12 +586,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	// free up stuff, or else we'll leak memory like a madman
 	cudaFree( cudaimage );
+	cudaFree( cudaRadianceBuffer );
 	cudaFree( cudageoms );
 	cudaFree( cudaMaterials );
 	cudaFree( cudaLightPos );
-	cudaFree( cudaLightRay );
 	cudaFree( cudaLightColor );
-	cudaFree( cudaLightColorWithoutObstruct );
+
 	delete geomList;
 	delete lightSource; 
 	delete lightColor;
