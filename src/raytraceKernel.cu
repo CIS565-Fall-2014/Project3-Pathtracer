@@ -124,9 +124,9 @@ __host__ __device__ glm::vec3 getDiffuseColor(glm::vec3* light, glm::vec3* light
 		//diffuseColor.z += materialColor.z * lightColor[i].z;
 
 
-		diffuseColor.x += newDiffuseTerm * materialColor.x * lightColor[i].x;
-		diffuseColor.y += newDiffuseTerm * materialColor.y * lightColor[i].y;
-		diffuseColor.z += newDiffuseTerm * materialColor.z * lightColor[i].z;
+		diffuseColor.x += newDiffuseTerm;// * materialColor.x * lightColor[i].x;
+		diffuseColor.y += newDiffuseTerm;// * materialColor.y * lightColor[i].y;
+		diffuseColor.z += newDiffuseTerm;// * materialColor.z * lightColor[i].z;
 	}
 	if(numberOfLight != 0)
 		diffuseColor /= numberOfLight;
