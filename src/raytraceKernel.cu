@@ -333,9 +333,9 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 	if((x < resolution.x && y < resolution.y )){
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 		
+
 		while(currentDepth < rayDepth){
 		
-
 			glm::vec3 directRadiance;
 
 			bool hitCheck = false;
@@ -434,11 +434,14 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				//Direct Radiance
 				directRadiance /= numberOfLights;
 				radianceBuffer[currentDepth + index * rayDepth] = directRadiance;
-
+				++currentDepth;
+				
+				//r.direction = calculateRandomDirectionInHemisphere(intersectionNormal, x * 
+				//calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
+    //                                   AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
+    //                                   glm::vec3& color, glm::vec3& unabsorbedColor, material m)
+				//calculateBSDF(r, newEyePositionOut, intersectionNormal, mate.color, 
 			}
-
-
-			++currentDepth;
 		}
 
 		glm::vec3 radiance;
