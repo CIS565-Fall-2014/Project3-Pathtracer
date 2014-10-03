@@ -8,6 +8,7 @@
 #ifndef RAYTRACEKERNEL_H
 #define RAYTRACEKERNEL_H
 
+
 #include <stdio.h>
 #include <thrust/random.h>
 #include <cuda.h>

@@ -62,6 +62,32 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	return r;
 }
 
+__host__ __device__ glm::vec3 getDirectRadiance(glm::vec3 light, glm::vec3 lightColor, ray r, glm::vec3 faceNormal, glm::vec3 materialColor, glm::vec3 materialSpecularColor, float specularExp){
+	glm::vec3 directMaterialColor(0,0,0);
+
+	glm::vec3 reflectLight = -1.0f * glm::normalize( light - faceNormal * 2.0f * glm::dot(light, faceNormal));
+
+	float specularTerm = 0.0f;
+	float dotProduct = glm::dot(r.direction, reflectLight);
+	if(dotProduct < 0 || specularExp < 1)
+		specularTerm = 0;
+	else{
+		specularTerm = pow(dotProduct, specularExp);
+	}
+
+	float diffuseTerm = glm::dot(-1.0f * light, faceNormal);
+	if(diffuseTerm < 0)
+		diffuseTerm = 0;
+
+	directMaterialColor.x +=( specularTerm * materialSpecularColor.x + diffuseTerm * materialColor.x) * lightColor.x;
+	directMaterialColor.y += (specularTerm * materialSpecularColor.y + diffuseTerm * materialColor.y) * lightColor.y;
+	directMaterialColor.z += (specularTerm * materialSpecularColor.z + diffuseTerm * materialColor.z) * lightColor.z;
+
+
+	
+	return directMaterialColor;
+}
+
 __host__ __device__ glm::vec3 getSpecularColor(glm::vec3 light, glm::vec3 lightColor, ray r, glm::vec3 faceNormal, glm::vec3 materialSpecularColor, float specularExp){
 
 	glm::vec3 specularColor(0,0,0);
@@ -178,11 +204,9 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 		//newDiffuseRay.origin  = newEyePositionOut;
 		//newReflectRay.direction = calculateRandomDirectionInHemisphere(intersectionNormal, (float)u01(rng), (float)u01(rng));
 
-		//Diffuse Color
-		glm::vec3 diffuseColor = glm::vec3(0, 0, 0);
 
-		//Specular Color
-		glm::vec3 specularColor = glm::vec3(0, 0, 0);
+		//Direct Radiance
+		glm::vec3 directRadiance = glm::vec3(0, 0, 0);
 
 		for(int i = 0 ; i < numberOfLights ; i++){
 			ray hitPt2LightRay;
@@ -217,18 +241,14 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 			}
 
 			if(lightObstructCheck == false){
-
-
-				diffuseColor += getDiffuseColor(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], intersectionNormal, mate.color);
-				if(mate.specularExponent >= 1)
-					specularColor += getSpecularColor(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], r, intersectionNormal, mate.specularColor, mate.specularExponent);
+				directRadiance += getDirectRadiance(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], r, intersectionNormal, mate.color, mate.specularColor, mate.specularExponent);
 			}
 
 		}
 
 
-		diffuseColor /= numberOfLights;
-		specularColor /= numberOfLights;
+		directRadiance /= numberOfLights;
+
 		
 
 
@@ -248,7 +268,7 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 			refractColor = glm::vec3(0,0,0);
 
 
-		glm::vec3 currentPtColor = diffuseColor + specularColor;// + reflectColor;
+		glm::vec3 currentPtColor = directRadiance;// + reflectColor;
 		return currentPtColor;
 	}
 
@@ -372,7 +392,6 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				//Specular Color
 				glm::vec3 specularColor = glm::vec3(0, 0, 0);
 
-				int numberOfLightWithoutObsctruct = 0;
 
 				for(int i = 0 ; i < numberOfLights ; i++){
 					ray hitPt2LightRay;
@@ -408,43 +427,43 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 					if(lightObstructCheck == false){
 
-
 						diffuseColor += getDiffuseColor(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], intersectionNormal, mate.color);
 						if(mate.specularExponent >= 1)
 							specularColor += getSpecularColor(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], r, intersectionNormal, mate.specularColor, mate.specularExponent);
-						numberOfLightWithoutObsctruct++;
 					}
 
 				}
 
 
 				//Direct Radiance
-				if(numberOfLightWithoutObsctruct != 0){
-					diffuseColor /= numberOfLightWithoutObsctruct;
-					specularColor /= numberOfLightWithoutObsctruct;
-				}
+				diffuseColor /= numberOfLights;
+				specularColor /= numberOfLights;
+			
 
 				directRadiance = diffuseColor + specularColor;
 
 				if(rayDepth == 1){
 					return glm::vec3(0,0,0); // No indirect radiance
 				}
+
+
 			}
 
 
-
-
 			--rayDepth;
+		}
+
+		glm::vec3 newRadiance;
+		for(int d = rayDepth; d >= 0; --d){
+			//newRadiance = DirectMat1 * L + DEPTH_WEIGHT * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L + weigth3 * indirectMat3 ) )
 		}*/
 
-		glm::vec3 newColorEnergy =raytraceRecursive(r, rayDepth, lightPos, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
+		glm::vec3 newColorEnergy = raytraceRecursive(r, rayDepth, lightPos, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
+
+
 		glm::vec3 oldColorEnergy = colors[index] * (time - 1);
 		glm::vec3 newColor = (newColorEnergy + oldColorEnergy) / time;
 
-		//glm::vec3* test = new glm::vec3[5];
-
-
-		//colors[index] = newColor;
 
 
 		//colors[index] = colorBRDF + colorReflect;
