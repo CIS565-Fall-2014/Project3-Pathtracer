@@ -169,19 +169,73 @@ void raytraceRay( glm::vec2 resolution,
 										 cam.up,
 										 cam.fov );
 
-		// Coloring the output image to test for correct ray direction computations.
-		glm::vec3 dir_test = r.direction;
-		if ( dir_test.x < 0.0f ) {
-			dir_test.x *= -1.0f;
-		}
-		if ( dir_test.y < 0.0f ) {
-			dir_test.y *= -1.0f;
-		}
-		if ( dir_test.z < 0.0f ) {
-			dir_test.z *= -1.0f;
-		}
-		image[index] = dir_test;
 
+		////////////////////////////////////////////////////
+		// Intersection testing.
+		////////////////////////////////////////////////////
+
+		float dist_to_intersection = FLT_MAX;
+		glm::vec3 intersection_point;
+		glm::vec3 normal;
+
+		float temp_dist_to_intersection = -1.0f;
+		glm::vec3 temp_intersection_point;
+		glm::vec3 temp_normal;
+
+		bool did_intersect = false;
+
+		// Find nearest intersection, if any.
+		for ( int i = 0; i < num_geoms; ++i ) {
+			if ( geoms[i].type == SPHERE ) {
+				temp_dist_to_intersection = sphereIntersectionTest( geoms[i],
+																	r,
+																	temp_intersection_point,
+																	temp_normal );
+			}
+			else if ( geoms[i].type == CUBE ) {
+				// TODO: boxIntersectionTest().
+			}
+			else if ( geoms[i].type == MESH ) {
+				// TODO: meshIntersectionTest() or triangleIntersectionTest().
+			}
+
+			// Update nearest intersection if closer intersection has been found.
+			if ( temp_dist_to_intersection > 0.0f && temp_dist_to_intersection < dist_to_intersection ) {
+				dist_to_intersection = temp_dist_to_intersection;
+				intersection_point = temp_intersection_point;
+				normal = temp_normal;
+
+				did_intersect = true;
+			}
+		}
+
+
+		////////////////////////////////////////////////////
+		// Write output.
+		////////////////////////////////////////////////////
+
+		// Test sphere intersections.
+		if ( did_intersect ) {
+			image[index] = glm::vec3( 1.0f, 1.0f, 1.0f );
+		}
+		else {
+			image[index] = glm::vec3( 0.0f, 0.0f, 0.0f );
+		}
+
+		// Color output image to test for correct ray direction computations.
+		//glm::vec3 dir_test = r.direction;
+		//if ( dir_test.x < 0.0f ) {
+		//	dir_test.x *= -1.0f;
+		//}
+		//if ( dir_test.y < 0.0f ) {
+		//	dir_test.y *= -1.0f;
+		//}
+		//if ( dir_test.z < 0.0f ) {
+		//	dir_test.z *= -1.0f;
+		//}
+		//image[index] = dir_test;
+
+		// Assign random colors to output image pixels.
 		//image[index] = generateRandomNumberFromThread( resolution, current_iteration, x, y );
 	}
 }
@@ -201,8 +255,7 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	// TODO: Is there a reason tile_size = 8?
 	// TODO: Do the image x- and y-resolutions always need to be multiples of tile_size to ensure full blocks?
 	// TODO: Do the ray pooling thing. That probably goes here since this is the "memory management" method.
-	// TODO: A complete iteration needs to be completed inside this method. Meaning, a ray must be launched and
-	//	resolved (color value computed) for each pixel in the image.
+
 
 	// Setup crucial magic.
 	int tile_size = 8;
@@ -254,9 +307,6 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	cam.view = render_cam->views[frame];
 	cam.up = render_cam->ups[frame];
 	cam.fov = render_cam->fov;
-
-	// TODO: Create a pool of rays to raycast?
-	// TODO: Call raycastFromCameraKernel(), probably.
 
 	// Launch raytraceRay kernel.
 	raytraceRay<<< full_blocks_per_grid, threads_per_block >>>( render_cam->resolution,

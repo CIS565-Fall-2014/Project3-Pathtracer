@@ -14,6 +14,7 @@
 ////////////////////////////////////////////////////
 
 const std::string SCENE_FILE_NAME = "sampleScene";
+const std::string OUTPUT_IMAGE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\renders\\";
 
 
 //-------------------------------
@@ -150,8 +151,9 @@ void runCuda(){
       stringstream out;
       out << targetFrame;
       s = out.str();
-      utilityCore::replaceString(filename, ".bmp", "."+s+".bmp");
+	  utilityCore::replaceString(filename, ".bmp", "."+s+".bmp");
       utilityCore::replaceString(filename, ".png", "."+s+".png");
+	  filename = OUTPUT_IMAGE_PATH + filename; // Danny was here.
       outputImage.saveImageRGB(filename);
       cout << "Saved frame " << s << " to " << filename << endl;
       finishedRender = true;
