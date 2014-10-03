@@ -111,61 +111,72 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
   return 1;
 };
 
-__host__ __device__ int calculateSelfBSDF(ray& r, staticGeom geom, glm::vec3 intersectIn, glm::vec3 intersectOut, glm::vec3 normal, material m, float xi1, float xi2){
+__host__ __device__ int calculateSelfBSDF(ray& r, staticGeom geom, glm::vec3 intersectIn, glm::vec3 intersectOut, glm::vec3 normal, material m, float xi1, float xi2, int& restDepth){
 
-	if(m.hasReflective == true){
+	if(m.hasReflective == 1){
 		r.origin = intersectOut;
 		r.direction = glm::normalize(r.direction - 2.0f * normal * glm::dot(normal, r.direction));
+
+		return 1;
 	}
  
-	if(m.hasRefractive == true){
+	if(m.hasRefractive == 1){
 
 		//from air to object
 		float airToObjCosTheta1 = -1 * glm::dot(r.direction, normal);
 		float airToObjCosTheta2Square = 1 - (1 / pow(m.indexOfRefraction, 2)) * (1 - pow(airToObjCosTheta1, 2));
 
-
 		ray insideRay;
 		insideRay.direction = glm::normalize(r.direction / m.indexOfRefraction + (airToObjCosTheta1 / m.indexOfRefraction - sqrt(airToObjCosTheta2Square)) * normal);
 		insideRay.origin = intersectIn;
+		while(restDepth > 0){
+			float dis = -1;
+			glm::vec3 objIntersectPt(0, 0, 0);
+			glm::vec3 objIntersectN(0, 0, 0);
+			switch(geom.type){
+				case SPHERE:
+					dis = sphereIntersectionTest(geom, r, objIntersectPt, objIntersectN);
+					break;
+				case CUBE:
+					dis = boxIntersectionTest(geom, r, objIntersectPt, objIntersectN);
+					break;
+				case MESH:
+					break;
+			}
 
-		float dis = -1;
-		glm::vec3 objIntersectPt(0, 0, 0);
-		glm::vec3 objIntersectN(0, 0, 0);
-		switch(geom.type){
-			case SPHERE:
-				dis = sphereIntersectionTest(geom, r, objIntersectPt, objIntersectN);
+			//from object back to air
+			float refractionRatioObjToAir = 1 / m.indexOfRefraction;
+			float objToAirCosTheta1 = -1 * glm::dot(insideRay.direction, objIntersectN);
+			float objToAirCosTheta2Square = 1 - (1 / pow(refractionRatioObjToAir, 2)) * (1 - pow(objToAirCosTheta1, 2));
+
+			if(objToAirCosTheta2Square > 0){//§é®g¬ï³z
+				r.origin = objIntersectPt +  insideRay.direction * (float)EPSILON;
+				r.direction = glm::normalize(insideRay.direction / refractionRatioObjToAir + (objToAirCosTheta1 / refractionRatioObjToAir - sqrt(objToAirCosTheta2Square)) * objIntersectN);
 				break;
-			case CUBE:
-				dis = boxIntersectionTest(geom, r, objIntersectPt, objIntersectN);
+			}
+			else if(objToAirCosTheta2Square == 0){//Á{¬É¨¤
+				r.origin = intersectOut;
+				r.direction = glm::vec3(0, 0, 0);
 				break;
-			case MESH:
-				break;
+			}
+			else{
+				insideRay.origin = objIntersectPt - insideRay.direction * (float)EPSILON;
+				insideRay.direction = insideRay.direction - 2.0f * objIntersectN * glm::dot(objIntersectN, insideRay.direction);
+				r.origin = intersectOut;
+				r.direction = glm::vec3(0, 0, 0);
+				restDepth--;
+			}
 		}
-
-
-		//from object back to air
-		float refractionRatioObjToAir = 1 / m.indexOfRefraction;
-		float objToAirCosTheta1 = -1 * glm::dot(insideRay.direction, objIntersectN);
-		float objToAirCosTheta2Square = 1 - (1 / pow(refractionRatioObjToAir, 2)) * (1 - pow(objToAirCosTheta1, 2));
-
-		if(objToAirCosTheta2Square > 0){//§é®g¬ï³z
-			r.origin = objIntersectPt +  insideRay.direction * (float)EPSILON;
-			r.direction = glm::normalize(insideRay.direction / refractionRatioObjToAir + (objToAirCosTheta1 / refractionRatioObjToAir - sqrt(objToAirCosTheta2Square)) * objIntersectN);
-		}
-		else if(objToAirCosTheta2Square == 0){//Á{¬É¨¤
-			r.origin = intersectOut;
-			r.direction = glm::vec3(0, 0, 0);
-		}
-		else{
-			
-		}
-
+		return 2;
 	}
 
-	if(m.hasScatter == true){
+	if(m.hasScatter == 1){
 		r.origin = intersectOut;
 		r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, xi1, xi2));
+		//r.direction = glm::vec3(-1,0,0);
+		//r.direction = glm::normalize(r.direction - 2.0f * normal * glm::dot(normal, r.direction));
+
+		return 0;
 	}
 
   return 1;

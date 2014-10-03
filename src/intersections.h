@@ -197,28 +197,68 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	float tx1 = -1, tx2 = -1, ty1 = -1, ty2 = -1, tz1 = -1, tz2 = -1;
 	int xNormal = 0, yNormal = 0, zNormal = 0;
 
-	if(rd.x > 0 && ro.x < -0.5){
-		tx1 = intersectRec(ro, rd, p4, p2, p6, p8, normal_p4_p2_p6_p8);
+	if(rd.x > 0){
+		if(ro.x < -0.5){
+			tx1 = intersectRec(ro, rd, p4, p2, p6, p8, normal_p4_p2_p6_p8);
+		}
+		else if(ro.x > -0.5 && ro.x < 0.5){
+			tx1 = intersectRec(ro, rd, p1, p3, p7, p5, normal_p1_p3_p7_p5);	
+		}
 		xNormal = 1;
-	}else if(rd.x < 0 && ro.x > 0.5){
-		tx1 = intersectRec(ro, rd, p1, p3, p7, p5, normal_p1_p3_p7_p5);
+	}else if(rd.x < 0){
+		if(ro.x > 0.5){	
+			tx1 = intersectRec(ro, rd, p1, p3, p7, p5, normal_p1_p3_p7_p5);
+		}
+		else if(ro.x > -0.5 && ro.x < 0.5){
+			tx1 = intersectRec(ro, rd, p4, p2, p6, p8, normal_p4_p2_p6_p8);
+		}
+
+
 		xNormal = -1;
 	}
 
-	if(rd.y > 0 && ro.y < -0.5){
-		ty1 = intersectRec(ro, rd, p3, p4, p8, p7, normal_p3_p4_p8_p7);
+	if(rd.y > 0){
+		if(ro.y < -0.5){	
+			ty1 = intersectRec(ro, rd, p3, p4, p8, p7, normal_p3_p4_p8_p7);
+		}
+		else if(ro.y > -0.5 && ro.y < 0.5){
+			ty1 = intersectRec(ro, rd, p1, p5, p6, p2, normal_p1_p5_p6_p2);
+		}
+
+
 		yNormal = 1;
-	}else if(rd.y < 0 && ro.y > 0.5){
-		ty1 = intersectRec(ro, rd, p1, p5, p6, p2, normal_p1_p5_p6_p2);
+	}else if(rd.y < 0){
+		if(ro.y > 0.5){		
+			ty1 = intersectRec(ro, rd, p1, p5, p6, p2, normal_p1_p5_p6_p2);
+		}
+		else if(ro.y > -0.5 && ro.y < 0.5){
+			ty1 = intersectRec(ro, rd, p3, p4, p8, p7, normal_p3_p4_p8_p7);
+		}
+
+
 		yNormal = -1;
 	}
 
-	if(rd.z > 0 && ro.z < -0.5){
-		tz1 = intersectRec(ro, rd, p5, p7, p8, p6, normal_p5_p7_p8_p6);
+	if(rd.z > 0){
+		if(ro.z < -0.5){		
+			tz1 = intersectRec(ro, rd, p5, p7, p8, p6, normal_p5_p7_p8_p6);
+		}
+		else if(ro.z > -0.5 && ro.z < 0.5){
+			tz1 = intersectRec(ro, rd, p1, p2, p4, p3, normal_p1_p2_p4_p3);
+		}
+
+
 		zNormal = 1;
 	}
-	else if(rd.z < 0 && ro.z > 0.5){
-		tz1 = intersectRec(ro, rd, p1, p2, p4, p3, normal_p1_p2_p4_p3);
+	else if(rd.z < 0){
+		if(ro.z > 0.5){		
+			tz1 = intersectRec(ro, rd, p1, p2, p4, p3, normal_p1_p2_p4_p3);
+		}
+		else if(ro.z > -0.5 && ro.z < 0.5){
+			tz1 = intersectRec(ro, rd, p5, p7, p8, p6, normal_p5_p7_p8_p6);
+		}
+
+
 		zNormal = -1;
 	}
 
@@ -290,20 +330,26 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   float t1 = firstTerm + squareRoot;
   float t2 = firstTerm - squareRoot;
 
+  bool outside;
   float t = 0;
   if (t1 < 0 && t2 < 0) {
       return -1;
   } else if (t1 > 0 && t2 > 0) {
       t = min(t1, t2);
+	  outside = true;
   } else {
       t = max(t1, t2);
+	  outside = false;
   }
 
   glm::vec3 realIntersectionPoint = multiplyMV(sphere.transform, glm::vec4(getPointOnRay(rt, t), 1.0));
   glm::vec3 realOrigin = multiplyMV(sphere.transform, glm::vec4(0,0,0,1));
 
   intersectionPoint = realIntersectionPoint;
-  normal = glm::normalize(realIntersectionPoint - realOrigin);
+  if(outside == true)
+	normal = glm::normalize(realIntersectionPoint - realOrigin);
+  else
+	normal = glm::normalize(realOrigin - realIntersectionPoint);
         
   return glm::length(r.origin - realIntersectionPoint);
 }

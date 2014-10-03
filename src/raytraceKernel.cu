@@ -331,6 +331,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 	int currentDepth = 0;
 	if((x < resolution.x && y < resolution.y )){
+	//if((x < 10 && y < 10 )){
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 		
 
@@ -434,18 +435,25 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				//Direct Radiance
 				directRadiance /= numberOfLights;
 				radianceBuffer[currentDepth + index * rayDepth] = directRadiance;
+
 				++currentDepth;
-				
-				//r.direction = calculateRandomDirectionInHemisphere(intersectionNormal, x * 
-				//calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
-    //                                   AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
-    //                                   glm::vec3& color, glm::vec3& unabsorbedColor, material m)
-				//calculateBSDF(r, newEyePositionOut, intersectionNormal, mate.color, 
+
+				thrust::default_random_engine rng(hash(index*time));
+				thrust::uniform_real_distribution<float> u01(0,1);
+
+				//Compute indirect ray
+				int restDepth = rayDepth - currentDepth;
+				if(currentDepth < rayDepth){
+					calculateSelfBSDF(r, geoms[hitObjectIndex], newEyePositionIn, newEyePositionOut, intersectionNormal, mate, u01(rng), u01(rng), restDepth);
+					currentDepth = rayDepth - restDepth;			
+				}
+
+
 			}
 		}
 
 		glm::vec3 radiance;
-		for(int d = rayDepth; d > 0; --d){
+		for(int d = rayDepth; d > 0; d--){
 
 			radiance = radianceBuffer[d - 1 + index * rayDepth] + (float)DEPTH_WEIGHT * radiance;
 
@@ -453,16 +461,18 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 			//Radiance = DirectMat1 * L + weigth1 * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L ) )
 		}
 
+		if(radiance.x > 1)
+			radiance /= radiance.x;
+		if(radiance.y > 1)
+			radiance /= radiance.y;
+		if(radiance.z > 1)
+			radiance /= radiance.z;
 		//glm::vec3 newColorEnergy = raytraceRecursive(r, rayDepth, lightPos, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
 
 
 		glm::vec3 accumulateRadiance = colors[index] * (time - 1);
 		glm::vec3 newColor = (radiance + accumulateRadiance) / time;
 
-
-
-		//colors[index] = colorBRDF + colorReflect;
-		//colors[index] = generateRandomNumberFromThread(resolution, 0, 0, 0);
 
 		colors[index] = newColor;
 	}
@@ -474,8 +484,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
-	int traceDepth = 1; //determines how many bounces the raytracer traces
-	int numberOfLights = 100;
+	int traceDepth = 5; //determines how many bounces the raytracer traces
+	int numberOfLights = 20;
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -488,8 +498,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
 	//Create radiance buffer
+	glm::vec3* radianceBuffer = new glm::vec3[ traceDepth * (int)renderCam->resolution.x * (int)renderCam->resolution.y];
+
 	glm::vec3* cudaRadianceBuffer = NULL;
 	cudaMalloc((void**)&cudaRadianceBuffer, traceDepth * (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3));
+	cudaMemcpy( cudaRadianceBuffer, radianceBuffer, traceDepth * (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
 	// package geometry and materials and sent to GPU
 	staticGeom* geomList = new staticGeom[numberOfGeoms];
@@ -602,6 +615,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	delete geomList;
 	delete lightSource; 
 	delete lightColor;
+	delete radianceBuffer;
 
 	// make certain the kernel has completed
 	cudaThreadSynchronize();
