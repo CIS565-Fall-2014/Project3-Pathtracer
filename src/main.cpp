@@ -74,7 +74,7 @@ void mainLoop() {
     glfwPollEvents();
     runCuda();
 
-    string title = "CIS565 Render | " + utilityCore::convertIntToString(iterations) + " Iterations";
+    string title = "Danny Rerucha's Pathtracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
 		glfwSetWindowTitle(window, title.c_str());
     
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
@@ -116,7 +116,14 @@ void runCuda(){
     }
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore( dptr,
+					  renderCam,
+					  targetFrame,
+					  iterations,
+					  materials,
+					  renderScene->materials.size(),
+					  geoms,
+					  renderScene->objects.size() );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -180,7 +187,7 @@ bool init(int argc, char* argv[]) {
 
   width = 800;
   height = 800;
-  window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
+  window = glfwCreateWindow(width, height, "Danny Rerucha's Pathtracer", NULL, NULL);
   if (!window){
       glfwTerminate();
       return false;
