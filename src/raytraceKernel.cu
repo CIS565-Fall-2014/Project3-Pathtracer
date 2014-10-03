@@ -71,29 +71,23 @@ __host__ __device__ glm::vec3 getSpecularColor(glm::vec3* light, glm::vec3* ligh
 	for(int i = 0; i < numberOfLight ; i++)
 	{
 		glm::vec3 reflectLight = -1.0f * glm::normalize( light[i] - faceNormal * 2.0f * glm::dot(light[i], faceNormal));
-		//reflectLight = -1.0f * reflectLight / sqrt(dot(reflectLight, reflectLight));
 
-		//float alpha = acos(glm::dot(r.direction, reflectLight));
-		//float specularTerm = pow(cos(alpha), specularExp);
 		float specularTerm = 0.0f;
 		float dotProduct = glm::dot(r.direction, reflectLight);
 		if(dotProduct < 0)
 			specularTerm = 0;
 		else{
-			specularTerm = pow(glm::dot(r.direction, reflectLight), specularExp);
+			specularTerm = pow(glm::dot(r.direction, reflectLight), 1);
 		}
-		//if(specularTerm < 0.0)
-		//	specularTerm = 0.0f;
-		//else if(specularTerm > 1.0)
-		//	specularTerm = 1.0f;
 
-		//specularColorR += specularTerm * lightColor[i].x;
-		//specularColorG += specularTerm * lightColor[i].y;
-		//specularColorB += specularTerm * lightColor[i].z;
 
 		specularColor += specularTerm * lightColor[i];
 	}
-	
+	if(numberOfLight != 0)
+		specularColor /= numberOfLight;
+	else
+		specularColor = glm::vec3(0, 0, 0);
+
 	//return glm::vec3(specularColorR, specularColorG, specularColorB);
 	return specularColor;
 }
@@ -102,15 +96,15 @@ __host__ __device__ glm::vec3 getDiffuseColor(glm::vec3* light, glm::vec3* light
 	glm::vec3 diffuseColor(0,0,0);
 
 
-	//float testR = faceNormal.x;
-	//if(testR < 0)
-	//	testR = 0;
-	//float testG = faceNormal.y;
-	//if(testG < 0)
-	//	testG = 0;
-	//float testB = faceNormal.z;
-	//if(testB < 0)
-	//	testB = 0;
+	float testR = faceNormal.x;
+	if(testR < 0)
+		testR = 0;
+	float testG = faceNormal.y;
+	if(testG < 0)
+		testG = 0;
+	float testB = faceNormal.z;
+	if(testB < 0)
+		testB = 0;
 	//diffuseColor = glm::vec3(testR, testG, testB);
 
 	//diffuseColor = materialColor;
@@ -121,19 +115,23 @@ __host__ __device__ glm::vec3 getDiffuseColor(glm::vec3* light, glm::vec3* light
 		if(newDiffuseTerm < 0)
 			newDiffuseTerm = 0;
 
+		//diffuseColor += glm::vec3(testR, testG, testB);
+
 		//if(newDiffuseTerm > 0)
 		//	newDiffuseTerm = 1;
-		diffuseColor.x += materialColor.x * lightColor[i].x;
-		diffuseColor.y += materialColor.y * lightColor[i].y;
-		diffuseColor.z += materialColor.z * lightColor[i].z;
+		//diffuseColor.x += materialColor.x * lightColor[i].x;
+		//diffuseColor.y += materialColor.y * lightColor[i].y;
+		//diffuseColor.z += materialColor.z * lightColor[i].z;
 
-		//diffuseColor.x += newDiffuseTerm * materialColor.x * lightColor[i].x;
-		//diffuseColor.y += newDiffuseTerm * materialColor.y * lightColor[i].y;
-		//diffuseColor.z += newDiffuseTerm * materialColor.z * lightColor[i].z;
+
+		diffuseColor.x += newDiffuseTerm * materialColor.x * lightColor[i].x;
+		diffuseColor.y += newDiffuseTerm * materialColor.y * lightColor[i].y;
+		diffuseColor.z += newDiffuseTerm * materialColor.z * lightColor[i].z;
 	}
-
-	diffuseColor /= numberOfLight;
-
+	if(numberOfLight != 0)
+		diffuseColor /= numberOfLight;
+	else
+		diffuseColor = glm::vec3(0, 0, 0);
 	//if(diffuseColor.x > 1)
 	//	diffuseColor = diffuseColor / diffuseColor.x;
 	//if(diffuseColor.y > 1)
@@ -272,9 +270,13 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 		glm::vec3 diffuseColor = getDiffuseColor(light2HitPtArray, lightColorWithoutObstruct, numberOfLightWithoutObsctruct, intersectionNormal, mate.color);
 
 		//Specular Color
-		//glm::vec3 specularColor = getSpecularColor(light2HitPtArray, lightColorWithoutObstruct, numberOfLightWithoutObsctruct, r, intersectionNormal, mate.specularColor, mate.specularExponent);
+		glm::vec3 specularColor;
+		if(mate.specularExponent >= 1)
+			specularColor = getSpecularColor(light2HitPtArray, lightColorWithoutObstruct, numberOfLightWithoutObsctruct, r, intersectionNormal, mate.specularColor, mate.specularExponent);
+		else
+			specularColor = glm::vec3(0,0,0);
 
-		glm::vec3 currentPtColor = diffuseColor;// + reflectColor;
+		glm::vec3 currentPtColor = diffuseColor;// + specularColor;// + reflectColor;
 		return currentPtColor;
 	}
 
@@ -342,20 +344,17 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 		glm::vec3 oldColorEnergy = colors[index] * (time - 1);
 		glm::vec3 newColor = (newColorEnergy + oldColorEnergy) / time;
 
-		//if(colors[index].x == 0){
-		//	colors[index] = glm::vec3(1,0,0);
-		//}else if(colors[index].x == 1){
-		//	colors[index] = glm::vec3(1,0,1);
-		//}
+
 
 
 		//colors[index] = newColor;
 
-		 //glm::vec3 colorReflect = glm::vec3(0,0,0);;// = raytraceRay(resolution, time, ;
 
 		//colors[index] = colorBRDF + colorReflect;
 		//colors[index] = generateRandomNumberFromThread(resolution, 0, 0, 0);
-		colors[index] = newColor;
+
+		//if(x > 422 && x < 430 && y > 360 && y <390)
+			colors[index] = newColor;
 	}
 
 
@@ -366,7 +365,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
 	int traceDepth = 1; //determines how many bounces the raytracer traces
-	int numberOfLights = 100;
+	int numberOfLights = 1;
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -428,7 +427,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		else
 			numberOfLightPerSource = (int)floor((float) totalNumberOfLights / numberOfLightSource);
 		for(int i = 0; i < numberOfLightPerSource; ++i){
-			lightSource[accumulateIndex + i] = getRandomPointOnCube(geomList[objIndex], (float)iterations * i );
+
+			//lightSource[accumulateIndex + i] = getRandomPointOnCube(geomList[objIndex], (float)iterations * i );
+			lightSource[accumulateIndex + i] = glm::vec3(0,8,0.25);
 			lightColor[accumulateIndex + i] = materials[objIndex].color / 15.0f * materials[objIndex].emittance; 
 		}
 

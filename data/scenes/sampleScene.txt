@@ -10,7 +10,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 
-MATERIAL 1 				//red diffuse
+MATERIAL 1 				//white diffuse
 RGB         1 1 1      
 SPECEX      0      
 SPECRGB     1 1 1      
@@ -34,7 +34,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 
-MATERIAL 3 				//red glossy
+MATERIAL 3 				//left wall red glossy
 RGB         .63 .06 .04      
 SPECEX      0      
 SPECRGB     1 1 1       
@@ -46,7 +46,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 
-MATERIAL 4 				//white glossy
+MATERIAL 4 				//right wall blue glossy
 RGB         .06 .04 .63     
 SPECEX      0      
 SPECRGB     1 1 1      
@@ -58,9 +58,9 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 
-MATERIAL 5 				//glass
+MATERIAL 5 				//bottom ball glass
 RGB         0 0 0    
-SPECEX      0      
+SPECEX      50      
 SPECRGB     1 1 1      
 REFL        0       
 REFR        1        
@@ -70,9 +70,9 @@ ABSCOEFF    .02 5.1 5.7
 RSCTCOEFF   13
 EMITTANCE   0
 
-MATERIAL 6 				//green glossy
+MATERIAL 6 				//right ball green glossy
 RGB         .15 .48 .09      
-SPECEX      0      
+SPECEX      00      
 SPECRGB     1 1 1     
 REFL        0       
 REFR        0        
@@ -82,9 +82,9 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 
-MATERIAL 7				//light
+MATERIAL 7				//left ball light
 RGB         1 1 1       
-SPECEX      0      
+SPECEX      50      
 SPECRGB     0 0 0       
 REFL        0       
 REFR        0        
@@ -92,7 +92,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   1
+EMITTANCE   0
 
 MATERIAL 8				//light
 RGB         1 1 1       

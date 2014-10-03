@@ -335,7 +335,7 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   
   float vDotDirection = glm::dot(rt.origin, rt.direction);
   float radicand = vDotDirection * vDotDirection - (glm::dot(rt.origin, rt.origin) - pow(radius, 2));
-  if (radicand < 0){
+  if (radicand <= 0){
     return -1;
   }
   
@@ -343,7 +343,7 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   float firstTerm = -vDotDirection;
   float t1 = firstTerm + squareRoot;
   float t2 = firstTerm - squareRoot;
-  
+
   float t = 0;
   if (t1 < 0 && t2 < 0) {
       return -1;
