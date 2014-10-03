@@ -17,7 +17,7 @@
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ float calculateArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3);
-__host__ __device__ float intersectPoly(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 faceNormal);
+__host__ __device__ float intersectTri(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 faceNormal);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
@@ -71,15 +71,51 @@ __host__ __device__ float calculateArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3
 }
 
 
-__host__ __device__ float intersectPoly(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 faceNormal){
+__host__ __device__ float intersectTri(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 faceNormal){
 
-	glm::vec3 vec_Origin_P1(rayOrigin[0] - p1[0], rayOrigin[1] - p1[1], rayOrigin[2] - p1[2]);
+	glm::vec3 vec_Origin_P1 = rayOrigin - p1;//, rayOrigin[1] - p1[1], rayOrigin[2] - p1[2]);
 	
-	if(glm::dot(vec_Origin_P1, faceNormal) == 0){// on the surface
+	if(abs(glm::dot(vec_Origin_P1, faceNormal)) < 0.000001){// on the surface
 		return -1;
 	}
 	else{
-		if(glm::dot(faceNormal, rayDir) == 0){//V0 is parallel with surface
+		if(abs(glm::dot(faceNormal, rayDir)) < 0.000001){//V0 is parallel with surface
+			return -1;
+		}
+		else
+		{	
+			float t;
+			t = glm::dot(faceNormal, p1 - rayOrigin) / glm::dot(faceNormal, rayDir);
+
+			if(t < 0)
+				return -1;
+			else
+			{
+				glm::vec3 pt = rayOrigin + rayDir * t;
+				float s = calculateArea(p1, p2, p3);
+				float s1 = calculateArea(pt, p2, p3) / s;
+				float s2 = calculateArea(p1, pt, p3) / s;
+				float s3 = calculateArea(p1, p2, pt) / s;
+
+				if(s1 <= 1 && s2 <= 1 && s3 <= 1 && abs(s1 + s2 + s3 - 1) < 0.000001)//0.000001
+					//return t / rayLength;
+					return t;
+				else 
+					return -1;
+			}
+		}
+	}
+}
+
+__host__ __device__ float intersectRec(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 p4, glm::vec3 faceNormal){
+
+	glm::vec3 vec_Origin_P1 = rayOrigin - p1;
+	
+	if(abs(glm::dot(vec_Origin_P1, faceNormal)) < 0.000001){// on the surface
+		return -1;
+	}
+	else{
+		if(abs(glm::dot(faceNormal, rayDir)) < 0.000001){//V0 is parallel with surface
 			return -1;
 		}
 		else
@@ -106,7 +142,6 @@ __host__ __device__ float intersectPoly(glm::vec3 rayOrigin, glm::vec3 rayDir, g
 		}
 	}
 }
-
 
 
 
@@ -154,33 +189,33 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	int xNormal = 0, yNormal = 0, zNormal = 0;
 
 	if(rd.x > 0 && ro.x < -0.5){
-		tx1 = intersectPoly(ro, rd, p2, p8, p4, normal_p4_p2_p6_p8);
-		tx2 = intersectPoly(ro, rd, p2, p6, p8, normal_p4_p2_p6_p8);
+		tx1 = intersectTri(ro, rd, p2, p8, p4, normal_p4_p2_p6_p8);
+		tx2 = intersectTri(ro, rd, p2, p6, p8, normal_p4_p2_p6_p8);
 		xNormal = -1;
 	}else if(rd.x < 0 && ro.x > 0.5){
-		tx1 = intersectPoly(ro, rd, p1, p3, p7, normal_p1_p3_p7_p5);
-		tx2 = intersectPoly(ro, rd, p1, p7, p5, normal_p1_p3_p7_p5);
+		tx1 = intersectTri(ro, rd, p1, p3, p7, normal_p1_p3_p7_p5);
+		tx2 = intersectTri(ro, rd, p1, p7, p5, normal_p1_p3_p7_p5);
 		xNormal = 1;
 	}
 
 	if(rd.y > 0 && ro.y < -0.5){
-		ty1 = intersectPoly(ro, rd, p3, p8, p7, normal_p3_p4_p8_p7);
-		ty2 = intersectPoly(ro, rd, p3, p4, p8, normal_p3_p4_p8_p7);
+		ty1 = intersectTri(ro, rd, p3, p8, p7, normal_p3_p4_p8_p7);
+		ty2 = intersectTri(ro, rd, p3, p4, p8, normal_p3_p4_p8_p7);
 		yNormal = -1;
 	}else if(rd.y < 0 && ro.y > 0.5){
-		ty1 = intersectPoly(ro, rd, p1, p6, p2, normal_p1_p5_p6_p2);
-		ty2 = intersectPoly(ro, rd, p1, p5, p6, normal_p1_p5_p6_p2);
+		ty1 = intersectTri(ro, rd, p1, p6, p2, normal_p1_p5_p6_p2);
+		ty2 = intersectTri(ro, rd, p1, p5, p6, normal_p1_p5_p6_p2);
 		yNormal = 1;
 	}
 
 	if(rd.z > 0 && ro.z < -0.5){
-		tz1 = intersectPoly(ro, rd, p6, p5, p7, normal_p5_p7_p8_p6);
-		tz2 = intersectPoly(ro, rd, p6, p7, p8, normal_p5_p7_p8_p6);
+		tz1 = intersectTri(ro, rd, p6, p5, p7, normal_p5_p7_p8_p6);
+		tz2 = intersectTri(ro, rd, p6, p7, p8, normal_p5_p7_p8_p6);
 		zNormal = -1;
 	}
 	else if(rd.z < 0 && ro.z > 0.5){
-		tz1 = intersectPoly(ro, rd, p1, p2, p3, normal_p1_p2_p4_p3);
-		tz2 = intersectPoly(ro, rd, p2, p4, p3, normal_p1_p2_p4_p3);
+		tz1 = intersectTri(ro, rd, p1, p2, p3, normal_p1_p2_p4_p3);
+		tz2 = intersectTri(ro, rd, p2, p4, p3, normal_p1_p2_p4_p3);
 		zNormal = 1;
 	}
 
@@ -253,18 +288,18 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
         
 	return glm::length(r.origin - realIntersectionPoint);
 /*
-	float t1 = intersectPoly(ro, rd, p1, p2, p3, normal_p1_p2_p4_p3);
-	float t2 = intersectPoly(ro, rd, p2, p4, p3, normal_p1_p2_p4_p3);
-	float t3 = intersectPoly(ro, rd, p1, p7, p3, normal_p1_p3_p7_p5);
-	float t4 = intersectPoly(ro, rd, p1, p7, p5, normal_p1_p3_p7_p5);
-	float t5 = intersectPoly(ro, rd, p6, p7, p5, normal_p5_p7_p8_p6);
-	float t6 = intersectPoly(ro, rd, p6, p7, p8, normal_p5_p7_p8_p6);
-	float t7 = intersectPoly(ro, rd, p2, p8, p4, normal_p4_p2_p6_p8);
-	float t8 = intersectPoly(ro, rd, p2, p8, p6, normal_p4_p2_p6_p8);
-	float t9 = intersectPoly(ro, rd, p1, p6, p2, normal_p1_p5_p6_p2);
-	float t10 = intersectPoly(ro, rd, p1, p6, p5, normal_p1_p5_p6_p2);
-	float t11 = intersectPoly(ro, rd, p8, p4, p3, normal_p3_p4_p8_p7);
-	float t12 = intersectPoly(ro, rd, p8, p7, p3, normal_p3_p4_p8_p7);
+	float t1 = intersectTri(ro, rd, p1, p2, p3, normal_p1_p2_p4_p3);
+	float t2 = intersectTri(ro, rd, p2, p4, p3, normal_p1_p2_p4_p3);
+	float t3 = intersectTri(ro, rd, p1, p7, p3, normal_p1_p3_p7_p5);
+	float t4 = intersectTri(ro, rd, p1, p7, p5, normal_p1_p3_p7_p5);
+	float t5 = intersectTri(ro, rd, p6, p7, p5, normal_p5_p7_p8_p6);
+	float t6 = intersectTri(ro, rd, p6, p7, p8, normal_p5_p7_p8_p6);
+	float t7 = intersectTri(ro, rd, p2, p8, p4, normal_p4_p2_p6_p8);
+	float t8 = intersectTri(ro, rd, p2, p8, p6, normal_p4_p2_p6_p8);
+	float t9 = intersectTri(ro, rd, p1, p6, p2, normal_p1_p5_p6_p2);
+	float t10 = intersectTri(ro, rd, p1, p6, p5, normal_p1_p5_p6_p2);
+	float t11 = intersectTri(ro, rd, p8, p4, p3, normal_p3_p4_p8_p7);
+	float t12 = intersectTri(ro, rd, p8, p7, p3, normal_p3_p4_p8_p7);
 
 
 	float t = -1;

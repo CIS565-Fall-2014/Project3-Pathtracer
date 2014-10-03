@@ -336,8 +336,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 		//colors[index] = colorBRDF + colorReflect;
 		//colors[index] = generateRandomNumberFromThread(resolution, 0, 0, 0);
 
-		//if(x > 422 && x < 430 && y > 360 && y <390)
-			colors[index] = newColor;
+		colors[index] = newColor;
 	}
 
 
@@ -411,8 +410,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 			numberOfLightPerSource = (int)floor((float) totalNumberOfLights / numberOfLightSource);
 		for(int i = 0; i < numberOfLightPerSource; ++i){
 
-			//lightSource[accumulateIndex + i] = getRandomPointOnCube(geomList[objIndex], (float)iterations * i );
-			lightSource[accumulateIndex + i] = glm::vec3(0,8,0.25);
+			lightSource[accumulateIndex + i] = getRandomPointOnCube(geomList[objIndex], (float)iterations * i );
+			//lightSource[accumulateIndex + i] = glm::vec3(0,8,0.25);
 			lightColor[accumulateIndex + i] = materials[objIndex].color / 15.0f * materials[objIndex].emittance; 
 		}
 
