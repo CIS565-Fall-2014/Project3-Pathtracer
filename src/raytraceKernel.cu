@@ -157,11 +157,9 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 	else{
 		material mate = materials[hitObjectIndex];
 		
-		
 		if(mate.emittance != 0){ //hit light, so terminate the ray
 			return mate.color * mate.emittance / 5.0f;
 		}
-
 
 		glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)EPSILON;//給一個epsloon避免ray打進去face裡面
 		glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)EPSILON;//給一個epsloon讓ray打進去face裡面
@@ -185,9 +183,6 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 
 		//Specular Color
 		glm::vec3 specularColor = glm::vec3(0, 0, 0);
-
-		int numberOfLightWithoutObsctruct = 0;
-
 
 		for(int i = 0 ; i < numberOfLights ; i++){
 			ray hitPt2LightRay;
@@ -227,15 +222,14 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 				diffuseColor += getDiffuseColor(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], intersectionNormal, mate.color);
 				if(mate.specularExponent >= 1)
 					specularColor += getSpecularColor(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], r, intersectionNormal, mate.specularColor, mate.specularExponent);
-				numberOfLightWithoutObsctruct++;
 			}
 
 		}
 
-		if(numberOfLightWithoutObsctruct != 0){
-			diffuseColor /= numberOfLightWithoutObsctruct;
-			specularColor /= numberOfLightWithoutObsctruct;
-		}
+
+		diffuseColor /= numberOfLights;
+		specularColor /= numberOfLights;
+		
 
 
 
@@ -252,11 +246,6 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 			refractColor = glm::vec3(0,0,0);
 		else if(mate.hasRefractive == 0)
 			refractColor = glm::vec3(0,0,0);
-
-
-		
-
-
 
 
 		glm::vec3 currentPtColor = diffuseColor + specularColor;// + reflectColor;
@@ -321,8 +310,133 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 	glm::vec3 pixelColor(0, 0, 0);
 	if((x < resolution.x && y < resolution.y )){
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+		/*
+		while(rayDepth > 0){
 		
-			
+			//Radiance = DirectMat1 * L + weigth1 * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L + weigth3 * indirectMat3 ) )
+			//Radiance = DirectMat1 * L + weigth1 * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L ) )
+			glm::vec3 directRadiance;
+
+
+			bool hitCheck = false;
+			float shortestDis = -1;
+			int hitObjectIndex = -1;
+			glm::vec3 intersectionPoint(0,0,0);
+			glm::vec3 intersectionNormal(0,0,0);
+
+			for(int i = 0; i < numberOfGeoms; ++i){
+				float dis = -1;
+				glm::vec3 objIntersectPt(0, 0, 0);
+				glm::vec3 objIntersectN(0, 0, 0);
+				switch(geoms[i].type){
+					case SPHERE:
+						dis = sphereIntersectionTest(geoms[i], r, objIntersectPt, objIntersectN);
+						break;
+					case CUBE:
+						dis = boxIntersectionTest(geoms[i], r, objIntersectPt, objIntersectN);
+						break;
+					case MESH:
+						break;
+				}
+
+				if((dis != -1 && shortestDis == -1) || (dis != -1 && shortestDis != -1 && dis < shortestDis && dis > 0)){
+					hitCheck = true;
+					shortestDis = dis;
+					intersectionPoint = objIntersectPt;
+					intersectionNormal = objIntersectN;
+					hitObjectIndex = i;
+				}
+			}
+
+
+			if(hitCheck == false){ //Terminate the ray
+				directRadiance = glm::vec3(0,0,0);
+				//TODO: save the direct radiance
+				break;
+			}
+			else{
+				material mate = materials[hitObjectIndex];
+		
+				if(mate.emittance != 0){ //hit light, so terminate the ray
+					directRadiance = mate.color * mate.emittance / 5.0f;
+					//TODO: save the direct radiance
+					break;
+				}
+
+				glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)EPSILON;//給一個epsloon避免ray打進去face裡面
+				glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)EPSILON;//給一個epsloon讓ray打進去face裡面
+
+				//Diffuse Color
+				glm::vec3 diffuseColor = glm::vec3(0, 0, 0);
+
+				//Specular Color
+				glm::vec3 specularColor = glm::vec3(0, 0, 0);
+
+				int numberOfLightWithoutObsctruct = 0;
+
+				for(int i = 0 ; i < numberOfLights ; i++){
+					ray hitPt2LightRay;
+					hitPt2LightRay.origin = newEyePositionOut;
+					hitPt2LightRay.direction = glm::normalize(lightPos[i] - newEyePositionOut);
+					float shortestDisHitPt2Light = glm::length(lightPos[i] - newEyePositionOut);
+
+					bool lightObstructCheck = false;
+
+					for(int i = 0; i < numberOfGeoms; ++i){
+						if(materials[i].emittance != 0)//if this is a emitter, then the light will not be obstructed
+							continue;
+
+						float disHitPt2Light = -1;
+						glm::vec3 objIntersectPt(0, 0, 0);
+						glm::vec3 objIntersectN(0, 0, 0);
+						switch(geoms[i].type){
+							case SPHERE:
+								disHitPt2Light = sphereIntersectionTest(geoms[i], hitPt2LightRay, objIntersectPt, objIntersectN);
+								break;
+							case CUBE:
+								disHitPt2Light = boxIntersectionTest(geoms[i], hitPt2LightRay, objIntersectPt, objIntersectN);
+								break;
+							case MESH:
+								break;
+						}
+
+						if(disHitPt2Light != -1 &&  disHitPt2Light < shortestDisHitPt2Light && disHitPt2Light > 0){
+							lightObstructCheck = true;
+							break;
+						}
+					}
+
+					if(lightObstructCheck == false){
+
+
+						diffuseColor += getDiffuseColor(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], intersectionNormal, mate.color);
+						if(mate.specularExponent >= 1)
+							specularColor += getSpecularColor(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], r, intersectionNormal, mate.specularColor, mate.specularExponent);
+						numberOfLightWithoutObsctruct++;
+					}
+
+				}
+
+
+				//Direct Radiance
+				if(numberOfLightWithoutObsctruct != 0){
+					diffuseColor /= numberOfLightWithoutObsctruct;
+					specularColor /= numberOfLightWithoutObsctruct;
+				}
+
+				directRadiance = diffuseColor + specularColor;
+
+				if(rayDepth == 1){
+					return glm::vec3(0,0,0); // No indirect radiance
+				}
+			}
+
+
+
+
+			--rayDepth;
+		}*/
+
 		glm::vec3 newColorEnergy =raytraceRecursive(r, rayDepth, lightPos, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
 		glm::vec3 oldColorEnergy = colors[index] * (time - 1);
 		glm::vec3 newColor = (newColorEnergy + oldColorEnergy) / time;
