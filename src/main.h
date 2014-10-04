@@ -27,12 +27,12 @@
 #include "utilities.h"
 #include "scene.h"
 
+
 using namespace std;
 
 //-------------------------------
 //----------PATHTRACER-----------
 //-------------------------------
-
 scene* renderScene;
 camera* renderCam;
 int targetFrame;

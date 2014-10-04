@@ -47,7 +47,8 @@ __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, g
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
   //nothing fancy here
-  return glm::vec3(0,0,0);
+
+  return glm::normalize(incident - 2.0f * normal * glm::dot(normal, incident));
 }
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
@@ -116,7 +117,7 @@ __host__ __device__ int calculateSelfBSDF(ray& r, staticGeom geom, glm::vec3 int
 
 	if(m.hasReflective == 1){
 		r.origin = intersectOut;
-		r.direction = glm::normalize(r.direction - 2.0f * normal * glm::dot(normal, r.direction));
+		r.direction = calculateReflectionDirection(normal, r.direction);
 
 		return 1;
 	}

@@ -24,14 +24,17 @@ int main(int argc, char** argv){
   for(int i=1; i<argc; i++){
     string header; string data;
     istringstream liness(argv[i]);
-    getline(liness, header, '='); getline(liness, data, '=');
+    getline(liness, header, '='); 
+	getline(liness, data, '=');
     if(strcmp(header.c_str(), "scene")==0){
       renderScene = new scene(data);
       loadedScene = true;
     }else if(strcmp(header.c_str(), "frame")==0){
       targetFrame = atoi(data.c_str());
       singleFrameMode = true;
-    }
+    }else if(strcmp(header.c_str(), "texture")==0){
+		
+	}
   }
 
   if(!loadedScene){
