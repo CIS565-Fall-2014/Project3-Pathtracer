@@ -43,8 +43,6 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 // Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
 	ray r;
-	//r.origin = glm::vec3(0,0,0);
-	//r.direction = glm::vec3(0,0,-1);
 
 	view = glm::normalize(view);
 	glm::vec3 vecA = glm::normalize(glm::cross(view, up));// center to right
