@@ -186,80 +186,82 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
-__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors, glm::vec3* radianceBuffer,
+__global__ void raytraceRay(ray* ra, glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors, glm::vec3* radianceBuffer,
                             material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms,
-							glm::vec3* lightPos, glm::vec3* lightColor, int numberOfLights, bool isDOF ){
+							glm::vec3* lightPos, glm::vec3* lightColor, int numberOfLights, int currentDepth , bool isDOF ){
+
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);
-	glm::vec3 pixelColor(0, 0, 0);
 
-
-	int currentDepth = 0;
+	bool terminate = false;
+	
+	//int currentDepth = 0;//*currentDeptha;
+	ray r = ra[0];
+	//ray r;
 	if((x < resolution.x && y < resolution.y )){
-		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 
-		if(isDOF){
-			glm::vec3 focalPoint = cam.position + r.direction * cam.focalLength;
-			glm::vec3 aperturePoint =	getRandomPointOnAperture(cam.position, cam.view, cam.up, cam.aperture, time*index);
-			r.origin = aperturePoint;
-			r.direction = glm::normalize(focalPoint - aperturePoint);
+
+		if(currentDepth == 0){
+			r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+			if(isDOF){
+				glm::vec3 focalPoint = cam.position + r.direction * cam.focalLength;
+				glm::vec3 aperturePoint =	getRandomPointOnAperture(cam.position, cam.view, cam.up, cam.aperture, time*index);
+				r.origin = aperturePoint;
+				r.direction = glm::normalize(focalPoint - aperturePoint);
+			}	
+		}
+		glm::vec3 directRadiance;
+
+		bool hitCheck = false;
+		float shortestDis = -1;
+		int hitObjectIndex = -1;
+		glm::vec3 intersectionPoint(0,0,0);
+		glm::vec3 intersectionNormal(0,0,0);
+
+		for(int i = 0; i < numberOfGeoms; ++i){
+			float dis = -1;
+			glm::vec3 objIntersectPt(0, 0, 0);
+			glm::vec3 objIntersectN(0, 0, 0);
+			switch(geoms[i].type){
+				case SPHERE:
+					dis = sphereIntersectionTest(geoms[i], r, objIntersectPt, objIntersectN);////r
+					break;
+				case CUBE:
+					dis = boxIntersectionTest(geoms[i], r, objIntersectPt, objIntersectN);////r
+					break;
+				case MESH:
+					break;
+			}
+
+			if((dis != -1 && shortestDis == -1) || (dis != -1 && shortestDis != -1 && dis < shortestDis && dis > 0)){
+				hitCheck = true;
+				shortestDis = dis;
+				intersectionPoint = objIntersectPt;
+				intersectionNormal = objIntersectN;
+				hitObjectIndex = i;
+			}
 		}
 
-		while(currentDepth < rayDepth){
+
+		if(hitCheck == false){ //Terminate the ray
+			radianceBuffer[currentDepth + index * rayDepth] = glm::vec3(0,0,0);
+			directRadiance = glm::vec3(0,0,0);
+			terminate = true;
+		}
+		else{
+			material mate = materials[hitObjectIndex];
 		
-			glm::vec3 directRadiance;
-
-			bool hitCheck = false;
-			float shortestDis = -1;
-			int hitObjectIndex = -1;
-			glm::vec3 intersectionPoint(0,0,0);
-			glm::vec3 intersectionNormal(0,0,0);
-
-			for(int i = 0; i < numberOfGeoms; ++i){
-				float dis = -1;
-				glm::vec3 objIntersectPt(0, 0, 0);
-				glm::vec3 objIntersectN(0, 0, 0);
-				switch(geoms[i].type){
-					case SPHERE:
-						dis = sphereIntersectionTest(geoms[i], r, objIntersectPt, objIntersectN);
-						break;
-					case CUBE:
-						dis = boxIntersectionTest(geoms[i], r, objIntersectPt, objIntersectN);
-						break;
-					case MESH:
-						break;
-				}
-
-				if((dis != -1 && shortestDis == -1) || (dis != -1 && shortestDis != -1 && dis < shortestDis && dis > 0)){
-					hitCheck = true;
-					shortestDis = dis;
-					intersectionPoint = objIntersectPt;
-					intersectionNormal = objIntersectN;
-					hitObjectIndex = i;
-				}
-			}
-
-
-			if(hitCheck == false){ //Terminate the ray
-				radianceBuffer[currentDepth + index * rayDepth] = glm::vec3(0,0,0);
-				directRadiance = glm::vec3(0,0,0);
-				//TODO: save the direct radiance
-				break;
+			if(mate.emittance != 0){ //Terminate the ray
+				radianceBuffer[currentDepth + index * rayDepth] = mate.color * mate.emittance / 5.0f;
+				directRadiance = mate.color * mate.emittance / 5.0f;
+				terminate = true;
 			}
 			else{
-				material mate = materials[hitObjectIndex];
-		
-				if(mate.emittance != 0){ //hit light, so terminate the ray
-					radianceBuffer[currentDepth + index * rayDepth] = mate.color * mate.emittance / 5.0f;
-					directRadiance = mate.color * mate.emittance / 5.0f;
-					//TODO: save the direct radiance
-					break;
-				}
 
-				glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)RAY_BIAS_AMOUNT;//給一個epsloon避免ray打進去face裡面
-				glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)RAY_BIAS_AMOUNT;//給一個epsloon讓ray打進去face裡面
+				glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)RAY_BIAS_AMOUNT;//給一個epsloon避免ray打進去face裡面 ////r
+				glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)RAY_BIAS_AMOUNT;//給一個epsloon讓ray打進去face裡面 ////r
 
 				//Direct Radiance
 				glm::vec3 directRadiance = glm::vec3(0, 0, 0);
@@ -296,11 +298,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 						}
 					}
 
-					if(lightObstructCheck == false){
-
-						directRadiance += getDirectRadiance(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], r, intersectionNormal, mate.color, mate.specularColor, mate.specularExponent);
-					}
-
+					if(lightObstructCheck == false)
+						directRadiance += getDirectRadiance(glm::normalize(newEyePositionOut - lightPos[i]), lightColor[i], r, intersectionNormal, mate.color, mate.specularColor, mate.specularExponent);////r
 				}
 
 
@@ -315,35 +314,30 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				//Compute indirect ray
 				int restDepth = rayDepth - currentDepth;
 				if(currentDepth < rayDepth){
-					int type = calculateSelfBSDF(r, geoms[hitObjectIndex], newEyePositionIn, newEyePositionOut, intersectionNormal, mate, u01(rng), u01(rng), restDepth);
-					currentDepth = rayDepth - restDepth;			
+					int type = calculateSelfBSDF(r, geoms[hitObjectIndex], newEyePositionIn, newEyePositionOut, intersectionNormal, mate, u01(rng), u01(rng), restDepth); ////r
+					//currentDepth = rayDepth - restDepth;			
 				}
-
-
 			}
 		}
 
-		glm::vec3 radiance;
-		for(int d = rayDepth; d > 0; d--){
+		glm::vec3 newColor = colors[index];
+		if(currentDepth == rayDepth || terminate == true){
+		
+			glm::vec3 radiance;
+			for(int d = rayDepth; d > 0; d--){
+				radiance = radianceBuffer[d - 1 + index * rayDepth] + (float)DEPTH_WEIGHT * radiance;
+			}
 
-			radiance = radianceBuffer[d - 1 + index * rayDepth] + (float)DEPTH_WEIGHT * radiance;
+			if(radiance.x > 1)
+				radiance /= radiance.x;
+			if(radiance.y > 1)
+				radiance /= radiance.y;
+			if(radiance.z > 1)
+				radiance /= radiance.z;
 
-			//newRadiance = DirectMat1 * L + DEPTH_WEIGHT * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L + weigth3 * indirectMat3 ) )
-			//Radiance = DirectMat1 * L + weigth1 * indirectMat1 * ( DirectMat2 * L + weigth2 * indirectMat2 * ( DirectMat3 * L ) )
+			glm::vec3 accumulateRadiance = colors[index] * (time - 1);
+			newColor = (radiance + accumulateRadiance) / time;
 		}
-
-		if(radiance.x > 1)
-			radiance /= radiance.x;
-		if(radiance.y > 1)
-			radiance /= radiance.y;
-		if(radiance.z > 1)
-			radiance /= radiance.z;
-		//glm::vec3 newColorEnergy = raytraceRecursive(r, rayDepth, lightPos, lightColor, numberOfLights, materials, numberOfMaterials, geoms, numberOfGeoms);
-
-
-		glm::vec3 accumulateRadiance = colors[index] * (time - 1);
-		glm::vec3 newColor = (radiance + accumulateRadiance) / time;
-
 
 		colors[index] = newColor;
 	}
@@ -355,7 +349,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool isDOF){
   
-	int traceDepth = 5; //determines how many bounces the raytracer traces
+	int traceDepth = 1; //determines how many bounces the raytracer traces
 	int numberOfLights = 1;
 
 	// set up crucial magic
@@ -418,7 +412,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 			continue;
 		}
 
-
 		int numberOfLightPerSource;
 		if(boolCeil)
 			numberOfLightPerSource = (int)ceil((float) totalNumberOfLights / numberOfLightSource);
@@ -427,7 +420,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		for(int i = 0; i < numberOfLightPerSource; ++i){
 
 			lightSource[accumulateIndex + i] = getRandomPointOnCube(geomList[objIndex], (float)iterations * numberOfLights+ i );
-			//lightSource[accumulateIndex + i] = glm::vec3(0,8,0.25);
 			lightColor[accumulateIndex + i] = materials[objIndex].color / 15.0f * materials[objIndex].emittance; 
 		}
 
@@ -437,13 +429,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		boolCeil = !boolCeil;
 		++objIndex;
 	}
-
-	//for(int i = 0; i < numberOfLights; ++i){
-	//	lightSource[i] =  getRandomPointOnCube(geomList[8], (float)iterations * i );
-	//	lightColor[i] = glm::vec3(1,1,1);
-	//}
-
- 
 
 
 	glm::vec3* cudaLightPos = NULL;
@@ -468,9 +453,41 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cam.focalLength = renderCam->focalLength;
 	cam.aperture = renderCam->aperture;
 
-	// kernel launches
-	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
-								cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, isDOF);
+
+	ray* initialRay = new ray[1];
+	ray newRay;
+	newRay.direction = glm::vec3(0,0,0);
+	newRay.origin = glm::vec3(0,0,0);
+	initialRay[0] = newRay;
+
+	//int* currentDepth = new int[1];
+	//currentDepth[0] = 0;
+
+	ray* cudaIncidentRay = NULL;
+	cudaMalloc((void**)&cudaIncidentRay, 1 *sizeof(ray));
+	cudaMemcpy( cudaIncidentRay, initialRay, 1 * sizeof(ray), cudaMemcpyHostToDevice);
+
+	//int* cudaCurrentDepth = NULL;
+	//cudaMalloc((void**)&cudaCurrentDepth, 1 *sizeof(int));
+	//cudaMemcpy( cudaCurrentDepth, currentDepth, 1 * sizeof(int), cudaMemcpyHostToDevice);
+
+	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
+													cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, 0, isDOF);
+
+	//while(currentDepth[0] < traceDepth){
+	//	if(currentDepth[0] == 0){
+	//		// kernel launches
+	//		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
+	//															cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, cudaCurrentDepth);
+	//	}
+	//	else{
+	//		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
+	//															cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, cudaCurrentDepth);
+	//	}
+	//}
+
+
+
 
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
