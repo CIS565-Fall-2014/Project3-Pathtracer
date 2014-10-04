@@ -198,7 +198,10 @@ void raytraceRay( glm::vec2 resolution,
 																	temp_normal );
 			}
 			else if ( geoms[i].type == CUBE ) {
-				// TODO: boxIntersectionTest().
+				temp_dist_to_intersection = boxIntersectionTest( geoms[i],
+																 r,
+																 temp_intersection_point,
+																 temp_normal );
 			}
 			else if ( geoms[i].type == MESH ) {
 				// TODO: meshIntersectionTest() or triangleIntersectionTest().
@@ -223,12 +226,12 @@ void raytraceRay( glm::vec2 resolution,
 		////////////////////////////////////////////////////
 
 		// Test sphere intersections.
-		if ( did_intersect ) {
-			image[index] = intersected_geom_color;
-		}
-		else {
-			image[index] = glm::vec3( 0.0f, 0.0f, 0.0f );
-		}
+		//if ( did_intersect ) {
+		//	image[index] = intersected_geom_color;
+		//}
+		//else {
+		//	image[index] = glm::vec3( 0.0f, 0.0f, 0.0f );
+		//}
 
 		// Color output image to test for correct ray direction computations.
 		//glm::vec3 dir_test = r.direction;
@@ -242,6 +245,19 @@ void raytraceRay( glm::vec2 resolution,
 		//	dir_test.z *= -1.0f;
 		//}
 		//image[index] = dir_test;
+
+		// Color output image to test for correct intersection normals.
+		glm::vec3 intersection_normal_test = normal;
+		if ( intersection_normal_test.x < 0.0f ) {
+			intersection_normal_test.x *= -1.0f;
+		}
+		if ( intersection_normal_test.y < 0.0f ) {
+			intersection_normal_test.y *= -1.0f;
+		}
+		if ( intersection_normal_test.z < 0.0f ) {
+			intersection_normal_test.z *= -1.0f;
+		}
+		image[index] = intersection_normal_test;
 
 		// Assign random colors to output image pixels.
 		//image[index] = generateRandomNumberFromThread( resolution, current_iteration, x, y );
