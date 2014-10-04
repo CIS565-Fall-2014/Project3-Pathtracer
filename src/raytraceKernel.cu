@@ -187,8 +187,8 @@ __host__ __device__ glm::vec3 raytraceRecursive(ray r, int depth, glm::vec3* lig
 			return mate.color * mate.emittance / 5.0f;
 		}
 
-		glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)EPSILON;//給一個epsloon避免ray打進去face裡面
-		glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)EPSILON;//給一個epsloon讓ray打進去face裡面
+		glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)RAY_BIAS_AMOUNT;//給一個epsloon避免ray打進去face裡面
+		glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)RAY_BIAS_AMOUNT;//給一個epsloon讓ray打進去face裡面
 		
 		////Create Reflect Ray
 		//ray newReflectRay;
@@ -331,7 +331,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 	int currentDepth = 0;
 	if((x < resolution.x && y < resolution.y )){
-	//if((x < 10 && y < 10 )){
+	//if((x> 480 &&  x < 520 && y < 350 && y > 320)){
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 		
 
@@ -386,8 +386,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 					break;
 				}
 
-				glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)EPSILON;//給一個epsloon避免ray打進去face裡面
-				glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)EPSILON;//給一個epsloon讓ray打進去face裡面
+				glm::vec3 newEyePositionOut = intersectionPoint - r.direction * (float)RAY_BIAS_AMOUNT;//給一個epsloon避免ray打進去face裡面
+				glm::vec3 newEyePositionIn = intersectionPoint + r.direction * (float)RAY_BIAS_AMOUNT;//給一個epsloon讓ray打進去face裡面
 
 				//Direct Radiance
 				glm::vec3 directRadiance = glm::vec3(0, 0, 0);
@@ -444,7 +444,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				//Compute indirect ray
 				int restDepth = rayDepth - currentDepth;
 				if(currentDepth < rayDepth){
-					calculateSelfBSDF(r, geoms[hitObjectIndex], newEyePositionIn, newEyePositionOut, intersectionNormal, mate, u01(rng), u01(rng), restDepth);
+					int type = calculateSelfBSDF(r, geoms[hitObjectIndex], newEyePositionIn, newEyePositionOut, intersectionNormal, mate, u01(rng), u01(rng), restDepth);
 					currentDepth = rayDepth - restDepth;			
 				}
 
@@ -484,8 +484,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
-	int traceDepth = 5; //determines how many bounces the raytracer traces
-	int numberOfLights = 20;
+	int traceDepth = 10; //determines how many bounces the raytracer traces
+	int numberOfLights = 2;
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -555,7 +555,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 			numberOfLightPerSource = (int)floor((float) totalNumberOfLights / numberOfLightSource);
 		for(int i = 0; i < numberOfLightPerSource; ++i){
 
-			lightSource[accumulateIndex + i] = getRandomPointOnCube(geomList[objIndex], (float)iterations * i );
+			lightSource[accumulateIndex + i] = getRandomPointOnCube(geomList[objIndex], (float)iterations * numberOfLights+ i );
 			//lightSource[accumulateIndex + i] = glm::vec3(0,8,0.25);
 			lightColor[accumulateIndex + i] = materials[objIndex].color / 15.0f * materials[objIndex].emittance; 
 		}

@@ -72,9 +72,6 @@ void utilityCore::printCudaMat4(cudaMat4 m){
 
 glm::mat4 utilityCore::buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale){
   glm::mat4 translationMat = glm::translate(glm::mat4(), translation);
-  //float rotateX = rotation.x / 180.0f * PI;
-  //float rotateY = rotation.y / 180.0f * PI;
-  //float rotateZ = rotation.z / 180.0f * PI;
 
   glm::mat4 rotationMat = glm::rotate(glm::mat4(), rotation.x , glm::vec3(1,0,0));
   rotationMat = rotationMat*glm::rotate(glm::mat4(), rotation.y, glm::vec3(0,1,0));

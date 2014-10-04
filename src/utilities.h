@@ -23,8 +23,8 @@
 #define NATURAL_E                   2.7182818284590452353602874713526624977572
 #define EPSILON                     .000000001
 #define ZERO_ABSORPTION_EPSILON     0.00001
-#define RAY_BIAS_AMOUNT             0.0002
-#define DEPTH_WEIGHT                0.3
+#define RAY_BIAS_AMOUNT             0.001
+#define DEPTH_WEIGHT                0.5
 
 
 namespace utilityCore {

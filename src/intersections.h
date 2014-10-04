@@ -312,46 +312,46 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 // Sphere intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
   
-  float radius = .5;
+	float radius = .5;
         
-  glm::vec3 ro = multiplyMV(sphere.inverseTransform, glm::vec4(r.origin,1.0f));
-  glm::vec3 rd = glm::normalize(multiplyMV(sphere.inverseTransform, glm::vec4(r.direction,0.0f)));
+	glm::vec3 ro = multiplyMV(sphere.inverseTransform, glm::vec4(r.origin,1.0f));
+	glm::vec3 rd = glm::normalize(multiplyMV(sphere.inverseTransform, glm::vec4(r.direction,0.0f)));
 
-  ray rt; rt.origin = ro; rt.direction = rd;
+	ray rt; rt.origin = ro; rt.direction = rd;
   
-  float vDotDirection = glm::dot(rt.origin, rt.direction);
-  float radicand = vDotDirection * vDotDirection - (glm::dot(rt.origin, rt.origin) - pow(radius, 2));
-  if (radicand <= 0){
-    return -1;
-  }
+	float vDotDirection = glm::dot(rt.origin, rt.direction);
+	float radicand = vDotDirection * vDotDirection - (glm::dot(rt.origin, rt.origin) - pow(radius, 2));
+	if (radicand <= 0){
+		return -1;
+	}
   
-  float squareRoot = sqrt(radicand);
-  float firstTerm = -vDotDirection;
-  float t1 = firstTerm + squareRoot;
-  float t2 = firstTerm - squareRoot;
+	float squareRoot = sqrt(radicand);
+	float firstTerm = -vDotDirection;
+	float t1 = firstTerm + squareRoot;
+	float t2 = firstTerm - squareRoot;
 
-  bool outside;
-  float t = 0;
-  if (t1 < 0 && t2 < 0) {
-      return -1;
-  } else if (t1 > 0 && t2 > 0) {
-      t = min(t1, t2);
-	  outside = true;
-  } else {
-      t = max(t1, t2);
-	  outside = false;
-  }
+	bool outside;
+	float t = 0;
+	if (t1 < 0 && t2 < 0) {
+		return -1;
+	} else if (t1 > 0 && t2 > 0) {
+		t = min(t1, t2);
+		outside = true;
+	} else {
+		t = max(t1, t2);
+		outside = false;
+	}
 
-  glm::vec3 realIntersectionPoint = multiplyMV(sphere.transform, glm::vec4(getPointOnRay(rt, t), 1.0));
-  glm::vec3 realOrigin = multiplyMV(sphere.transform, glm::vec4(0,0,0,1));
+	glm::vec3 realIntersectionPoint = multiplyMV(sphere.transform, glm::vec4(getPointOnRay(rt, t), 1.0));
+	glm::vec3 realOrigin = multiplyMV(sphere.transform, glm::vec4(0,0,0,1));
 
-  intersectionPoint = realIntersectionPoint;
-  if(outside == true)
-	normal = glm::normalize(realIntersectionPoint - realOrigin);
-  else
-	normal = glm::normalize(realOrigin - realIntersectionPoint);
+	intersectionPoint = realIntersectionPoint;
+	if(outside == true)
+		normal = glm::normalize(realIntersectionPoint - realOrigin);
+	else
+		normal = glm::normalize(realOrigin - realIntersectionPoint);
         
-  return glm::length(r.origin - realIntersectionPoint);
+	return glm::length(r.origin - realIntersectionPoint);
 }
 
 // Returns x,y,z half-dimensions of tightest bounding box
