@@ -57,7 +57,8 @@ int main(int argc, char** argv){
   if (init(argc, argv)) {
 	//initialize raypool
 	rayPoolSize = renderCam->resolution.x * renderCam->resolution.y;
-	cudaMalloc((void **)&rayPool,rayPoolSize * sizeof(ray));
+	cudaMalloc((void **)&rayPoolA,rayPoolSize * sizeof(ray));
+	cudaMalloc((void **)&rayPoolB,rayPoolSize * sizeof(ray));
 
 	// init image to GPU
 	cudaMalloc((void**)&cudaImageBuffer, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
@@ -68,7 +69,8 @@ int main(int argc, char** argv){
   }
 
   
-  cudaFree(rayPool);
+  cudaFree(rayPoolA);
+  cudaFree(rayPoolB);
   cudaFree(cudaImageBuffer);
   return 0;
 }
@@ -119,7 +121,7 @@ void runCuda(){
 		}
 		float startTime = utilityCore::getCurrentTime();
 		// execute the kernel
-		cudaRaytraceCore(dptr,cudaImageBuffer, renderCam, rayPool, rayPoolSize, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+		cudaRaytraceCore(dptr,cudaImageBuffer, renderCam, rayPoolA, rayPoolB, rayPoolSize, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
 		float endTime =  utilityCore::getCurrentTime();
 		float len = endTime - startTime;
 		if(iterations%10 ==0) cout<<1000.0f*len<<" ms"<<endl;

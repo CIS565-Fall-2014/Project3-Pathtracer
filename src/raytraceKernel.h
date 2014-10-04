@@ -14,7 +14,7 @@
 #include <cmath>
 #include "sceneStructs.h"
 
-void cudaRaytraceCore(uchar4* PBOpos, glm::vec3 * image, camera* renderCam, ray * rayPool, int poolSize, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+void cudaRaytraceCore(uchar4* PBOpos, glm::vec3 * image, camera* renderCam, ray * rayPoolA,ray * rayPoolB, int poolSize, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
 
 
 #endif

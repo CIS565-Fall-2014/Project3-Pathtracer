@@ -67,7 +67,7 @@ __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 inciden
 	//case of total internal reflection
 	if(n2 < n1)
 	{
-		if( abs(sinIncident-(n2/n1)) < EPSILON)
+		if( asin(sinIncident) > asin(n2/n1) )
 		{
 			fresnel.reflectionCoefficient = 1.0f;
 			fresnel.transmissionCoefficient = 0.0f;

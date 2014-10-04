@@ -40,7 +40,8 @@ int iterations;
 bool finishedRender;
 bool singleFrameMode;
 glm::vec3 * cudaImageBuffer;
-ray * rayPool;
+ray * rayPoolA;
+ray * rayPoolB;
 int rayPoolSize;
 
 //-------------------------------

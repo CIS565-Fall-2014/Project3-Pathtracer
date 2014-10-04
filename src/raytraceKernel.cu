@@ -9,6 +9,10 @@
 #include <cuda.h>
 #include <cmath>
 
+#include <thrust/copy.h>
+#include <thrust/count.h>
+#include <thrust/device_ptr.h>
+
 #include "sceneStructs.h"
 #include "glm/glm.hpp"
 #include "utilities.h"
@@ -16,7 +20,10 @@
 #include "intersections.h"
 #include "interactions.h"
 
-#define TRACE_DEPTH 10
+//Render Settings
+#define TRACE_DEPTH 5
+#define RAY_STREAM_COMPACTION_ON 0
+#define ENABLE_ANTIALIASING 0
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -26,6 +33,23 @@ void checkCUDAError(const char *msg) {
   }
 } 
 
+struct rayIsActive
+{
+	__host__ __device__ bool operator()(const ray r)
+	{
+		return r.isActive;
+	}
+};
+
+//compact rays, remove inactive rays
+int streamCompactRays(ray * in, ray * out, int N)
+{
+	thrust::device_ptr<ray> input(in);
+	thrust::device_ptr<ray> output(out);
+	int ret = thrust::count_if(input,input + N,rayIsActive());
+	thrust::copy_if(input,input+N,output,rayIsActive());
+	return ret;
+}
 // LOOK: This function demonstrates how to use thrust for random number generation on the GPU!
 // Function that generates static.
 __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolution, float time, int x, int y){
@@ -39,7 +63,9 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 
 // Function that does the initial raycast from the camera
 //ASSUMING VIEW AND UP vector are all normalized AND FOV ARE IN RADIAN
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov, float focalLen, float aperture){
+
+
 	ray r;
 	r.origin = eye;
 
@@ -47,16 +73,35 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	float halfResY = (float)resolution.y / 2.0f;
 
 	glm::vec3 Pcenter = eye + view;
-
 	glm::vec3 right = glm::cross(view,up);
 
-	glm::vec3 Vy = tan(fov.y) * up;
-	glm::vec3 Vx = tan(fov.x) * right;
+	//if non-pin hole camera
+	if(aperture > EPSILON)
+	{
+		thrust::default_random_engine rng(hash(time+1.0f));
+		thrust::uniform_real_distribution<float> un11(-1,1);
+		r.origin += un11(rng) * aperture * up;
+		r.origin += un11(rng) * aperture * right;
 
-	glm::vec2 normalizedPos = glm::vec2((x-halfResX)/halfResX,(halfResY - y)/halfResY);
+		Pcenter = eye + focalLen * view;
+	}
+
+	//if aa, jitter pixel position
+	if(ENABLE_ANTIALIASING)
+	{
+		thrust::default_random_engine rng(hash((time+1.0f)* x * y));
+		thrust::uniform_real_distribution<float> un55(-0.5,0.5);
+		x += un55(rng);
+		y += un55(rng);
+	}
+
+	glm::vec3 Vy = tan(fov.y) * up * focalLen;
+	glm::vec3 Vx = tan(fov.x) * right * focalLen;
+
+	glm::vec2 normalizedPos = glm::vec2((x -halfResX)/halfResX,(halfResY - y)/halfResY);
 	glm::vec3 posOnImagePlane = Pcenter + normalizedPos.y * Vy + normalizedPos.x * Vx;
 
-	r.direction = glm::normalize(posOnImagePlane - eye);
+	r.direction = glm::normalize(posOnImagePlane - r.origin);
 
 	return r;
 }
@@ -156,7 +201,7 @@ __global__ void generateInitialCamRays(ray * pool,glm::vec2 resolution, float it
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);
-	ray R = raycastFromCameraKernel(resolution, iter, x, y,cam.position, cam.view, cam.up, cam.fov * ((float)PI / 180.0f));
+	ray R = raycastFromCameraKernel(resolution, iter, x, y,cam.position, cam.view, cam.up, cam.fov * ((float)PI / 180.0f), cam.focalLen, cam.aperture);
 	R.color = glm::vec3(1.0f);
 	R.isActive = true;
 	R.pixelIndex = x + (resolution.x * y);
@@ -164,7 +209,7 @@ __global__ void generateInitialCamRays(ray * pool,glm::vec2 resolution, float it
 }
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos,  glm::vec3 * cudaimage,camera* renderCam, ray * rayPool, int poolSize, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos,  glm::vec3 * cudaimage,camera* renderCam, ray * rayPoolA, ray * rayPoolB,int poolSize, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
 	
 	//MEMORY MANAGEMENT////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// package geometry and materials and sent to GPU
@@ -197,6 +242,8 @@ void cudaRaytraceCore(uchar4* PBOpos,  glm::vec3 * cudaimage,camera* renderCam, 
 	cam.view = renderCam->views[frame];
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
+	cam.focalLen = renderCam->focalLen;
+	cam.aperture = renderCam->aperture;
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	
 	
 	//kernel config 
@@ -206,13 +253,35 @@ void cudaRaytraceCore(uchar4* PBOpos,  glm::vec3 * cudaimage,camera* renderCam, 
 	dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
 	
 	//flood raypool with init cam rays
-	generateInitialCamRays<<<fullBlocksPerGrid,threadsPerBlock>>>(rayPool,renderCam->resolution, float(iterations), cam);
+	generateInitialCamRays<<<fullBlocksPerGrid,threadsPerBlock>>>(rayPoolA,renderCam->resolution, float(iterations), cam);
+
 
 	//trace rays
+#if RAY_STREAM_COMPACTION_ON 
+	int rayCount = poolSize;
 	for(int i = 0;i < TRACE_DEPTH; i++)
 	{
-		pathtraceRays<<<ceil((float)poolSize/(float)blockSize),blockSize>>>(rayPool,cudaimage,poolSize, iterations, i, cudageoms, numberOfGeoms,cudamaterials, numberOfMaterials);
+		if(rayCount< 1) break;
+		if(i % 2 == 0)
+		{
+			pathtraceRays<<<ceil((float)rayCount/(float)blockSize),blockSize>>>(rayPoolA,cudaimage,rayCount, iterations, i, cudageoms, numberOfGeoms,cudamaterials, numberOfMaterials);
+			rayCount = streamCompactRays(rayPoolA,rayPoolB,rayCount);
+		}
+		else
+		{
+			pathtraceRays<<<ceil((float)rayCount/(float)blockSize),blockSize>>>(rayPoolB,cudaimage,rayCount, iterations, i, cudageoms, numberOfGeoms,cudamaterials, numberOfMaterials);
+			rayCount = streamCompactRays(rayPoolB,rayPoolA,rayCount);
+		}
+
 	}
+
+
+#else
+	for(int i = 0;i < TRACE_DEPTH; i++)
+	{
+		pathtraceRays<<<ceil((float)poolSize/(float)blockSize),blockSize>>>(rayPoolA,cudaimage,poolSize, iterations, i, cudageoms, numberOfGeoms,cudamaterials, numberOfMaterials);
+	}
+#endif
 
 
 
@@ -237,43 +306,3 @@ void cudaRaytraceCore(uchar4* PBOpos,  glm::vec3 * cudaimage,camera* renderCam, 
 }
 
 
-// TODO: IMPLEMENT THIS FUNCTION
-__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms){
-
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
-
-  if((x<=resolution.x && y<=resolution.y)){
-
-	  ray R =  raycastFromCameraKernel(resolution, time, x, y,cam.position, cam.view, cam.up, cam.fov * ((float)PI / 180.0f));
-	  
-	  //hit info
-	  float hitDist(FAR_CLIPPING_DISTANCE);
-	  glm::vec3 hitPos, hitNorm;
-	  int hitMatID;
-	
-	  //loop through all geometries
-	  for(int i=0;i<numberOfGeoms;i++)
-	  {
-		  glm::vec3 interPt(0.0f);
-		  glm::vec3 interNorm(0.0f);
-		  float d(0.0f);
-		  if(geoms[i].type == SPHERE) d = sphereIntersectionTest(geoms[i], R,interPt, interNorm);
-		  else if(geoms[i].type == CUBE) d = boxIntersectionTest(geoms[i], R,interPt, interNorm);
-		  //when hitting a surface that's closer than previous hit
-		  if(d > 0.0f && d < hitDist)
-		  {
-			  hitDist = d;
-			  hitPos = interPt;
-			  hitNorm = interNorm;
-			  hitMatID = geoms[i].materialid;
-		  }
-	  }
-	  colors[index] = (hitDist < 0.0f || hitDist >= FAR_CLIPPING_DISTANCE) ? glm::vec3(0.0f,0.0f,1.0f) : glm::vec3(0.8f*glm::dot(hitNorm,-R.direction));
-	  //colors[index] = (hitDist >= FAR_CLIPPING_DISTANCE) ? glm::vec3(0.0f) : hitNorm;
-	  //colors[index] = (hitDist >= FAR_CLIPPING_DISTANCE) ? glm::vec3(0.0f) : glm::vec3(1.0f,0.0f,0.0f);
-	  //colors[index] = R.direction;
-   }
-}
