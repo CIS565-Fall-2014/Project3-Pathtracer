@@ -186,22 +186,20 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
-__global__ void raytraceRay(ray* ra, glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors, glm::vec3* radianceBuffer,
+__global__ void raytraceRay(ray* rayLast, glm::vec2 resolution, float time, cameraData cam, int totalDepth, glm::vec3* colors, glm::vec3* radianceBuffer,
                             material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms,
-							glm::vec3* lightPos, glm::vec3* lightColor, int numberOfLights, int currentDepth , bool isDOF ){
+							glm::vec3* lightPos, glm::vec3* lightColor, int numberOfLights, int currentDepth, int* terminateFlag, bool isDOF){
 
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);
 
-	bool terminate = false;
-	
-	//int currentDepth = 0;//*currentDeptha;
-	ray r = ra[0];
-	//ray r;
-	if((x < resolution.x && y < resolution.y )){
+	//bool terminate = false;
 
+	
+	ray r; 
+	if((x < resolution.x && y < resolution.y && terminateFlag[index] == 0)){
 
 		if(currentDepth == 0){
 			r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
@@ -212,6 +210,10 @@ __global__ void raytraceRay(ray* ra, glm::vec2 resolution, float time, cameraDat
 				r.direction = glm::normalize(focalPoint - aperturePoint);
 			}	
 		}
+		else
+			r = rayLast[index];
+
+
 		glm::vec3 directRadiance;
 
 		bool hitCheck = false;
@@ -246,17 +248,21 @@ __global__ void raytraceRay(ray* ra, glm::vec2 resolution, float time, cameraDat
 
 
 		if(hitCheck == false){ //Terminate the ray
-			radianceBuffer[currentDepth + index * rayDepth] = glm::vec3(0,0,0);
+			radianceBuffer[currentDepth + index * totalDepth] = glm::vec3(0,0,0);
 			directRadiance = glm::vec3(0,0,0);
-			terminate = true;
+			//rayLast[index].direction = glm::vec3(0,0,0);
+			//terminate = true;
+			terminateFlag[index] = 1;
 		}
 		else{
 			material mate = materials[hitObjectIndex];
 		
 			if(mate.emittance != 0){ //Terminate the ray
-				radianceBuffer[currentDepth + index * rayDepth] = mate.color * mate.emittance / 5.0f;
+				radianceBuffer[currentDepth + index * totalDepth] = mate.color * mate.emittance / 5.0f;
 				directRadiance = mate.color * mate.emittance / 5.0f;
-				terminate = true;
+				//rayLast[index].direction = glm::vec3(0,0,0);
+				//terminate = true;
+				terminateFlag[index] = 1;
 			}
 			else{
 
@@ -305,27 +311,33 @@ __global__ void raytraceRay(ray* ra, glm::vec2 resolution, float time, cameraDat
 
 				//Direct Radiance
 				directRadiance /= numberOfLights;
-				radianceBuffer[currentDepth + index * rayDepth] = directRadiance;
+				radianceBuffer[currentDepth + index * totalDepth] = directRadiance;
 
 				++currentDepth;
-				thrust::default_random_engine rng(hash(index*time));
-				thrust::uniform_real_distribution<float> u01(0,1);
+
 
 				//Compute indirect ray
-				int restDepth = rayDepth - currentDepth;
-				if(currentDepth < rayDepth){
-					int type = calculateSelfBSDF(r, geoms[hitObjectIndex], newEyePositionIn, newEyePositionOut, intersectionNormal, mate, u01(rng), u01(rng), restDepth); ////r
-					//currentDepth = rayDepth - restDepth;			
+				if(currentDepth < totalDepth){
+					thrust::default_random_engine rng(hash(index*time));
+					thrust::uniform_real_distribution<float> u01(0,1);
+
+					int type = calculateSelfBSDF(r, geoms[hitObjectIndex], newEyePositionIn, newEyePositionOut, intersectionNormal, mate, u01(rng), u01(rng), totalDepth - currentDepth); ////r
+					rayLast[index] = r;		
+					terminateFlag[index] = 0;
+				}
+				else{
+					//rayLast[index].direction = glm::vec3(0,0,0);
+					terminateFlag[index] = 1;
 				}
 			}
 		}
 
 		glm::vec3 newColor = colors[index];
-		if(currentDepth == rayDepth || terminate == true){
+		if(terminateFlag[index] == 1){
 		
 			glm::vec3 radiance;
-			for(int d = rayDepth; d > 0; d--){
-				radiance = radianceBuffer[d - 1 + index * rayDepth] + (float)DEPTH_WEIGHT * radiance;
+			for(int d = totalDepth; d > 0; d--){
+				radiance = radianceBuffer[d - 1 + index * totalDepth] + (float)DEPTH_WEIGHT * radiance;
 			}
 
 			if(radiance.x > 1)
@@ -463,28 +475,35 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	//int* currentDepth = new int[1];
 	//currentDepth[0] = 0;
 
+
+	ray* incidentRay = new ray[(int)renderCam->resolution.x * (int)renderCam->resolution.y];
 	ray* cudaIncidentRay = NULL;
+
 	cudaMalloc((void**)&cudaIncidentRay, 1 *sizeof(ray));
 	cudaMemcpy( cudaIncidentRay, initialRay, 1 * sizeof(ray), cudaMemcpyHostToDevice);
 
-	//int* cudaCurrentDepth = NULL;
-	//cudaMalloc((void**)&cudaCurrentDepth, 1 *sizeof(int));
-	//cudaMemcpy( cudaCurrentDepth, currentDepth, 1 * sizeof(int), cudaMemcpyHostToDevice);
 
-	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
-													cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, 0, isDOF);
+	cudaMalloc((void**)&cudaIncidentRay, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(ray));
+	cudaMemcpy( cudaIncidentRay, incidentRay, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(ray), cudaMemcpyHostToDevice);
 
-	//while(currentDepth[0] < traceDepth){
-	//	if(currentDepth[0] == 0){
-	//		// kernel launches
-	//		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
-	//															cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, cudaCurrentDepth);
-	//	}
-	//	else{
-	//		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
-	//															cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, cudaCurrentDepth);
-	//	}
-	//}
+	int* terminateFlag = new int[(int)renderCam->resolution.x * (int)renderCam->resolution.y];
+	int* cudaTerminateFlag = NULL;
+	cudaMalloc((void**)&cudaTerminateFlag, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(int));
+	cudaMemcpy( cudaTerminateFlag, terminateFlag, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(int), cudaMemcpyHostToDevice);
+
+
+	for(int currentDepth = 0; currentDepth < traceDepth; currentDepth++){
+		if(currentDepth == 0){
+			// kernel launches
+			raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
+																cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, 0, isDOF);
+		}
+		else{
+			raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
+																cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, 0, isDOF);
+		}
+	}
+
 
 
 
@@ -501,11 +520,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaFree( cudaMaterials );
 	cudaFree( cudaLightPos );
 	cudaFree( cudaLightColor );
+	cudaFree( cudaIncidentRay );
+	cudaFree( cudaTerminateFlag );
 
 	delete geomList;
 	delete lightSource; 
 	delete lightColor;
 	delete radianceBuffer;
+	delete incidentRay;
+	delete terminateFlag;
 
 	// make certain the kernel has completed
 	cudaThreadSynchronize();

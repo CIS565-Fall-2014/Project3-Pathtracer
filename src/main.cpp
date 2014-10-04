@@ -107,6 +107,7 @@ void runCuda(){
     for (int i=0; i < renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
+
   
     // execute the kernel
     cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), DOF);

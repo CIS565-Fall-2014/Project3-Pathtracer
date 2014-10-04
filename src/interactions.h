@@ -113,7 +113,7 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
   return 1;
 };
 
-__host__ __device__ int calculateSelfBSDF(ray& r, staticGeom geom, glm::vec3 intersectIn, glm::vec3 intersectOut, glm::vec3 normal, material m, float xi1, float xi2, int& restDepth){
+__host__ __device__ int calculateSelfBSDF(ray& r, staticGeom geom, glm::vec3 intersectIn, glm::vec3 intersectOut, glm::vec3 normal, material m, float xi1, float xi2, int restDepth){
 
 	if(m.hasReflective == 1){
 		r.origin = intersectOut;
