@@ -58,6 +58,16 @@ __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
   return r;
 }
 
+__host__ __device__ cudaMat4 transposeM(cudaMat4 m){
+	cudaMat4 mt;
+	mt.x.x = m.x.x;  mt.y.y = m.y.y;  mt.z.z = m.z.z;  mt.w.w = m.w.w;   //diagonal term remains
+	mt.x.y = m.y.x;  mt.x.z = m.z.x;  mt.x.w = m.w.x;
+	mt.y.z = m.z.y;  mt.y.w = m.w.y;
+	mt.z.w = m.w.z; 
+
+	return mt;
+}
+
 // Gets 1/direction for a ray
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r){
   return glm::vec3(1.0/r.direction.x, 1.0/r.direction.y, 1.0/r.direction.z);
@@ -69,11 +79,110 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
+
+//find the smallest positive value within an array
+__host__ __device__ float find_smallest_t( float* ptr, int length){
+	//double* ptr = t_ptr;
+	float min=-1;
+	bool flag=true;
+	for ( int i=0; i<length; i++){
+		if( flag == true && *ptr>=0){
+			min = *ptr;
+			flag = false;  //turn off first flag
+		}
+		if(*ptr<min && *ptr>=0 && flag==false)
+			min = *ptr;
+		ptr++;
+	}
+	return min;
+}
+
 // TODO: IMPLEMENT THIS FUNCTION
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 
-    return -1;
+	float min = -1, max = 1;
+	glm::vec4 O,PP,VV;
+	float t[6],D,ans;
+	glm::vec3 N,A,B,Pi,p[8],p1,p2,p3;
+
+	//deifning vertex for cube
+	p[0] = glm::vec3(min,min,min);  p[1] = glm::vec3(min,min,max); p[2] = glm::vec3(max,min,max); p[3] = glm::vec3(max,min,min);  
+	p[4] = glm::vec3(min,max,min);  p[5] = glm::vec3(min,max,max); p[6] = glm::vec3(max,max,max); p[7] = glm::vec3(max,max,min);
+
+	//transform the ray
+	PP = glm::vec4( r.origin, 1.0f );   //vec4 of ray start
+	VV = glm::vec4( r.direction, 0.0f );   //vec4 of ray direction
+	glm::vec3 P = multiplyMV ( box.inverseTransform, PP);
+	glm::vec3 V = multiplyMV ( box.inverseTransform, VV);
+
+	//if ray origin is within the cube
+	if( (P[0]==min || P[0]==max) && P[1]>=min && P[1]<=max && P[2]>=min && P[2]<=max)
+		return -1;
+	else if( (P[1]==min || P[1]==max) && P[0]>=min && P[0]<=max && P[2]>=min && P[2]<=max)
+		return -1;
+	else if ((P[2]==min || P[2]==max) && P[0]>=min && P[0]<=max && P[1]>=min && P[1]<=max)
+		return -1;
+
+	//initializing t array, each correspond to the t value of left,front,right,back,bottom,top square
+	for(int i=0; i<6; i++)
+		t[i] = -1;
+
+	for(int i=0; i<6; i++){
+		if(i<4){ //left,front, right, back plane
+			p1 = p[i]; p2 = p[i+1]; p3 = p[i+4];
+		}
+		else if(i==4){//bottom plane
+			p1 = p[0]; p2 = p[1]; p3 = p[2];
+		}
+		else if(i==5){//top plane
+			p1 = p[4]; p2 = p[5]; p3 = p[6];
+		}
+		
+		//defining plane
+		A = p2 - p1;
+		B = p3 - p1;
+		N = glm::cross( A, B );  
+		Pi = glm::vec3( 0.0, 0.0, 0.0 );
+
+		//ray is not parallel with plane
+		if(glm::dot(N,V)!=0){  
+			D = glm::dot(N,p1);
+			t[i] = -( glm::dot(N,P) + D ) / glm::dot(N,V);
+			Pi = P + glm::vec3( t[i]*V[0], t[i]*V[1], t[i]*V[2] );
+		}
+
+		//intersection point is not within the quare boundary
+		if( t[i]>0 && (Pi[0]>max || Pi[1]>max || Pi[2]>max || Pi[0]<min || Pi[1]<min || Pi[2]<min) )
+				t[i] = -1;
+	}
+	ans = find_smallest_t (t,6);
+
+	if(ans!=-1){ //has intersection
+		intersectionPoint = r.origin + ans * r.direction;
+			if(t[0]==ans){  
+			normal = multiplyMV ( transposeM(box.inverseTransform), glm::vec4(-1,0,0,0) );  //left plane
+		}
+		else if(t[1]==ans){
+			normal = multiplyMV ( transposeM(box.inverseTransform), glm::vec4(0,0,1,0) );  //front plane
+		}
+		else if(t[2]==ans){
+			normal = multiplyMV ( transposeM(box.inverseTransform), glm::vec4(1,0,0,0) );  //right plane
+		}
+		else if(t[3]==ans){
+			normal = multiplyMV ( transposeM(box.inverseTransform), glm::vec4(0,0,-1,0) );  //back plane
+		}
+		else if(t[4]==ans){
+			normal = multiplyMV ( transposeM(box.inverseTransform), glm::vec4(0,-1,0,0) );  //bottom plane
+		}
+		else if(t[5]==ans){
+			normal = multiplyMV ( transposeM(box.inverseTransform), glm::vec4(0,1,0,0) );  //top plane
+		}
+		return glm::length(intersectionPoint - r.origin) ;
+	}
+	else{
+		return -1;
+	}
 }
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
