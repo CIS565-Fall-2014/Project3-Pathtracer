@@ -24,6 +24,8 @@
 //	First intersection distances from camera.
 //	Uniform sampling on cubes and spheres.
 
+__host__ __device__ bool sceneIntersection( const ray &r, staticGeom *geoms, int num_geoms, float &t, int &id, glm::vec3 &intersection_point, glm::vec3 &intersection_normal );
+
 
 void checkCUDAError( const char *msg )
 {
@@ -68,10 +70,6 @@ ray raycastFromCameraKernel( glm::vec2 resolution,
 							 glm::vec3 uvec,
 							 glm::vec2 fov )
 {
-	// TODO: Supersampled anti-aliasing.
-	// TODO: Depth of field.
-	// TODO: Motion blur.
-
 	// TODO: Compute a, m, h, and v otuside this method since they remain constant between rays.
 
 	// A - cross product of C and U
@@ -87,8 +85,7 @@ ray raycastFromCameraKernel( glm::vec2 resolution,
 	glm::vec3 v = glm::vec3( 0.0f, resolution.y * glm::length( h ) / resolution.x, 0.0f );
 
 	float sx = ( float )x / ( resolution.x - 1.0f );
-	float sy = 1.0f - ( ( float )y / ( resolution.y - 1.0f ) ); // TODO: The -1 here might flip the image vertically.
-	//float sy = ( float )y / ( resolution.y - 1.0f );
+	float sy = 1.0f - ( ( float )y / ( resolution.y - 1.0f ) );
 
 	glm::vec3 image_point = m + ( ( 2.0f * sx - 1.0f ) * h ) + ( ( 2.0f * sy - 1.0f ) * v );
 	glm::vec3 dir = image_point - eyep;
@@ -159,17 +156,15 @@ void raytraceRay( glm::vec2 resolution,
 				  glm::vec3 *image,
 				  staticGeom *geoms,
 				  int num_geoms,
-				  material *materials,
-				  int num_materials )
+				  material *materials )
 {
-	// TODO: Doesn't this method need materials to perform all necessary computations?
-	// TODO: Setup recursion base cases based on raytrace_depth and Russion Roulette.
-
 	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
 	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
 	int index = x + ( y * resolution.x );
 
+	// Throw away pixels outside image resolution.
 	if ( ( x <= resolution.x && y <= resolution.y ) ) {
+		// Cast ray from camera through pixel.
 		ray r = raycastFromCameraKernel( resolution,
 										 current_iteration,
 										 x,
@@ -184,92 +179,78 @@ void raytraceRay( glm::vec2 resolution,
 		// Intersection testing.
 		////////////////////////////////////////////////////
 
-		float dist_to_intersection = FLT_MAX;
+		float dist_to_intersection;
+		int material_index;
 		glm::vec3 intersection_point;
-		glm::vec3 normal;
-
-		float temp_dist_to_intersection = -1.0f;
-		glm::vec3 temp_intersection_point;
-		glm::vec3 temp_normal;
-
-		bool did_intersect = false;
-
-		// Test.
-		glm::vec3 intersected_geom_color;
-
-		// Find nearest intersection, if any.
-		for ( int i = 0; i < num_geoms; ++i ) {
-			if ( geoms[i].type == SPHERE ) {
-				temp_dist_to_intersection = sphereIntersectionTest( geoms[i],
-																	r,
-																	temp_intersection_point,
-																	temp_normal );
-			}
-			else if ( geoms[i].type == CUBE ) {
-				temp_dist_to_intersection = boxIntersectionTest( geoms[i],
-																 r,
-																 temp_intersection_point,
-																 temp_normal );
-			}
-			else if ( geoms[i].type == MESH ) {
-				// TODO: meshIntersectionTest() or triangleIntersectionTest().
-			}
-
-			// Update nearest intersection if closer intersection has been found.
-			if ( temp_dist_to_intersection > 0.0f && temp_dist_to_intersection < dist_to_intersection ) {
-				dist_to_intersection = temp_dist_to_intersection;
-				intersection_point = temp_intersection_point;
-				normal = temp_normal;
-
-				did_intersect = true;
-
-				// Test.
-				intersected_geom_color = materials[geoms[i].materialid].color;
-			}
-		}
+		glm::vec3 intersection_normal;
+		bool ray_did_intersect_something = sceneIntersection( r,
+															  geoms,
+															  num_geoms,
+															  dist_to_intersection,
+															  material_index,
+															  intersection_point,
+															  intersection_normal );
 
 
 		////////////////////////////////////////////////////
-		// Write output.
+		// Ray casting.
 		////////////////////////////////////////////////////
 
-		// Test sphere intersections.
-		//if ( did_intersect ) {
-		//	image[index] = intersected_geom_color;
-		//}
-		//else {
-		//	image[index] = glm::vec3( 0.0f, 0.0f, 0.0f );
-		//}
-
-		// Color output image to test for correct ray direction computations.
-		//glm::vec3 dir_test = r.direction;
-		//if ( dir_test.x < 0.0f ) {
-		//	dir_test.x *= -1.0f;
-		//}
-		//if ( dir_test.y < 0.0f ) {
-		//	dir_test.y *= -1.0f;
-		//}
-		//if ( dir_test.z < 0.0f ) {
-		//	dir_test.z *= -1.0f;
-		//}
-		//image[index] = dir_test;
-
-		// Color output image to test for correct intersection normals.
-		glm::vec3 intersection_normal_test = normal;
-		if ( intersection_normal_test.x < 0.0f ) {
-			intersection_normal_test.x *= -1.0f;
+		if ( ray_did_intersect_something ) {
+			// TODO: Recurse.
+			image[index] = materials[material_index].color;
 		}
-		if ( intersection_normal_test.y < 0.0f ) {
-			intersection_normal_test.y *= -1.0f;
+		else {
+			// TODO: Background color.
+			image[index] = glm::vec3( 0.0f, 0.0f, 0.0f );
 		}
-		if ( intersection_normal_test.z < 0.0f ) {
-			intersection_normal_test.z *= -1.0f;
-		}
-		image[index] = intersection_normal_test;
 
 		// Assign random colors to output image pixels.
 		//image[index] = generateRandomNumberFromThread( resolution, current_iteration, x, y );
 	}
+}
+
+
+__host__
+__device__
+bool sceneIntersection( const ray &r,
+						staticGeom *geoms,
+						int num_geoms,
+						float &t,
+						int &id,
+						glm::vec3 &intersection_point,
+						glm::vec3 &intersection_normal )
+{
+	t = FLT_MAX;
+	float temp_t = -1.0f;
+	glm::vec3 temp_intersection_point;
+	glm::vec3 temp_intersection_normal;
+
+	// Find nearest intersection, if any.
+	for ( int i = 0; i < num_geoms; ++i ) {
+		if ( geoms[i].type == SPHERE ) {
+			temp_t = sphereIntersectionTest( geoms[i],
+											 r,
+											 temp_intersection_point,
+											 temp_intersection_normal );
+		}
+		else if ( geoms[i].type == CUBE ) {
+			temp_t = boxIntersectionTest( geoms[i],
+										  r,
+										  temp_intersection_point,
+										  temp_intersection_normal );
+		}
+
+		// Update nearest intersection if closer intersection has been found.
+		if ( temp_t > 0.0f && temp_t < t ) {
+			t = temp_t;
+			intersection_point = temp_intersection_point;
+			intersection_normal = temp_intersection_normal;
+			id = geoms[i].materialid;
+		}
+	}
+
+	return ( t < FLT_MAX );
 }
 
 
@@ -356,8 +337,7 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 																cuda_image,
 																cuda_geoms,
 																num_geoms,
-																cuda_materials,
-																num_materials );
+																cuda_materials );
 
 	// Launch sendImageToPBO kernel.
 	sendImageToPBO<<< full_blocks_per_grid, threads_per_block >>>( pbo_pos,
