@@ -150,7 +150,9 @@ void raytraceRay( glm::vec2 resolution,
 				  int raytrace_depth,
 				  glm::vec3 *image,
 				  staticGeom *geoms,
-				  int num_geoms )
+				  int num_geoms,
+				  material *materials,
+				  int num_materials )
 {
 	// TODO: Doesn't this method need materials to perform all necessary computations?
 	// TODO: Setup recursion base cases based on raytrace_depth and Russion Roulette.
@@ -184,6 +186,9 @@ void raytraceRay( glm::vec2 resolution,
 
 		bool did_intersect = false;
 
+		// Test.
+		glm::vec3 intersected_geom_color;
+
 		// Find nearest intersection, if any.
 		for ( int i = 0; i < num_geoms; ++i ) {
 			if ( geoms[i].type == SPHERE ) {
@@ -206,6 +211,9 @@ void raytraceRay( glm::vec2 resolution,
 				normal = temp_normal;
 
 				did_intersect = true;
+
+				// Test.
+				intersected_geom_color = materials[geoms[i].materialid].color;
 			}
 		}
 
@@ -216,7 +224,7 @@ void raytraceRay( glm::vec2 resolution,
 
 		// Test sphere intersections.
 		if ( did_intersect ) {
-			image[index] = glm::vec3( 1.0f, 1.0f, 1.0f );
+			image[index] = intersected_geom_color;
 		}
 		else {
 			image[index] = glm::vec3( 0.0f, 0.0f, 0.0f );
@@ -297,8 +305,16 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 				geom_list,
 				size_geom_list,
 				cudaMemcpyHostToDevice );
-
-	// TODO: Package up materials and send to GPU.
+  
+	// Send materials to GPU.
+	material *cuda_materials = NULL;
+	float size_material_list = num_materials * sizeof( material );
+	cudaMalloc( ( void** )&cuda_materials,
+				size_material_list );
+	cudaMemcpy( cuda_materials,
+				materials,
+				size_material_list,
+				cudaMemcpyHostToDevice );
   
 	// Package up camera.
 	cameraData cam;
@@ -315,7 +331,9 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 																1, // Start recursion with raytrace depth of 1.
 																cuda_image,
 																cuda_geoms,
-																num_geoms );
+																num_geoms,
+																cuda_materials,
+																num_materials );
 
 	// Launch sendImageToPBO kernel.
 	sendImageToPBO<<< full_blocks_per_grid, threads_per_block >>>( pbo_pos,
@@ -331,6 +349,7 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	// Cleanup.
 	cudaFree( cuda_image );
 	cudaFree( cuda_geoms );
+	cudaFree( cuda_materials );
 	delete geom_list;
 
 	// Make certain the kernel has completed.
