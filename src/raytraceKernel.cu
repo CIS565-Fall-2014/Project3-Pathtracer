@@ -17,6 +17,14 @@
 #include "interactions.h"
 
 
+// Some forward declarations
+
+// TODO: Visualization modes that don't depend on the GPU kernel.
+//	Intersection normals.
+//	First intersection distances from camera.
+//	Uniform sampling on cubes and spheres.
+
+
 void checkCUDAError( const char *msg )
 {
 	cudaError_t err = cudaGetLastError();
