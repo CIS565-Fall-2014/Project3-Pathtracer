@@ -196,7 +196,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 	glm::vec3 pixelColor(0, 0, 0);
 
 	float focalLength = 10;
-	float apertureRadius = 0.1;
+	float apertureRadius = 0.2;
 
 	int currentDepth = 0;
 	if((x < resolution.x && y < resolution.y )){
