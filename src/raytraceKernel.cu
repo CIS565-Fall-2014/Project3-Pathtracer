@@ -331,7 +331,6 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 	int currentDepth = 0;
 	if((x < resolution.x && y < resolution.y )){
-	//if((x> 480 &&  x < 520 && y < 350 && y > 320)){
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 		
 
@@ -484,8 +483,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
-	int traceDepth = 10; //determines how many bounces the raytracer traces
-	int numberOfLights = 2;
+	int traceDepth = 5; //determines how many bounces the raytracer traces
+	int numberOfLights = 1;
 
 	// set up crucial magic
 	int tileSize = 8;
