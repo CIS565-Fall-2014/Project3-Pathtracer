@@ -72,7 +72,8 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-__host__ __device__ float intersectionTest(staticGeom * geoms,int num, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, int & hitMaterialID)
+//intersection test against all geometries in the scene
+__host__ __device__ float intersectionTest(staticGeom * geoms,int num, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, int & hitMaterialID, int & hitObjID)
 {
 	float hitDist(FAR_CLIPPING_DISTANCE);
 	bool hitSomething = false;
@@ -94,7 +95,33 @@ __host__ __device__ float intersectionTest(staticGeom * geoms,int num, ray r, gl
 			intersectionPoint = interPt;
 			normal = interNorm;
 			hitMaterialID = geoms[i].materialid;
+			hitObjID = i;
 		}
+	}
+
+	return (hitSomething) ? hitDist: -1.0f;
+}
+
+//single geometry intersection test given geometry ID
+__host__ __device__ float intersectionTest(staticGeom * geoms,int ID, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
+{
+	float hitDist(FAR_CLIPPING_DISTANCE);
+	bool hitSomething = false;
+	
+	glm::vec3 interPt(0.0f);
+	glm::vec3 interNorm(0.0f);
+	float d(0.0f);
+
+	if(geoms[ID].type == SPHERE) d = sphereIntersectionTest(geoms[ID], r,interPt, interNorm);
+	else if(geoms[ID].type == CUBE) d = boxIntersectionTest(geoms[ID], r,interPt, interNorm);
+
+	if(d > 0.0f && d < hitDist)
+	{
+		hitSomething = true;
+		hitDist = d;
+
+		intersectionPoint = interPt;
+		normal = interNorm;
 	}
 
 	return (hitSomething) ? hitDist: -1.0f;

@@ -9,6 +9,7 @@
 #include "intersections.h"
 
 #define RAY_SPAWN_OFFSET 0.01f
+#define SSS_REFLECT_COE 0.075f
 
 struct Fresnel {
   float reflectionCoefficient;
@@ -125,7 +126,7 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
 // Returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
-__host__ __device__ int calculateBSDF(ray& r, float randSeed,glm::vec3 intersect, glm::vec3 normal, material mat){
+__host__ __device__ int calculateBSDF(ray& r, staticGeom * geoms, float randSeed,int intersectObjectID, glm::vec3 intersect, glm::vec3 normal, material mat){
 
 	thrust::default_random_engine eng(hash(randSeed));
 	thrust::uniform_real_distribution<float> distribution(0.0f,1.0f);
@@ -148,6 +149,42 @@ __host__ __device__ int calculateBSDF(ray& r, float randSeed,glm::vec3 intersect
 		float n2 = isInsideOut ? 1.0f : mat.indexOfRefraction;
 		glm::vec3 reflectDir = glm::reflect(r.direction,normal);
 		glm::vec3 transmitDir = glm::refract(r.direction,(isInsideOut) ? -normal: normal,n1/n2);
+
+		//Subsurface scattering
+		if(mat.hasScatter && !isInsideOut)
+		{
+			float newDice = (float)distribution((eng));
+			//reflect
+			if(newDice < SSS_REFLECT_COE)
+			{
+				r.direction = reflectDir;
+				r.origin = intersect + RAY_SPAWN_OFFSET * ((isInsideOut) ? (-normal): normal) ;
+				r.color *= mat.specularColor;
+			return 1;
+			}
+
+			//scatter 
+
+			ray temp;
+			temp.origin = intersect + RAY_SPAWN_OFFSET * (-normal);
+			temp.direction = r.direction;
+			//temp.direction = transmitDir;
+
+			glm::vec3 exitNormal,exitPoint;
+			float travelDist = intersectionTest(geoms,intersectObjectID,temp,exitPoint,exitNormal);
+
+
+			if(travelDist < - EPSILON) printf("scatter fail");
+
+
+			r.direction = calculateRandomDirectionInHemisphere(r.direction,(float)distribution((eng)),(float)distribution(eng));
+			r.origin = exitPoint + RAY_SPAWN_OFFSET * exitNormal;
+			r.color *= mat.color * powf(exp(-0.5f*travelDist),mat.reducedScatterCoefficient);
+
+
+			return 2;
+		}
+
 
 		//reflect only
 		if(mat.hasReflective && !mat.hasRefractive)
@@ -176,12 +213,9 @@ __host__ __device__ int calculateBSDF(ray& r, float randSeed,glm::vec3 intersect
 		else
 		{
 			Fresnel fres = calculateFresnel(normal,r.direction,n1,n2,reflectDir,transmitDir);
-			float newDice = (float)distribution((eng));
-			//fres.reflectionCoefficient = 0.3f;
-			//fres.transmissionCoefficient = 0.7f;
+
 			//to reflect
-			if( newDice < fres.reflectionCoefficient)
-			//if( dice < (1.0f -mat.diffuseCoe) * fres.reflectionCoefficient + mat.diffuseCoe)
+			if( dice < (1.0f -mat.diffuseCoe) * fres.reflectionCoefficient + mat.diffuseCoe)
 			{
 				r.direction = reflectDir;
 				r.origin = intersect + RAY_SPAWN_OFFSET * ((isInsideOut) ? (-normal): normal) ;

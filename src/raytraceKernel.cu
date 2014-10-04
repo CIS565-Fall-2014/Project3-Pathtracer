@@ -21,10 +21,11 @@
 #include "interactions.h"
 
 //Render Settings
-#define TRACE_DEPTH 5
+#define TRACE_DEPTH 10
 #define RAY_STREAM_COMPACTION_ON 0
-#define ENABLE_ANTIALIASING 0
+#define ENABLE_ANTIALIASING 1
 
+//report kernel failure
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
   if( cudaSuccess != err) {
@@ -33,6 +34,7 @@ void checkCUDAError(const char *msg) {
   }
 } 
 
+//predicate function for thrust copy_if
 struct rayIsActive
 {
 	__host__ __device__ bool operator()(const ray r)
@@ -50,7 +52,7 @@ int streamCompactRays(ray * in, ray * out, int N)
 	thrust::copy_if(input,input+N,output,rayIsActive());
 	return ret;
 }
-// LOOK: This function demonstrates how to use thrust for random number generation on the GPU!
+
 // Function that generates static.
 __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolution, float time, int x, int y){
   int index = x + (y * resolution.x);
@@ -61,10 +63,12 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
   return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
 }
 
-// Function that does the initial raycast from the camera
+// Function that does the initial raycast from the camera with DOF and AA capability
 //ASSUMING VIEW AND UP vector are all normalized AND FOV ARE IN RADIAN
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov, float focalLen, float aperture){
 
+	float xx = x;
+	float yy = y;
 
 	ray r;
 	r.origin = eye;
@@ -75,6 +79,8 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	glm::vec3 Pcenter = eye + view;
 	glm::vec3 right = glm::cross(view,up);
 
+	glm::vec3 Vy = tan(fov.y) * up;
+	glm::vec3 Vx = tan(fov.x) * right;
 	//if non-pin hole camera
 	if(aperture > EPSILON)
 	{
@@ -84,21 +90,22 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 		r.origin += un11(rng) * aperture * right;
 
 		Pcenter = eye + focalLen * view;
+		Vy = tan(fov.y) * up * focalLen;
+		Vx = tan(fov.x) * right * focalLen;
 	}
 
 	//if aa, jitter pixel position
-	if(ENABLE_ANTIALIASING)
+#if(ENABLE_ANTIALIASING)
 	{
-		thrust::default_random_engine rng(hash((time+1.0f)* x * y));
-		thrust::uniform_real_distribution<float> un55(-0.5,0.5);
-		x += un55(rng);
-		y += un55(rng);
+		thrust::default_random_engine rng(hash((time+1.0f)* xx * xx));
+		thrust::uniform_real_distribution<float> u01(0.0f,1.0f);
+		xx += u01(rng);
+		yy += u01(rng);
 	}
+#endif
 
-	glm::vec3 Vy = tan(fov.y) * up * focalLen;
-	glm::vec3 Vx = tan(fov.x) * right * focalLen;
 
-	glm::vec2 normalizedPos = glm::vec2((x -halfResX)/halfResX,(halfResY - y)/halfResY);
+	glm::vec2 normalizedPos = glm::vec2((xx -halfResX)/halfResX,(halfResY - yy)/halfResY);
 	glm::vec3 posOnImagePlane = Pcenter + normalizedPos.y * Vy + normalizedPos.x * Vx;
 
 	r.direction = glm::normalize(posOnImagePlane - r.origin);
@@ -164,9 +171,9 @@ __global__ void pathtraceRays(ray * raypool,glm::vec3* colors, int N, float iter
 		//gather hit info
 		glm::vec3 intersectionPoint;
 		glm::vec3 normal;
-		int hitMatID;
+		int hitMatID,hitObjID;
 		float hitDistance;
-		hitDistance = intersectionTest(geoms,numOfGeoms, raypool[index], intersectionPoint, normal, hitMatID);
+		hitDistance = intersectionTest(geoms,numOfGeoms, raypool[index], intersectionPoint, normal, hitMatID,hitObjID);
 
 		//if hit nothing
 		if(hitDistance < 0.0f || hitDistance >= FAR_CLIPPING_DISTANCE) 
@@ -189,7 +196,7 @@ __global__ void pathtraceRays(ray * raypool,glm::vec3* colors, int N, float iter
 		else
 		{
 			//BSDF handles ray interaction with surface
-			calculateBSDF(raypool[index],randSeed, intersectionPoint, normal, hitMaterial);
+			calculateBSDF(raypool[index],geoms,randSeed, hitObjID, intersectionPoint, normal, hitMaterial);
 		}
 
 	}
