@@ -51,7 +51,7 @@
       <SubSystem>Console</SubSystem>
     </Link>
     <CudaCompile>
-      <GPUDebugInfo>false</GPUDebugInfo>
+      <GPUDebugInfo>true</GPUDebugInfo>
       <HostDebugInfo>false</HostDebugInfo>
     </CudaCompile>
   </ItemDefinitionGroup>

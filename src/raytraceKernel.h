@@ -22,6 +22,7 @@
 #include <thrust/sequence.h>
 #include <thrust/transform.h>
 #include <thrust/functional.h>
+#include <thrust/remove.h>
 
 void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool isDOF);
 

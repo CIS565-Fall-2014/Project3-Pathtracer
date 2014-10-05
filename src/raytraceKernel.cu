@@ -27,8 +27,8 @@ void checkCUDAError(const char *msg) {
 struct Is_Not_Zero
 {
     __host__ __device__
-    bool operator()(int &x){
-      return x != 0;
+    bool operator()(const int x){
+      return x != -1;
     }
 };
 
@@ -194,22 +194,24 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
-__global__ void raytraceRay(ray* rayLast, glm::vec2 resolution, float time, cameraData cam, int totalDepth, glm::vec3* colors, glm::vec3* radianceBuffer,
+__global__ void raytraceRay(ray* rayLast, int numberOfThreadX, glm::vec2 resolution, float time, cameraData cam, int totalDepth, glm::vec3* colors, glm::vec3* radianceBuffer,
                             material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms,
-							glm::vec3* lightPos, glm::vec3* lightColor, int numberOfLights, int currentDepth, int* terminateFlag, bool isDOF){
+							glm::vec3* lightPos, glm::vec3* lightColor, int numberOfLights, int currentDepth, int* terminateFlag, bool isDOF, int numberOfLiveThreads){
 
 
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int preIndex = x + (y * resolution.x);
+	int tx = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int ty = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int preIndex = tx + (ty * numberOfThreadX);
+	if(preIndex >= numberOfLiveThreads)
+		return;
 	//int index =  x + (y * resolution.x);
-	int index = terminateFlag[preIndex];
+	int index = terminateFlag[preIndex] ;
 	
 	ray r; 
-	if((x < resolution.x && y < resolution.y && terminateFlag[index] != -1)){
+	if((tx < resolution.x && ty < resolution.y && terminateFlag[preIndex] != -1)){
 
 		if(currentDepth == 0){
-			r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+			r = raycastFromCameraKernel(resolution, time, tx, ty, cam.position, cam.view, cam.up, cam.fov);
 			if(isDOF){
 				glm::vec3 focalPoint = cam.position + r.direction * cam.focalLength;
 				glm::vec3 aperturePoint =	getRandomPointOnAperture(cam.position, cam.view, cam.up, cam.aperture, time*index);
@@ -257,7 +259,7 @@ __global__ void raytraceRay(ray* rayLast, glm::vec2 resolution, float time, came
 		if(hitCheck == false){ //Terminate the ray
 			radianceBuffer[currentDepth + index * totalDepth] = glm::vec3(0,0,0);
 			directRadiance = glm::vec3(0,0,0);
-			terminateFlag[index] = -1;
+			terminateFlag[preIndex] = -1;
 		}
 		else{
 			material mate = materials[hitObjectIndex];
@@ -265,7 +267,7 @@ __global__ void raytraceRay(ray* rayLast, glm::vec2 resolution, float time, came
 			if(mate.emittance != 0){ //Terminate the ray
 				radianceBuffer[currentDepth + index * totalDepth] = mate.color * mate.emittance / 5.0f;
 				directRadiance = mate.color * mate.emittance / 5.0f;
-				terminateFlag[index] = -1;
+				terminateFlag[preIndex] = -1;
 			}
 			else{
 
@@ -326,21 +328,21 @@ __global__ void raytraceRay(ray* rayLast, glm::vec2 resolution, float time, came
 					int restDepth = totalDepth - currentDepth;
 					int type = calculateSelfBSDF(r, geoms[hitObjectIndex], newEyePositionIn, newEyePositionOut, intersectionNormal, mate, u01(rng), u01(rng), restDepth); ////r
 					if(restDepth == 0)
-						terminateFlag[index] = -1;
+						terminateFlag[preIndex] = -1;
 					else{
 						rayLast[index] = r;		
 						//terminateFlag[index] = 0;
 					}
 				}
 				else{
-					terminateFlag[index] = -1;
+					terminateFlag[preIndex] = -1;
 				}
 			}
 		}
 
 
 		glm::vec3 newColor = colors[index];
-		if(terminateFlag[index] == -1){
+		if(terminateFlag[preIndex] == -1){
 		
 			glm::vec3 radiance;
 			for(int d = totalDepth; d > 0; d--){
@@ -511,25 +513,46 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaMemcpy( cudaTerminateFlag2, terminateFlag2, numberOfPixels * sizeof(int), cudaMemcpyHostToDevice);
 
 	int numberOfLiveThreads = numberOfPixels;
-
+	int numberOfLiveThreadsLastIter;
 	for(int currentDepth = 0; currentDepth < traceDepth; currentDepth++){
 		if(currentDepth == 0){
-			raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
-																cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, isDOF);
+			raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, (int)renderCam->resolution.x, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
+										cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, isDOF, numberOfPixels);
 		}
-		else{
+		else if(currentDepth % 2 == 1){
+
+			numberOfLiveThreadsLastIter = numberOfLiveThreads;
 			thrust::device_ptr<int> h_input(cudaTerminateFlag);
 			thrust::device_ptr<int> h_output(cudaTerminateFlag2);
 
-			int size = thrust::count(h_input, h_input + numberOfPixels, -1);
-			//int size2 = thrust::count_if(h_input, h_input + numberOfPixels, Is_Not_Zero());
-			//thrust::remove_copy(h_input, h_input + numberOfPixels, h_output, 0);
 
-			
+			numberOfLiveThreads = thrust::count_if(h_input, h_input + numberOfLiveThreadsLastIter, Is_Not_Zero());
+			thrust::remove_copy(h_input, h_input + numberOfPixels, h_output, -1);
+			//int size2 = thrust::count_if(h_output, h_output + numberOfPixels, Is_Not_Zero());
+			int xDim = (int)ceil(sqrt((float)numberOfLiveThreads/ tileSize / tileSize));
+			int yDim = (int)ceil((float)numberOfLiveThreads / xDim / tileSize / tileSize);
 
-			dim3 fullBlocksPerGridSecond((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
-			raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
-																cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, isDOF);
+			dim3 fullBlocksPerGridSecond(xDim, yDim);
+			//raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
+			//							cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag2, isDOF, numberOfLiveThreads);
+			raytraceRay<<<fullBlocksPerGridSecond, threadsPerBlock>>>(cudaIncidentRay, xDim*tileSize,  renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
+										cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag2, isDOF, numberOfLiveThreads);
+
+		}
+		else{
+			numberOfLiveThreadsLastIter = numberOfLiveThreads;
+			thrust::device_ptr<int> h_input(cudaTerminateFlag2);
+			thrust::device_ptr<int> h_output(cudaTerminateFlag);
+
+			numberOfLiveThreads = thrust::count_if(h_input, h_input + numberOfLiveThreadsLastIter, Is_Not_Zero());
+			thrust::remove_copy(h_input, h_input + numberOfLiveThreadsLastIter, h_output, -1);
+
+			int xDim = (int)ceil(sqrt((float)numberOfLiveThreads/ tileSize / tileSize));
+			int yDim = (int)ceil((float)numberOfLiveThreads / xDim / tileSize / tileSize);
+
+			dim3 fullBlocksPerGridSecond(xDim, yDim);
+			raytraceRay<<<fullBlocksPerGridSecond, threadsPerBlock>>>(cudaIncidentRay, xDim*tileSize,  renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
+										cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, isDOF, numberOfLiveThreads);
 		}
 	}
 
