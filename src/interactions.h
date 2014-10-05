@@ -151,8 +151,6 @@ __host__ __device__ int calculateSelfBSDF(ray& r, staticGeom geom, glm::vec3 int
 		insideRay.direction = glm::normalize(r.direction / m.indexOfRefraction + (airToObjCosTheta1 / m.indexOfRefraction - sqrt(airToObjCosTheta2Square)) * normal);
 		insideRay.origin = intersectIn;
 
-
-
 		while(restDepth > 0){
 			float dis = -1;
 			glm::vec3 objIntersectPt(0, 0, 0);
@@ -192,14 +190,20 @@ __host__ __device__ int calculateSelfBSDF(ray& r, staticGeom geom, glm::vec3 int
 				r.direction = glm::vec3(0, 0, 0);
 				//restDepth = 0;
 				restDepth--;
-
-
 			}
 		}
 		return 2;
 	}
 
 	else if(type == 3){
+		if(m.reducedScatterCoefficient > 1){
+			if(xi1 > 1 / m.reducedScatterCoefficient){
+				restDepth = 0;
+				return 0;
+			}
+		}
+
+		 //1 /m.reducedScatterCoefficient1
 		r.origin = intersectOut;
 		r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, xi1, xi2));
 
