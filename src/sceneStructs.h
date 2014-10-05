@@ -14,8 +14,15 @@
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
 struct ray {
+	__host__
+	__device__
+	ray():
+		is_active( true )
+	{}
+
 	glm::vec3 origin;
 	glm::vec3 direction;
+	bool is_active;
 };
 
 struct geom {

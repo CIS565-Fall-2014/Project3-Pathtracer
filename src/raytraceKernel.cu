@@ -9,6 +9,9 @@
 #include <cuda.h>
 #include <cmath>
 
+#include <thrust/device_ptr.h>
+#include <thrust/remove.h>
+
 #include "sceneStructs.h"
 #include "glm/glm.hpp"
 #include "utilities.h"
@@ -254,6 +257,18 @@ void raytraceRay( glm::vec2 resolution,
 }
 
 
+// thrust predicate to cull inactive rays from ray pool.
+struct RayShouldBeRemoved
+{
+	__host__
+	__device__
+	bool operator()( const ray &r )
+	{
+		return !r.is_active;
+	}
+};
+
+
 // Wrapper that sets up kernel calls and handles memory management.
 void cudaRaytraceCore( uchar4 *pbo_pos,
 					   camera *render_cam,
@@ -352,15 +367,15 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 		dim3 threads_per_raytrace_block( raytrace_tile_size );
 		dim3 blocks_per_raytrace_grid( ( int )ceil( ( float )num_rays / ( float )raytrace_tile_size ) );
 
-		// TODO: Call raytraceRay kernel to compute pixel colors.
+		// TODO: Call raytraceRay kernel to compute pixel colors and update ray pool.
 
-		// TODO: Perform stream compaction on ray pool after raytraceRay kernel call using the thrust library.
+		thrust::device_ptr<ray> ray_pool_device_ptr( cuda_ray_pool );
+		thrust::device_ptr<ray> culled_ray_pool_device_ptr = thrust::remove_if( ray_pool_device_ptr,
+																				ray_pool_device_ptr + num_rays,
+																				RayShouldBeRemoved() );
 
-		//thrust::device_ptr<ray> cudaRayPoolDevicePtr(cudaRayPool);
-		//thrust::device_ptr<ray> compactCudaRayPoolDevicePtr = thrust::remove_if(cudaRayPoolDevicePtr, cudaRayPoolDevicePtr + numRays, is_terminated());
-			
-		// pointer arithmetic to figure out the number of rays.
-		//numRays = compactCudaRayPoolDevicePtr.get() - cudaRayPoolDevicePtr.get();
+		// Compute number of active rays in ray pool.
+		num_rays = culled_ray_pool_device_ptr.get() - ray_pool_device_ptr.get();
 	}
 
 	// Launch raytraceRay kernel.
