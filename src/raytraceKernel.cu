@@ -21,7 +21,7 @@
 #include "interactions.h"
 
 //Render Settings
-#define TRACE_DEPTH 10
+#define TRACE_DEPTH 5
 #define RAY_STREAM_COMPACTION_ON 0
 #define ENABLE_ANTIALIASING 1
 
@@ -224,6 +224,7 @@ void cudaRaytraceCore(uchar4* PBOpos,  glm::vec3 * cudaimage,camera* renderCam, 
 	for(int i=0; i<numberOfGeoms; i++){
 		staticGeom newStaticGeom;
 		newStaticGeom.type = geoms[i].type;
+		newStaticGeom.m_triangle = geoms[i].m_triangle;
 		newStaticGeom.materialid = geoms[i].materialid;
 		newStaticGeom.translation = geoms[i].translations[frame];
 		newStaticGeom.rotation = geoms[i].rotations[frame];

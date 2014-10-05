@@ -10,6 +10,7 @@
 #include "cudaMat4.h"
 #include <cuda_runtime.h>
 #include <string>
+#include <vector>
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
@@ -19,11 +20,18 @@ struct ray {
 	glm::vec3 color;
 	bool isActive;
 	int pixelIndex;
+};
 
+struct triangle{
+	glm::vec3 p0;
+	glm::vec3 p1;
+	glm::vec3 p2;
+	glm::vec3 normal;
 };
 
 struct geom {
 	enum GEOMTYPE type;
+	triangle m_triangle;
 	int materialid;
 	int frames;
 	glm::vec3* translations;
@@ -31,10 +39,12 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+
 };
 
 struct staticGeom {
 	enum GEOMTYPE type;
+	triangle m_triangle;
 	int materialid;
 	glm::vec3 translation;
 	glm::vec3 rotation;

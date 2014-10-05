@@ -64,6 +64,12 @@ int scene::loadObject(string objectid){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
 		    		newObject.type = MESH;
+					triangle tri;
+					tri.p0 = glm::vec3(0.5f,-0.5f,0.0f);
+					tri.p1 = glm::vec3(-0.5f,-0.5f,0.0f);
+					tri.p2 = glm::vec3(0.0f,0.5f,0.0f);
+					tri.normal =glm::vec3(0.0f,0.0f,1.0f);
+					newObject.m_triangle = tri;
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;

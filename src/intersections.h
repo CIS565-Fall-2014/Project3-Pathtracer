@@ -20,6 +20,7 @@ __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
+__host__ __device__ float triangleIntersectionTest(staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float intersectionTest(staticGeom * geoms,int num,ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
@@ -83,9 +84,11 @@ __host__ __device__ float intersectionTest(staticGeom * geoms,int num, ray r, gl
 	{
 		glm::vec3 interPt(0.0f);
 		glm::vec3 interNorm(0.0f);
-		float d(0.0f);
+		float d(0.0);
 		if(geoms[i].type == SPHERE) d = sphereIntersectionTest(geoms[i], r,interPt, interNorm);
 		else if(geoms[i].type == CUBE) d = boxIntersectionTest(geoms[i], r,interPt, interNorm);
+		else if(geoms[i].type == MESH) d = triangleIntersectionTest(geoms[i], r,interPt, interNorm);
+
 		//when hitting a surface that's closer than previous hit
 		if(d > 0.0f && d < hitDist)
 		{
@@ -103,7 +106,7 @@ __host__ __device__ float intersectionTest(staticGeom * geoms,int num, ray r, gl
 }
 
 //single geometry intersection test given geometry ID
-__host__ __device__ float intersectionTest(staticGeom * geoms,int ID, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
+__host__ __device__ float intersectionTest(staticGeom * geoms, int ID, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
 {
 	float hitDist(FAR_CLIPPING_DISTANCE);
 	bool hitSomething = false;
@@ -114,6 +117,7 @@ __host__ __device__ float intersectionTest(staticGeom * geoms,int ID, ray r, glm
 
 	if(geoms[ID].type == SPHERE) d = sphereIntersectionTest(geoms[ID], r,interPt, interNorm);
 	else if(geoms[ID].type == CUBE) d = boxIntersectionTest(geoms[ID], r,interPt, interNorm);
+	else if(geoms[ID].type == MESH) d = triangleIntersectionTest(geoms[ID], r,interPt, interNorm);
 
 	if(d > 0.0f && d < hitDist)
 	{
@@ -125,6 +129,70 @@ __host__ __device__ float intersectionTest(staticGeom * geoms,int ID, ray r, glm
 	}
 
 	return (hitSomething) ? hitDist: -1.0f;
+}
+
+//tirangle intersection test, return -1 if no intersection, otherwise, distance to intersection
+__host__ __device__ float triangleIntersectionTest(staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+
+	glm::vec3 ro = multiplyMV(geom.inverseTransform, glm::vec4(r.origin,1.0f));
+	glm::vec3 rd = glm::normalize(multiplyMV(geom.inverseTransform, glm::vec4(r.direction,0.0f)));
+	//triangle tri = geom.m_triangle;
+	triangle tri = geom.m_triangle;
+	//transform ray
+	ray rt;
+	rt.origin = ro;
+	rt.direction = rd;
+	
+
+	//plane intersection
+	glm::vec3 U=tri.p1-tri.p0; glm::vec3 V=tri.p2-tri.p0; glm::vec3 N=glm::cross(U,V);
+	float D = - glm::dot(tri.p1,N);
+	float t =-(glm::dot(ro,N)+D)/(glm::dot(rd,N));
+	if (t < 0.0f) return -1;
+	glm::vec3 Intersect=ro+t*rd;
+
+	//check whether inside
+	glm::vec3 list[4]={tri.p0,tri.p1,tri.p2,tri.p0};
+	glm::vec3 testU=tri.p1-tri.p0; glm::vec3 testV=tri.p2-tri.p1; glm::vec3 testN=glm::cross(U,V); glm::vec3 P2P0=ro-Intersect;
+	bool counterClockwise=true;
+	
+	if(glm::dot(testN,P2P0)<0) counterClockwise=false;
+	
+	glm::vec3 V1,V2,N1;
+
+	for (int i=0;i<3;++i)
+	{
+		V1=list[i]-ro;
+		V2=list[i+1]-ro;
+		N1=glm::cross(V2,V1);
+		if(!counterClockwise) N1=glm::cross(V1,V2);
+		if((glm::dot(Intersect,N1)-glm::dot(ro,N1))<-EPSILON) return -1;
+	}
+
+	intersectionPoint = multiplyMV(geom.transform,glm::vec4(Intersect,1.0f));
+	normal = multiplyMV(geom.transform, glm::vec4(tri.normal,0.0f));
+
+	return t;
+
+
+	/* half plane method, had bug, not used
+	//test if on inner of edge 1
+	glm::vec3 edge1 = tri.p1 - tri.p0;
+	if(glm::dot(glm::cross(edge1,Intersect - tri.p0),tri.normal) < 0.0f) return -1;
+
+	//test if on inner of edge 2
+	glm::vec3 edge2 = tri.p2 - tri.p1;
+	if(glm::dot(glm::cross(edge2,Intersect - tri.p1),tri.normal) < 0.0f) return -1;
+
+	//test if on inner of edge 3
+	glm::vec3 edge3 = tri.p0 - tri.p2;
+	if(glm::dot(glm::cross(edge3,Intersect - tri.p2),tri.normal) < 0.0f) return -1;
+
+	intersectionPoint = multiplyMV(geom.transform,glm::vec4(Intersect,1.0f));
+	normal = multiplyMV(geom.transform, glm::vec4(tri.normal,0.0f));
+
+	return glm::length(intersectionPoint - r.origin);
+	*/
 }
 
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
