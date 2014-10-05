@@ -34,8 +34,11 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 
   return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
 }
-
-// TODO: IMPLEMENT THIS FUNCTION
+///////////////////////////////////
+//////////////////////////////////
+// TODO: IMPLEMENT THIS FUNCTION/
+////////////////////////////////
+///////////////////////////////
 // Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
   ray r;
@@ -88,7 +91,13 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   }
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
+///////////////////////////////////
+//////////////////////////////////
+// TODO: IMPLEMENT THIS FUNCTION/ 
+//   raytraceRay() should take in a camera, image buffer, geometry, materials, and lights, 
+//   and should trace a ray through the scene and write the resultant color to a pixel in the image buffer.
+////////////////////////////////
+///////////////////////////////
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms){
@@ -98,12 +107,17 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
   int index = x + (y * resolution.x);
 
   if((x<=resolution.x && y<=resolution.y)){
-
-    colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+    //THIS IS WHERE THE RAY CAST HAPPENS
+    //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+    colors[index] = glm::vec3(255,255,255);
    }
 }
 
-// TODO: FINISH THIS FUNCTION
+///////////////////////////////////
+//////////////////////////////////
+// TODO: Finish THIS FUNCTION /// You will have to complete this function to support passing materials and lights to CUDA
+////////////////////////////////
+///////////////////////////////
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
@@ -116,8 +130,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   
   // send image to GPU
   glm::vec3* cudaimage = NULL;
-  cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-  cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+  cudaMalloc((void**)&cudaimage,           (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3));
+  cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
   // package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
@@ -134,8 +148,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   }
   
   staticGeom* cudageoms = NULL;
-  cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
-  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+  cudaMalloc((void**)&cudageoms,   numberOfGeoms * sizeof(staticGeom));
+  cudaMemcpy( cudageoms, geomList, numberOfGeoms * sizeof(staticGeom), cudaMemcpyHostToDevice);
   
   // package camera
   cameraData cam;

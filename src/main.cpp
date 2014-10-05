@@ -40,7 +40,7 @@ int main(int argc, char** argv){
   }
 
   // Set up camera stuff from loaded pathtracer settings
-  iterations = 0;
+  iterations = 5;
   renderCam = &renderScene->renderCam;
   width = renderCam->resolution[0];
   height = renderCam->resolution[1];

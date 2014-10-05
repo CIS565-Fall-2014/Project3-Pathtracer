@@ -69,8 +69,12 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
-// Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
+		///////////////////////////////////
+		//////////////////////////////////
+		// TODO: IMPLEMENT THIS FUNCTION/
+		////////////////////////////////
+		///////////////////////////////
+		// Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 
     return -1;
@@ -174,7 +178,11 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
        
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
+		///////////////////////////////////
+		//////////////////////////////////
+		// TODO: IMPLEMENT THIS FUNCTION/
+		////////////////////////////////
+		///////////////////////////////
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
 
