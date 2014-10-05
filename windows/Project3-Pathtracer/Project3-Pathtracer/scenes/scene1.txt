@@ -135,7 +135,7 @@ frame 0
 TRANS       0 0 0
 ROTAT       0 0 90
 SCALE       .01 10 10   
-MAP  texture/mat.jpg
+MAP
 
 OBJECT 1
 cube
@@ -144,7 +144,7 @@ frame 0
 TRANS       0 5 -5
 ROTAT       0 90 0
 SCALE       .01 10 10 
-MAP   texture/bricks.bmp
+MAP
 
 OBJECT 2
 cube
@@ -153,7 +153,7 @@ frame 0
 TRANS       0 10 0
 ROTAT       0 0 90
 SCALE       .01 10 10
-MAP  
+MAP 
 
 OBJECT 3
 cube
@@ -162,7 +162,7 @@ frame 0
 TRANS       -5 5 0
 ROTAT       0 0 0
 SCALE       .01 10 10
-MAP    texture/bricks.bmp
+MAP
 
 OBJECT 4
 cube
@@ -171,19 +171,19 @@ frame 0
 TRANS       5 5 0
 ROTAT       0 0 0
 SCALE       .01 10 10
-MAP    texture/bricks.bmp
+MAP
 
 OBJECT 5
-obj/tetra.obj
+sphere
 material 4
 frame 0
-TRANS       0 3 -2.5
-ROTAT       0 180 0
-SCALE       4.5 5 4.5
+TRANS       0 2 -2
+ROTAT       0 180 80
+SCALE       3 3 3
 MAP
 
 OBJECT 6
-sphere
+obj/cylinder.obj
 material 5
 frame 0
 TRANS       3 5 0
@@ -198,7 +198,7 @@ frame 0
 TRANS       -2 5 0
 ROTAT       0 180 0
 SCALE       3 3 3
-MAP  texture/worldmap.jpg
+MAP  texture/bricks.jpg
 
 OBJECT 8
 cube

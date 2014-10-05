@@ -15,10 +15,9 @@
 #include "raytraceKernel.h"
 #include "intersections.h"
 #include "interactions.h"
-#include <thrust/copy.h>
-#include <thrust/count.h>
-#include <thrust/remove.h>
-#include <thrust/device_ptr.h>
+
+extern bool streamcompact_b;
+extern bool texturemap_b;
 
 void checkCUDAError(const char *msg) {
 	cudaError_t err = cudaGetLastError();
@@ -109,7 +108,8 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
 __global__ void PathTraceColor(ray* remainrays,int raysnum,int currdepth,int maxdepth,
-	staticGeom* geoms, int numberOfGeoms, int* lightIndex, int lightNum,material* materials,float time)
+	staticGeom* geoms, int numberOfGeoms, int* lightIndex, 
+	int lightNum,material* materials,float time,uint3* tcolors,int* tnums,bool textureb)
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if(index<=raysnum)
@@ -139,7 +139,11 @@ __global__ void PathTraceColor(ray* remainrays,int raysnum,int currdepth,int max
 			return;
 		}
 
+
 		material currMaterial = materials[geoms[IntersectgeomId].materialid];	
+		if(textureb)
+			textureMap(geoms,IntersectgeomId,currMaterial,InterSectN,InterSectP,tcolors,tnums);
+
 		bool IsLight = false;
 		for(int i=0;i<lightNum;i++)
 		{
@@ -154,7 +158,7 @@ __global__ void PathTraceColor(ray* remainrays,int raysnum,int currdepth,int max
 		}
 		else
 		{
-			int seed = index * (time/2 + currdepth);
+			int seed = (index+1) * (time/2 + currdepth);
 		    int BSDF = calculateBSDF(r,InterSectP,InterSectN,currMaterial,seed,currdepth);	
 			if(BSDF==0)
 				r.raycolor = r.raycolor * currMaterial.color;
@@ -230,7 +234,8 @@ void ThrustStreamCompact(thrust::device_ptr<ray> origin,int &N)
 
 // TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials,
+	int numberOfMaterials, geom* geoms, int numberOfGeoms,std::vector<uint3> mapcolors,std::vector<int> maplastnums){
 
 	int traceDepth = 8; //determines how many bounces the raytracer traces
 
@@ -258,6 +263,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		newStaticGeom.transinverseTransform = geoms[i].transinverseTransforms[frame];
 		newStaticGeom.tri = geoms[i].tri;
 		newStaticGeom.trinum = geoms[i].trinum;
+		newStaticGeom.texindex = geoms[i].texindex;
+		newStaticGeom.theight = geoms[i].theight;
+		newStaticGeom.twidth = geoms[i].twidth;
 		geomList[i] = newStaticGeom;
 	}
 
@@ -319,6 +327,34 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
 
+	//Transfer Texture Map
+	uint3* cudacolors = NULL;
+	int* cudalastnums = NULL;
+	if(texturemap_b)
+	{
+		if(iterations==1  && (maplastnums.size()==0||mapcolors.size()==0))
+		{
+			std::cout<<"No Texture Map Set!"<<std::endl;
+			texturemap_b = false;
+		}
+		uint3 *allcolors = new uint3[(int)mapcolors.size()];
+	    int *alllastnum = new int[(int)maplastnums.size()];
+        for(int i=0;i<(int)mapcolors.size();i++)
+		    allcolors[i] = mapcolors[i];
+
+	    for(int i=0;i<(int)maplastnums.size();i++)
+		    alllastnum[i] = maplastnums[i];
+
+
+	    cudaMalloc((void**)&cudacolors, (int)mapcolors.size()*sizeof(uint3));
+	    cudaMemcpy( cudacolors, allcolors, (int)mapcolors.size()*sizeof(uint3), cudaMemcpyHostToDevice);
+		
+	    cudaMalloc((void**)&cudalastnums, (int)maplastnums.size()*sizeof(int));
+	    cudaMemcpy( cudalastnums, alllastnum, (int)maplastnums.size()*sizeof(int), cudaMemcpyHostToDevice);
+		delete allcolors;
+		delete alllastnum;
+	}
+	
 
 
 	//set up init rays
@@ -336,12 +372,17 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	{
 		if(numberOfInitrays>0)
 		{
-			PathTraceColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudarays,numberOfInitrays,i,traceDepth,cudageoms,numberOfGeoms,cudalightIds,lcount,cudamaterials,(float)iterations);
+			PathTraceColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudarays,numberOfInitrays,i,traceDepth,cudageoms,
+				numberOfGeoms,cudalightIds,lcount,cudamaterials,(float)iterations,cudacolors,cudalastnums,texturemap_b);
 			AddColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudaimage, cudarays,numberOfInitrays);
-			thrust::device_ptr<ray> rayStart(cudarays);
-			ThrustStreamCompact(rayStart,numberOfInitrays);
+			if(streamcompact_b)
+			{
+				thrust::device_ptr<ray> rayStart(cudarays);
+			    ThrustStreamCompact(rayStart,numberOfInitrays);
+			}			
 		}	
 	}
+
 
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,(float)iterations);
 
@@ -355,11 +396,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaFree( cudalightIds );
 	cudaFree( cudamaterials );
 	cudaFree( cudarays );
+	cudaFree( cudacolors );
+	cudaFree( cudalastnums );
 
 	delete geomList;
 	//Added
 	delete materialList;
 	delete lightIds;
+	
 
 	// make certain the kernel has completed
 	cudaThreadSynchronize();

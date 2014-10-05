@@ -13,7 +13,22 @@
 //-------------------------------
 
 int main(int argc, char** argv){
-	FIBITMAP* bitmap;
+	
+  //Added to make config
+  char judge;
+  cout<<"Stream Compact or not?(Input 'y'/'n')"<<endl;
+  cin>>judge;
+  if(judge=='n')
+	  streamcompact_b = false;
+  else
+	  streamcompact_b = true;
+
+  cout<<"Texrure map or not?(Input 'y'/'n')"<<endl;
+  cin>>judge;
+  if(judge=='y')
+	  texturemap_b = true;
+  else
+	  texturemap_b = false;
   // Set up pathtracer stuff
   bool loadedScene = false;
   finishedRender = false;
@@ -109,9 +124,9 @@ void runCuda(){
     for (int i=0; i < (int)renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
-  
+
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() ,renderScene->colors,renderScene->lastnum);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);

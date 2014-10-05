@@ -31,8 +31,7 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
-//Add bmp read headers
-#include "FreeImage.h"
+
 
 using namespace std;
 
@@ -114,5 +113,8 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 bool isRecording=false;
 void grabScreen(void);
 string scenename;
+bool streamcompact_b = false;
+bool texturemap_b = false;
+
 
 #endif

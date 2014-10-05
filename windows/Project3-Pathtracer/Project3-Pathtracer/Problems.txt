@@ -11,3 +11,5 @@ final: index * (time/2 + currdepth);
 
 
 transinverseTransform to get right normal for obj
+
+uvmap:http://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html

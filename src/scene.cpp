@@ -7,8 +7,13 @@
 #include <iostream>
 #include "scene.h"
 #include <cstring>
+//Add FreeImage.lib
+#pragma   comment(lib,"FreeImage.lib")
+extern bool texturemap_b;
 
 scene::scene(string filename){
+	colors.clear();
+	lastnum.clear();
 	cout << "Reading scene from " << filename << " ..." << endl;
 	cout << " " << endl;
 	char* fname = (char*)filename.c_str();
@@ -33,6 +38,39 @@ scene::scene(string filename){
 		}
 	}
 }
+
+bool LoadPic(string tfilename,vector<uint3> &colors,vector<int> &lastnum, int &nHeight,int &nWidth)
+{
+	FIBITMAP* bitmap;
+	bitmap =FreeImage_Load(FreeImage_GetFileType(tfilename.c_str(), 0), tfilename.c_str());
+	bitmap = FreeImage_ConvertTo32Bits(bitmap);
+	 
+	nWidth = FreeImage_GetWidth(bitmap);
+	nHeight = FreeImage_GetHeight(bitmap);
+	int l = nWidth*nHeight;
+	if(lastnum.size()>0)
+		l += lastnum[lastnum.size()-1];
+
+	lastnum.push_back(l);
+	for(int i=0;i<nWidth;i++)
+	{
+	   for(int j=0;j<nHeight;j++)
+	   {
+		   RGBQUAD color;
+		   FreeImage_GetPixelColor(bitmap, i, j, &color);
+		   uint3 rgb;
+		   rgb.x = color.rgbRed;
+		   rgb.y = color.rgbGreen;
+		   rgb.z = color.rgbBlue;
+	       colors.push_back(rgb);
+	   }
+	}
+	
+	FreeImage_Unload(bitmap);
+	if(nWidth==0&&nHeight==0) return false;
+	else return true;
+}
+
 
 int scene::loadObject(string objectid){
     int id = atoi(objectid.c_str());
@@ -96,6 +134,7 @@ int scene::loadObject(string objectid){
 	vector<glm::vec3> translations;
 	vector<glm::vec3> scales;
 	vector<glm::vec3> rotations;
+	
     while (!line.empty() && fp_in.good()){
 	    
 	    //check frame number
@@ -118,7 +157,29 @@ int scene::loadObject(string objectid){
                 scales.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }
 			else if(strcmp(tokens[0].c_str(), "MAP")==0){
-				//scales.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
+				if(texturemap_b)
+				{
+					string ext = "";
+					int h= 0,w=0;
+					newObject.theight = h;
+					newObject.twidth = w;
+					newObject.texindex = -1;
+					if(tokens.size()>1&&tokens[1].size()>=4)
+						ext = tokens[1].substr(tokens[1].length()-3,tokens[1].length());
+
+					if(strcmp(ext.c_str(), "jpg")==0||strcmp(ext.c_str(), "png")==0||strcmp(ext.c_str(), "bmp")==0)
+					{
+						if(LoadPic(tokens[1].c_str(),colors,lastnum,h,w))
+						{
+							cout<<"Finish load texture map"<<lastnum.size()<<endl;
+							newObject.texindex = lastnum.size()-1;
+							newObject.theight = h;
+							newObject.twidth = w;
+						}
+						else
+							cout<<"Texture map doesn't exist"<<endl;
+					}	
+				}			
 			}
 	    }
 	    
@@ -152,8 +213,6 @@ int scene::loadObject(string objectid){
 		for(int i=0;i<(int)tris.size();i++)
 		{
 			OBJ.tri = tris[i];
-			OBJ.maxp = maxp;
-			OBJ.minp = minp;
 			OBJ.trinum = tris.size();
 			objects.push_back(OBJ);
 		}	

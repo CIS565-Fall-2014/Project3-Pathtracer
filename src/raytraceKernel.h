@@ -14,6 +14,13 @@
 #include <cmath>
 #include "sceneStructs.h"
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+//Added
+#include <thrust/copy.h>
+#include <thrust/count.h>
+#include <thrust/remove.h>
+#include <thrust/device_ptr.h>
+#include <vector>
+
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms,std::vector<uint3> allcolors,std::vector<int> alllastnums);
 
 #endif

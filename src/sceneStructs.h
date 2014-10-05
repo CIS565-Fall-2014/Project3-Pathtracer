@@ -11,6 +11,8 @@
 #include <cuda_runtime.h>
 #include <string>
 #include <vector>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
@@ -55,8 +57,11 @@ struct geom {
 
 	//To accelerate
 	int trinum;
-	glm::vec3 maxp;
-	glm::vec3 minp;
+
+	//Texture map data
+	int texindex;
+	int theight;
+	int twidth;
 };
 
 
@@ -74,8 +79,11 @@ struct staticGeom {
 	int trinum;
 	//To accelerate
 	triangle tri;
-	glm::vec3 maxp;
-	glm::vec3 minp;
+
+	//Texture map data
+	int texindex;
+	int theight;
+	int twidth;
 };
 
 struct cameraData {
