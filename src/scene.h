@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include "objreader.h"
 
 using namespace std;
 

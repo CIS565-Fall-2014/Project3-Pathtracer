@@ -36,10 +36,12 @@ scene::scene(string filename){
 
 int scene::loadObject(string objectid){
     int id = atoi(objectid.c_str());
-    if(id!=objects.size()){
-        cout << "ERROR: OBJECT ID does not match expected number of objects" << endl;
-        return -1;
-    }else{
+	std::vector<triangle> tris;
+	glm::vec3 maxp,minp;
+	//if(id!=objects.size()){
+	//	cout << "ERROR: OBJECT ID does not match expected number of objects" << endl;
+	//	return -1;
+	//}else{
         cout << "Loading Object " << id << "..." << endl;
         geom newObject;
         string line;
@@ -63,13 +65,22 @@ int scene::loadObject(string objectid){
                 if(strcmp(extension.c_str(), "obj")==0){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
-		    		newObject.type = MESH;
+					newObject.type = MESH;
+					//Add to load obj file
+					std::vector<glm::vec3> vv,vi,fn;
+					
+					OBJreader(vv,fn,vi,objline,maxp,minp);
+					for(int i=0;i<(int)vi.size();i++)
+					{
+					   triangle newtri(vv[vi[i][0]],vv[vi[i][1]],vv[vi[i][2]],fn[i]);
+					   tris.push_back(newtri);
+					}		
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
                 }
             }
-        }
+     //}
        
 	//link material
     utilityCore::safeGetline(fp_in,line);
@@ -77,7 +88,7 @@ int scene::loadObject(string objectid){
 	    vector<string> tokens = utilityCore::tokenizeString(line);
 	    newObject.materialid = atoi(tokens[1].c_str());
 	    cout << "Connecting Object " << objectid << " to Material " << newObject.materialid << "..." << endl;
-        }
+    }
         
 	//load frames
     int frameCount = 0;
@@ -95,7 +106,7 @@ int scene::loadObject(string objectid){
         }
 	    
 	    //load tranformations
-	    for(int i=0; i<3; i++){
+	    for(int i=0; i<4; i++){
             glm::vec3 translation; glm::vec3 rotation; glm::vec3 scale;
             utilityCore::safeGetline(fp_in,line);
             tokens = utilityCore::tokenizeString(line);
@@ -106,6 +117,9 @@ int scene::loadObject(string objectid){
             }else if(strcmp(tokens[0].c_str(), "SCALE")==0){
                 scales.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }
+			else if(strcmp(tokens[0].c_str(), "MAP")==0){
+				//scales.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
+			}
 	    }
 	    
 	    frameCount++;
@@ -129,7 +143,21 @@ int scene::loadObject(string objectid){
 		newObject.transinverseTransforms[i] = utilityCore::glmMat4ToCudaMat4(glm::transpose(glm::inverse(transform)));
 	}
 	
+
+	if(newObject.type!=MESH)
         objects.push_back(newObject);
+	else
+	{
+		geom OBJ = newObject;
+		for(int i=0;i<(int)tris.size();i++)
+		{
+			OBJ.tri = tris[i];
+			OBJ.maxp = maxp;
+			OBJ.minp = minp;
+			OBJ.trinum = tris.size();
+			objects.push_back(OBJ);
+		}	
+	}
 	
 	cout << "Loaded " << frameCount << " frames for Object " << objectid << "!" << endl;
         return 1;
@@ -149,7 +177,7 @@ int scene::loadCamera(){
 		if(strcmp(tokens[0].c_str(), "RES")==0){
 			newCamera.resolution = glm::vec2(atoi(tokens[1].c_str()), atoi(tokens[2].c_str()));
 		}else if(strcmp(tokens[0].c_str(), "FOVY")==0){
-			fovy = atof(tokens[1].c_str());
+			fovy = (float)atof(tokens[1].c_str());
 		}else if(strcmp(tokens[0].c_str(), "ITERATIONS")==0){
 			newCamera.iterations = atoi(tokens[1].c_str());
 		}else if(strcmp(tokens[0].c_str(), "FILE")==0){
@@ -239,25 +267,25 @@ int scene::loadMaterial(string materialid){
 				glm::vec3 color( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
 				newMaterial.color = color;
 			}else if(strcmp(tokens[0].c_str(), "SPECEX")==0){
-				newMaterial.specularExponent = atof(tokens[1].c_str());				  
+				newMaterial.specularExponent = (float)atof(tokens[1].c_str());				  
 			}else if(strcmp(tokens[0].c_str(), "SPECRGB")==0){
 				glm::vec3 specColor( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
 				newMaterial.specularColor = specColor;
 			}else if(strcmp(tokens[0].c_str(), "REFL")==0){
-				newMaterial.hasReflective = atof(tokens[1].c_str());
+				newMaterial.hasReflective = (float)atof(tokens[1].c_str());
 			}else if(strcmp(tokens[0].c_str(), "REFR")==0){
-				newMaterial.hasRefractive = atof(tokens[1].c_str());
+				newMaterial.hasRefractive = (float)atof(tokens[1].c_str());
 			}else if(strcmp(tokens[0].c_str(), "REFRIOR")==0){
-				newMaterial.indexOfRefraction = atof(tokens[1].c_str());					  
+				newMaterial.indexOfRefraction = (float)atof(tokens[1].c_str());					  
 			}else if(strcmp(tokens[0].c_str(), "SCATTER")==0){
-				newMaterial.hasScatter = atof(tokens[1].c_str());
+				newMaterial.hasScatter = (float)atof(tokens[1].c_str());
 			}else if(strcmp(tokens[0].c_str(), "ABSCOEFF")==0){
 				glm::vec3 abscoeff( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
 				newMaterial.absorptionCoefficient = abscoeff;
 			}else if(strcmp(tokens[0].c_str(), "RSCTCOEFF")==0){
-				newMaterial.reducedScatterCoefficient = atof(tokens[1].c_str());					  
+				newMaterial.reducedScatterCoefficient = (float)atof(tokens[1].c_str());					  
 			}else if(strcmp(tokens[0].c_str(), "EMITTANCE")==0){
-				newMaterial.emittance = atof(tokens[1].c_str());					  
+				newMaterial.emittance = (float)atof(tokens[1].c_str());					  
 			
 			}
 		}

@@ -15,7 +15,10 @@
 #include "raytraceKernel.h"
 #include "intersections.h"
 #include "interactions.h"
-
+#include <thrust/copy.h>
+#include <thrust/count.h>
+#include <thrust/remove.h>
+#include <thrust/device_ptr.h>
 
 void checkCUDAError(const char *msg) {
 	cudaError_t err = cudaGetLastError();
@@ -151,9 +154,10 @@ __global__ void PathTraceColor(ray* remainrays,int raysnum,int currdepth,int max
 		}
 		else
 		{
-			int seed = time * index * (currdepth + 1);
-		    calculateBSDF(r,InterSectP,InterSectN,currMaterial,seed,currdepth);	
-			r.raycolor = r.raycolor * currMaterial.color;
+			int seed = index * (time/2 + currdepth);
+		    int BSDF = calculateBSDF(r,InterSectP,InterSectN,currMaterial,seed,currdepth);	
+			if(BSDF==0)
+				r.raycolor = r.raycolor * currMaterial.color;
 		}
 		
 
@@ -193,6 +197,37 @@ __global__ void InitRays(ray* rays, glm::vec2 resolution, cameraData cam, float 
 	}
 }
 
+struct Is_Exist
+{
+	__host__ __device__
+	bool operator()(const ray x)
+	{
+		if(x.exist) return true;
+		else return false;
+	}
+};
+
+struct Is_Not_Exist
+{
+	__host__ __device__
+	bool operator()(const ray x)
+	{
+		if(!x.exist) return true;
+		else return false;
+	}
+};
+
+//StreamCompact
+void ThrustStreamCompact(thrust::device_ptr<ray> origin,int &N)
+{
+	//Count how many rays still exist
+	int finallength = thrust::count_if(origin, origin+N,Is_Exist());
+	thrust::remove_if(origin, origin+N,Is_Not_Exist());
+	N = finallength;
+	return;
+}
+
+
 // TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
@@ -221,6 +256,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		newStaticGeom.transform = geoms[i].transforms[frame];
 		newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
 		newStaticGeom.transinverseTransform = geoms[i].transinverseTransforms[frame];
+		newStaticGeom.tri = geoms[i].tri;
+		newStaticGeom.trinum = geoms[i].trinum;
 		geomList[i] = newStaticGeom;
 	}
 
@@ -233,8 +270,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	for(int i=0; i<numberOfMaterials; i++){
 		material newMaterial;
 		newMaterial.color = materials[i].color;
+
+		//specular is useless as the highlight area color is decided by light
 		newMaterial.specularExponent = materials[i].specularExponent;
-		newMaterial.specularColor = materials[i].specularColor;
+		newMaterial.specularColor = materials[i].specularColor;  
 		newMaterial.hasReflective = materials[i].hasReflective;
 		newMaterial.hasRefractive = materials[i].hasRefractive;
 		newMaterial.indexOfRefraction = materials[i].indexOfRefraction;
@@ -283,7 +322,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 
 	//set up init rays
-	int currDepth = 0; 
 	int numberOfInitrays = renderCam->resolution.x*renderCam->resolution.y;
 	ray* cudarays = NULL;
 	cudaMalloc((void**)&cudarays, numberOfInitrays*sizeof(ray));
@@ -296,9 +334,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	// kernel launches
 	for(int i=0;i<=traceDepth;i++)
 	{
-		PathTraceColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudarays,numberOfInitrays,i,traceDepth,cudageoms,numberOfGeoms,cudalightIds,lcount,cudamaterials,(float)iterations);
-
-	    AddColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudaimage, cudarays,numberOfInitrays);
+		if(numberOfInitrays>0)
+		{
+			PathTraceColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudarays,numberOfInitrays,i,traceDepth,cudageoms,numberOfGeoms,cudalightIds,lcount,cudamaterials,(float)iterations);
+			AddColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudaimage, cudarays,numberOfInitrays);
+			thrust::device_ptr<ray> rayStart(cudarays);
+			ThrustStreamCompact(rayStart,numberOfInitrays);
+		}	
 	}
 
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,(float)iterations);

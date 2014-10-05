@@ -13,6 +13,7 @@
 //-------------------------------
 
 int main(int argc, char** argv){
+	FIBITMAP* bitmap;
   // Set up pathtracer stuff
   bool loadedScene = false;
   finishedRender = false;
@@ -25,6 +26,8 @@ int main(int argc, char** argv){
     string header; string data;
     istringstream liness(argv[i]);
     getline(liness, header, '='); getline(liness, data, '=');
+	scenename = data.substr(0,data.length()-4);
+	scenename = scenename.substr(7,scenename.length());
     if(strcmp(header.c_str(), "scene")==0){
       renderScene = new scene(data);
       loadedScene = true;
@@ -42,8 +45,8 @@ int main(int argc, char** argv){
   // Set up camera stuff from loaded pathtracer settings
   iterations = 0;
   renderCam = &renderScene->renderCam;
-  width = renderCam->resolution[0];
-  height = renderCam->resolution[1];
+  width = (int)renderCam->resolution[0];
+  height = (int)renderCam->resolution[1];
 
   if(targetFrame >= renderCam->frames){
     cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
@@ -88,8 +91,9 @@ void runCuda(){
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
-  if(iterations < renderCam->iterations){
+  if(iterations < (int)renderCam->iterations){
+	if(isRecording||iterations == (int)renderCam->iterations-1)
+		 grabScreen();
     uchar4 *dptr=NULL;
     iterations++;
     cudaGLMapBufferObject((void**)&dptr, pbo);
@@ -99,10 +103,10 @@ void runCuda(){
     material* materials = new material[renderScene->materials.size()];
     
 
-    for (int i=0; i < renderScene->objects.size(); i++) {
+    for (int i=0; i < (int)renderScene->objects.size(); i++) {
       geoms[i] = renderScene->objects[i];
     }
-    for (int i=0; i < renderScene->materials.size(); i++) {
+    for (int i=0; i < (int)renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
   
@@ -115,19 +119,19 @@ void runCuda(){
 
     if (!finishedRender) {
       // output image file
-      image outputImage(renderCam->resolution.x, renderCam->resolution.y);
+      image outputImage((int)renderCam->resolution.x, (int)renderCam->resolution.y);
 
       for (int x=0; x < renderCam->resolution.x; x++) {
         for (int y=0; y < renderCam->resolution.y; y++) {
-          int index = x + (y * renderCam->resolution.x);
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
+          int index = x + (y * (int)renderCam->resolution.x);
+          outputImage.writePixelRGB((int)renderCam->resolution.x-1-x,y,renderCam->image[index]);
         }
       }
       
       gammaSettings gamma;
       gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; 
+      gamma.gamma = (int)1.0;
+      gamma.divisor = (int)1.0; 
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -321,4 +325,33 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+
+	if (key == GLFW_KEY_R) 
+		isRecording = true;
+	if(key==GLFW_KEY_T)
+		isRecording = false;
+}
+
+
+//Added
+void grabScreen(void)
+{
+	int window_width = 800;
+	int window_height = 800;
+	unsigned char* bitmapData = new unsigned char[3 * window_width * window_height];
+
+	for (int i=0; i < window_height; i++) 
+	{
+		glReadPixels(0, i, window_width, 1, GL_RGB, GL_UNSIGNED_BYTE, 
+			bitmapData + (window_width * 3 * ((window_height - 1) - i)));
+	}
+
+	char anim_filename[2048];
+	string f1 = "output/" + scenename;
+	f1 = f1 + "_%04d.png";
+	char* filename = (char*)f1.c_str();
+	sprintf_s(anim_filename, 2048, filename, iterations);
+	stbi_write_png(anim_filename, window_width, window_height, 3, bitmapData, window_width * 3);
+
+	delete [] bitmapData;
 }

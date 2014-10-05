@@ -1,0 +1,13 @@
+White points on diffuse sphere: Russian to eliminate diffuse less than 0.2
+Fresnel: c1 maybe less than zero
+
+One white line appear just in front of the light
+And it disappears when I add currdepth to random seed;
+
+Some white spots appears after 2000 iterations: 
+solve int seed = index * time *(currdepth + 1);  to int seed = index * (time + currdepth + 1);
+
+final: index * (time/2 + currdepth);
+
+
+transinverseTransform to get right normal for obj

@@ -132,9 +132,10 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 InterSectP,glm::vec3 Int
 	thrust::uniform_real_distribution<float> u01(0,1);
 	thrust::default_random_engine rng(hash(randomSeed));
 	float russianRoulette = (float)u01(rng);
-	if(depth>5 && russianRoulette < 0.2){   //russian roulette rule: ray is absorbed
-		r.exist = false;
-	}
+	//if(depth>5 && russianRoulette < 0.2){   //Stop the recursion randomly based on the surface reflectivity
+	//	r.exist = false;
+	//}
+
 	//Only diffuse
 	if(m.hasReflective<MINNUM&&m.hasRefractive<MINNUM)	
 	{
