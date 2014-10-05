@@ -443,7 +443,7 @@ __host__ __device__ glm::vec3 getRandomPointOnAperture(glm::vec3 centerPt, glm::
 	
 	thrust::default_random_engine rng(hash(randomSeed));
     thrust::uniform_real_distribution<float> u01(0, 1);
-    //thrust::uniform_real_distribution<float> u02(-1, 1);
+    //thrust::uniform_real_distribution<float> u02(0, 1);
 
 	glm::vec3 wing = glm::cross(view, up);
 
@@ -452,7 +452,7 @@ __host__ __device__ glm::vec3 getRandomPointOnAperture(glm::vec3 centerPt, glm::
 
 	float xCoor = radius * sqrt(1 - russianRoulette2 * russianRoulette2) * cos(russianRoulette1 * 2 * PI);
 	float yCoor = radius * sqrt(1 - russianRoulette2 * russianRoulette2) * sin(russianRoulette1 * 2 * PI);
-	return centerPt + xCoor * wing; + yCoor * up;
+	return centerPt + xCoor * wing + yCoor * up;
 }
 
 #endif
