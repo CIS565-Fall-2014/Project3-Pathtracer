@@ -118,7 +118,7 @@ EMITTANCE   40
 CAMERA
 RES         800 800
 FOVY        25
-ITERATIONS  6500
+ITERATIONS  50000
 FOCALLEN    12
 APER        0
 FILE        test.bmp
@@ -168,12 +168,12 @@ ROTAT       0 0 0
 SCALE       1 10 10
 
 OBJECT 5
-asd.obj
+C:\Users\Zhen Gou\Documents\Visual Studio 2010\Projects\Project3-Pathtracer\data\bunnyLow.obj
 material 1
 frame 0
-TRANS       0 5 0
-ROTAT       -45 0 0
-SCALE       3 3 3
+TRANS       0 2 -0.5
+ROTAT       0 0 0
+SCALE       1 1 1
 
 OBJECT 6
 sphere

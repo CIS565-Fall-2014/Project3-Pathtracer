@@ -7,6 +7,7 @@
 #include <iostream>
 #include "scene.h"
 #include <cstring>
+#include "tiny_obj_loader.h"
 
 scene::scene(string filename){
 	cout << "Reading scene from " << filename << " ..." << endl;
@@ -36,86 +37,113 @@ scene::scene(string filename){
 
 int scene::loadObject(string objectid){
     int id = atoi(objectid.c_str());
-    if(id!=objects.size()){
-        cout << "ERROR: OBJECT ID does not match expected number of objects" << endl;
-        return -1;
-    }else{
-        cout << "Loading Object " << id << "..." << endl;
-        geom newObject;
-        string line;
+    cout << "Loading Object " << id << "..." << endl;
+    geom newObject;
+    string line;
+	std::vector<triangle> triangleList; //for loading meshes
         
-        //load object type 
-        utilityCore::safeGetline(fp_in,line);
-        if (!line.empty() && fp_in.good()){
-            if(strcmp(line.c_str(), "sphere")==0){
-                cout << "Creating new sphere..." << endl;
-				newObject.type = SPHERE;
-            }else if(strcmp(line.c_str(), "cube")==0){
-                cout << "Creating new cube..." << endl;
-				newObject.type = CUBE;
-            }else{
-				string objline = line;
-                string name;
-                string extension;
-                istringstream liness(objline);
-                getline(liness, name, '.');
-                getline(liness, extension, '.');
-                if(strcmp(extension.c_str(), "obj")==0){
-                    cout << "Creating new mesh..." << endl;
-                    cout << "Reading mesh from " << line << "... " << endl;
-		    		newObject.type = MESH;
+    //load object type 
+    utilityCore::safeGetline(fp_in,line);
+    if (!line.empty() && fp_in.good()){
+        if(strcmp(line.c_str(), "sphere")==0){
+            cout << "Creating new sphere..." << endl;
+			newObject.type = SPHERE;
+        }else if(strcmp(line.c_str(), "cube")==0){
+            cout << "Creating new cube..." << endl;
+			newObject.type = CUBE;
+        }else{
+			string objline = line;
+            string name;
+            string extension;
+            istringstream liness(objline);
+            getline(liness, name, '.');
+            getline(liness, extension, '.');
+            if(strcmp(extension.c_str(), "obj")==0){
+                cout << "Creating new mesh..." << endl;
+                cout << "Reading mesh from " << line << "... " << endl;
+		    	newObject.type = MESH;
+
+				/*
+				triangle tri;
+				tri.p0 = glm::vec3(0.5f,-0.5f,0.0f);
+				tri.p1 = glm::vec3(-0.5f,-0.5f,0.0f);
+				tri.p2 = glm::vec3(0.0f,0.5f,0.0f);
+				tri.normal =glm::vec3(0.0f,0.0f,1.0f);
+				newObject.m_triangle = tri;
+				*/
+
+				//TinyOBJ to load OBJ file
+				std::string inputfile = objline;
+				std::vector<tinyobj::shape_t> shapes;
+				std::string err = tinyobj::LoadObj(shapes, inputfile.c_str());
+				if (!err.empty()) {
+					std::cerr << err << std::endl;
+					cin.get();
+					exit(1);
+				}
+
+				//assuming only one shape in obj
+				for(int i=0;i<shapes[0].mesh.indices.size();i+=3)
+				{
 					triangle tri;
-					tri.p0 = glm::vec3(0.5f,-0.5f,0.0f);
-					tri.p1 = glm::vec3(-0.5f,-0.5f,0.0f);
-					tri.p2 = glm::vec3(0.0f,0.5f,0.0f);
-					tri.normal =glm::vec3(0.0f,0.0f,1.0f);
-					newObject.m_triangle = tri;
-                }else{
-                    cout << "ERROR: " << line << " is not a valid object type!" << endl;
-                    return -1;
-                }
+					int i0 = shapes[0].mesh.indices.at(i);
+					int i1 = shapes[0].mesh.indices.at(i+1);
+					int i2 = shapes[0].mesh.indices.at(i+2);
+					tri.p0 = glm::vec3(shapes[0].mesh.positions.at(3*i0),shapes[0].mesh.positions.at(3*i0+1),shapes[0].mesh.positions.at(3*i0+2));
+					tri.p1 = glm::vec3(shapes[0].mesh.positions.at(3*i1),shapes[0].mesh.positions.at(3*i1+1),shapes[0].mesh.positions.at(3*i1+2));
+					tri.p2 = glm::vec3(shapes[0].mesh.positions.at(3*i2),shapes[0].mesh.positions.at(3*i2+1),shapes[0].mesh.positions.at(3*i2+2));
+
+					tri.normal = glm::cross(tri.p1 - tri.p0, tri.p2 - tri.p1);
+
+					triangleList.push_back(tri);		
+				}
+
+            }else{
+                cout << "ERROR: " << line << " is not a valid object type!" << endl;
+                return -1;
             }
         }
+    }
        
 	//link material
-    utilityCore::safeGetline(fp_in,line);
+	utilityCore::safeGetline(fp_in,line);
 	if(!line.empty() && fp_in.good()){
-	    vector<string> tokens = utilityCore::tokenizeString(line);
-	    newObject.materialid = atoi(tokens[1].c_str());
-	    cout << "Connecting Object " << objectid << " to Material " << newObject.materialid << "..." << endl;
-        }
+		vector<string> tokens = utilityCore::tokenizeString(line);
+		newObject.materialid = atoi(tokens[1].c_str());
+		cout << "Connecting Object " << objectid << " to Material " << newObject.materialid << "..." << endl;
+    }
         
 	//load frames
-    int frameCount = 0;
-    utilityCore::safeGetline(fp_in,line);
+	int frameCount = 0;
+	utilityCore::safeGetline(fp_in,line);
 	vector<glm::vec3> translations;
 	vector<glm::vec3> scales;
 	vector<glm::vec3> rotations;
-    while (!line.empty() && fp_in.good()){
+	while (!line.empty() && fp_in.good()){
 	    
-	    //check frame number
-	    vector<string> tokens = utilityCore::tokenizeString(line);
-        if(strcmp(tokens[0].c_str(), "frame")!=0 || atoi(tokens[1].c_str())!=frameCount){
-            cout << "ERROR: Incorrect frame count!" << endl;
-            return -1;
-        }
+	//check frame number
+	vector<string> tokens = utilityCore::tokenizeString(line);
+    if(strcmp(tokens[0].c_str(), "frame")!=0 || atoi(tokens[1].c_str())!=frameCount){
+        cout << "ERROR: Incorrect frame count!" << endl;
+        return -1;
+    }
 	    
-	    //load tranformations
-	    for(int i=0; i<3; i++){
-            glm::vec3 translation; glm::vec3 rotation; glm::vec3 scale;
-            utilityCore::safeGetline(fp_in,line);
-            tokens = utilityCore::tokenizeString(line);
-            if(strcmp(tokens[0].c_str(), "TRANS")==0){
-                translations.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
-            }else if(strcmp(tokens[0].c_str(), "ROTAT")==0){
-                rotations.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
-            }else if(strcmp(tokens[0].c_str(), "SCALE")==0){
-                scales.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
-            }
-	    }
-	    
-	    frameCount++;
+	//load tranformations
+	for(int i=0; i<3; i++){
+        glm::vec3 translation; glm::vec3 rotation; glm::vec3 scale;
         utilityCore::safeGetline(fp_in,line);
+        tokens = utilityCore::tokenizeString(line);
+        if(strcmp(tokens[0].c_str(), "TRANS")==0){
+            translations.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
+        }else if(strcmp(tokens[0].c_str(), "ROTAT")==0){
+            rotations.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
+        }else if(strcmp(tokens[0].c_str(), "SCALE")==0){
+            scales.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
+        }
+	}
+	    
+		frameCount++;
+		utilityCore::safeGetline(fp_in,line);
 	}
 	
 	//move frames into CUDA readable arrays
@@ -132,12 +160,23 @@ int scene::loadObject(string objectid){
 		newObject.transforms[i] = utilityCore::glmMat4ToCudaMat4(transform);
 		newObject.inverseTransforms[i] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
 	}
-	
-        objects.push_back(newObject);
-	
+
+	//add normal object
+	if(newObject.type != MESH) objects.push_back(newObject);
+
+	//add triangles for mesh
+	else
+	{
+		for(int i = 0;i<triangleList.size();i++)
+		{
+			geom T = newObject;
+			T.m_triangle = triangleList.at(i);
+			objects.push_back(T);
+		}
+	}
 	cout << "Loaded " << frameCount << " frames for Object " << objectid << "!" << endl;
-        return 1;
-    }
+		return 1;
+
 }
 
 int scene::loadCamera(){

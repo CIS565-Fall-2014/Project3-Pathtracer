@@ -166,7 +166,7 @@ __global__ void pathtraceRays(ray * raypool,glm::vec3* colors, int N, float iter
 	{
 		if(!raypool[index].isActive) return;  //isActive can be removed when stream compaction is done
 
-		float randSeed = (iterations + 1.0f) * ((float) index + 1.0f) * (float) (depth + 1.0f);
+		float randSeed = ((float)iterations/10.0f + 1.0f) * ((float) index + 1.0f) * ((float)depth + 1.0f);
 
 		//gather hit info
 		glm::vec3 intersectionPoint;

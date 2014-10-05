@@ -353,7 +353,6 @@ __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
     return glm::vec3(xradius, yradius, zradius);
 }
 
-// LOOK: Example for generating a random point on an object using thrust.
 // Generates a random point on a given cube
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed){
 
@@ -399,7 +398,6 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
        
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
 
