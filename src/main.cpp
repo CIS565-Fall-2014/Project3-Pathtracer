@@ -137,7 +137,11 @@ void runCuda(){
       for (int x=0; x < renderCam->resolution.x; x++) {
         for (int y=0; y < renderCam->resolution.y; y++) {
           int index = x + (y * renderCam->resolution.x);
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
+		  glm::vec3 pixel_color = renderCam->image[index];
+		  pixel_color.x /= iterations;
+		  pixel_color.y /= iterations;
+		  pixel_color.z /= iterations;
+          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,pixel_color);
         }
       }
       

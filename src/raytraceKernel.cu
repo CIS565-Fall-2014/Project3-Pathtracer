@@ -21,12 +21,6 @@
 
 
 // Some forward declarations
-
-// TODO: Visualization modes that don't depend on the GPU kernel.
-//	Intersection normals.
-//	First intersection distances from camera.
-//	Uniform sampling on cubes and spheres.
-
 __host__ __device__ bool sceneIntersection( const ray &r, staticGeom *geoms, int num_geoms, float &t, int &id, glm::vec3 &intersection_point, glm::vec3 &intersection_normal );
 
 
@@ -78,7 +72,8 @@ void clearImage( glm::vec2 resolution,
 __global__
 void sendImageToPBO( uchar4* PBOpos,
 					 glm::vec2 resolution,
-					 glm::vec3* image )
+					 glm::vec3* image,
+					 int iterations_so_far )
 {  
 	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
 	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
@@ -86,9 +81,9 @@ void sendImageToPBO( uchar4* PBOpos,
   
 	if ( x <= resolution.x && y <= resolution.y ) {
 		glm::vec3 color;
-		color.x = image[index].x * 255.0;
-		color.y = image[index].y * 255.0;
-		color.z = image[index].z * 255.0;
+		color.x = ( image[index].x / iterations_so_far ) * 255.0;
+		color.y = ( image[index].y / iterations_so_far ) * 255.0;
+		color.z = ( image[index].z / iterations_so_far ) * 255.0;
 
 		if ( color.x > 255 ) {
 			color.x = 255;
@@ -107,6 +102,9 @@ void sendImageToPBO( uchar4* PBOpos,
 		PBOpos[index].z = color.z;
 	}
 }
+
+
+/*********** CORE PATHTRACING ALGORITHMS ***********/
 
 
 __host__
@@ -152,8 +150,6 @@ bool sceneIntersection( const ray &r,
 }
 
 
-
-
 // Compute rays from camera through pixels and store in ray_pool.
 __global__
 void raycastFromCameraKernel( ray *ray_pool,
@@ -180,6 +176,7 @@ void raycastFromCameraKernel( ray *ray_pool,
 	ray r;
 	r.origin = eyep;
 	r.direction = glm::normalize( dir );
+	r.image_coords = glm::vec2( x, y );
 
 	ray_pool[index] = r;
 }
@@ -208,9 +205,19 @@ void testOutputKernel( glm::vec3 *image,
 }
 
 
+__global__
+void uselessKernel()
+{
+	int ray_pool_index = ( blockIdx.x * blockDim.x ) + threadIdx.x;
+	return;
+}
+
+
 // Core raytracer kernel.
 __global__
-void raytraceRay( glm::vec2 resolution,
+void raytraceRay( ray *ray_pool,
+				  int ray_pool_size,
+				  glm::vec2 resolution,
 				  float current_iteration, // Used solely for random number generation (I think).
 				  cameraData cam,
 				  int raytrace_depth,
@@ -219,46 +226,86 @@ void raytraceRay( glm::vec2 resolution,
 				  int num_geoms,
 				  material *materials )
 {
-	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
-	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
-	int index = x + ( y * resolution.x );
+	// TODO: Russian Roulette to kill rays.
 
-	// Throw away pixels outside image resolution.
-	if ( ( x <= resolution.x && y <= resolution.y ) ) {
+	int ray_pool_index = ( blockIdx.x * blockDim.x ) + threadIdx.x;
 
-		// TODO: Compute ray.
-
-		// Intersection testing.
-		//float dist_to_intersection;
-		//int material_index;
-		//glm::vec3 intersection_point;
-		//glm::vec3 intersection_normal;
-		//bool ray_did_intersect_something = sceneIntersection( r,
-		//													  geoms,
-		//													  num_geoms,
-		//													  dist_to_intersection,
-		//													  material_index,
-		//													  intersection_point,
-		//													  intersection_normal );
-
-		// Ray casting.
-		//if ( ray_did_intersect_something ) {
-		//	// Recurse.
-		//	image[index] += materials[material_index].color;
-		//	
-		//	// Properly orient normal for cases where ray intersects inner surface of glass object.
-		//	intersection_normal = ( glm::dot( intersection_normal, r.direction ) < 0.0f ) ? intersection_normal : ( -1.0f * intersection_normal );
-		//}
-		//else {
-		//	// Background color.
-		//	image[index] += glm::vec3( 0.0f, 0.0f, 0.0f );
-		//}
+	if ( ray_pool_index > ray_pool_size ) {
+		return;
 	}
+
+	ray r = ray_pool[ray_pool_index];
+	int image_pixel_index = ( r.image_coords.y * ( int )resolution.x ) + r.image_coords.x;
+
+	// Nudge ray along it's direction to avoid intersecting with the surface it originates from.
+	r.origin += ( r.direction * 0.001f );
+
+	// Intersection testing.
+	float dist_to_intersection;
+	int material_index;
+	glm::vec3 intersection_point;
+	glm::vec3 intersection_normal;
+	bool ray_did_intersect_something = sceneIntersection( r,
+														  geoms,
+														  num_geoms,
+														  dist_to_intersection,		// Reference to be filled.
+														  material_index,			// Reference to be filled.
+														  intersection_point,		// Reference to be filled.
+														  intersection_normal );	// Reference to be filled.
+
+	if ( ray_did_intersect_something ) {
+		// Properly orient normal for cases where ray intersects inner surface of glass object.
+		intersection_normal = ( glm::dot( intersection_normal, r.direction ) < 0.0f ) ? intersection_normal : ( -1.0f * intersection_normal );
+
+		material mat = materials[material_index];
+
+		// Ray hits light source.
+		if ( mat.emittance > 0.0f ) {
+			r.color = ( r.color * mat.color * mat.emittance );
+			image[image_pixel_index] += r.color;
+			r.is_active = false;
+		}
+		else {
+			// Diffuse.
+			if ( !mat.hasReflective && !mat.hasRefractive ) {
+				glm::vec3 rand = generateRandomNumberFromThread( resolution,
+																 current_iteration * raytrace_depth,
+																 r.image_coords.x,
+																 r.image_coords.y );
+				r.direction = calculateRandomDirectionInHemisphere( intersection_normal, rand.x, rand.y );
+				r.color = r.color * mat.color;
+				//image[image_pixel_index] += r.color;
+
+				// TODO: Shadow rays?
+			}
+			// Perfect specular.
+			else {
+				r.direction = calculateReflectionDirection( intersection_normal, r.direction );
+			}
+		}
+	}
+	else {
+		image[image_pixel_index] += glm::vec3( 0.0f, 0.0f, 0.0f ); // Background color.
+		r.is_active = false;
+	}
+
+	r.origin = intersection_point; // Origin point for next ray.
+	ray_pool[ray_pool_index] = r;
+
+
+
+	// Test.
+	//if ( ray_did_intersect_something ) {
+	//	image[image_pixel_index] = materials[material_index].color;
+	//}
+	//else {
+	//	image[image_pixel_index] = glm::vec3( 0.0f, 0.0f, 0.0f ); // Background color.
+	//}
 }
 
 
 // thrust predicate to cull inactive rays from ray pool.
-struct RayShouldBeRemoved
+struct RayIsInactive
 {
 	__host__
 	__device__
@@ -270,6 +317,7 @@ struct RayShouldBeRemoved
 
 
 // Wrapper that sets up kernel calls and handles memory management.
+// Handles one pathtrace iteration. Called many times to produce a rendered image.
 void cudaRaytraceCore( uchar4 *pbo_pos,
 					   camera *render_cam,
 					   int frame,
@@ -282,7 +330,7 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	// Tune these for performance.
 	int depth = 10;
 	int camera_raycast_tile_size = 8;
-	int raytrace_tile_size = 8;
+	int raytrace_tile_size = 128;
 
 	// Setup crucial magic.
 	dim3 threads_per_block( camera_raycast_tile_size,
@@ -362,36 +410,45 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 																			h,
 																			v );
 
+	//testOutputKernel<<< full_blocks_per_grid, threads_per_block >>>( cuda_image,
+	//																 cuda_ray_pool,
+	//																 render_cam->resolution );
+
 	// Launch raytraceRay kernel once per raytrace depth.
 	for ( int i = 0; i < depth; ++i ) {
 		dim3 threads_per_raytrace_block( raytrace_tile_size );
 		dim3 blocks_per_raytrace_grid( ( int )ceil( ( float )num_rays / ( float )raytrace_tile_size ) );
 
-		// TODO: Call raytraceRay kernel to compute pixel colors and update ray pool.
+		// Test.
+		//uselessKernel<<< blocks_per_raytrace_grid, threads_per_raytrace_block >>>();
 
+		// Launch raytraceRay kernel.
+		raytraceRay<<< blocks_per_raytrace_grid, threads_per_raytrace_block >>>( cuda_ray_pool,
+																				 num_rays,
+																				 render_cam->resolution,
+																				 ( float )current_iteration,
+																				 cam,
+																				 ( i + 1 ), // Start recursion with raytrace depth of 1.
+																				 cuda_image,
+																				 cuda_geoms,
+																				 num_geoms,
+																				 cuda_materials );
+
+		// Note: Stream compaction is slow.
 		thrust::device_ptr<ray> ray_pool_device_ptr( cuda_ray_pool );
 		thrust::device_ptr<ray> culled_ray_pool_device_ptr = thrust::remove_if( ray_pool_device_ptr,
 																				ray_pool_device_ptr + num_rays,
-																				RayShouldBeRemoved() );
+																				RayIsInactive() );
 
 		// Compute number of active rays in ray pool.
 		num_rays = culled_ray_pool_device_ptr.get() - ray_pool_device_ptr.get();
 	}
 
-	// Launch raytraceRay kernel.
-	//raytraceRay<<< full_blocks_per_grid, threads_per_block >>>( render_cam->resolution,
-	//															( float )current_iteration,
-	//															cam,
-	//															1, // Start recursion with raytrace depth of 1.
-	//															cuda_image,
-	//															cuda_geoms,
-	//															num_geoms,
-	//															cuda_materials );
-
 	// Launch sendImageToPBO kernel.
 	sendImageToPBO<<< full_blocks_per_grid, threads_per_block >>>( pbo_pos,
 																   render_cam->resolution,
-																   cuda_image );
+																   cuda_image,
+																   current_iteration );
 
 	// Retrieve image from GPU.
 	cudaMemcpy( render_cam->image,

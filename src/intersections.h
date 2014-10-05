@@ -377,7 +377,7 @@ glm::vec3 getRandomPointOnSphere( staticGeom sphere,
 	float y = 0.5f * sin( phi ) * sin( theta );
 	float z = 0.5f * cos( phi );
 
-	return glm::vec3( x, y, z );
+	return multiplyMV( sphere.transform, glm::vec4( x, y, z, 1.0f) );
 }
 
 #endif
