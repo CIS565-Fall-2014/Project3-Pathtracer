@@ -453,8 +453,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 
 
-
-
 	// package camera
 	cameraData cam;
 	cam.resolution = renderCam->resolution;
@@ -466,30 +464,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cam.aperture = renderCam->aperture;
 
 
-	ray* initialRay = new ray[1];
-	ray newRay;
-	newRay.direction = glm::vec3(0,0,0);
-	newRay.origin = glm::vec3(0,0,0);
-	initialRay[0] = newRay;
-
-	//int* currentDepth = new int[1];
-	//currentDepth[0] = 0;
-
-
 	ray* incidentRay = new ray[(int)renderCam->resolution.x * (int)renderCam->resolution.y];
 	ray* cudaIncidentRay = NULL;
-
-	cudaMalloc((void**)&cudaIncidentRay, 1 *sizeof(ray));
-	cudaMemcpy( cudaIncidentRay, initialRay, 1 * sizeof(ray), cudaMemcpyHostToDevice);
-
-
 	cudaMalloc((void**)&cudaIncidentRay, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(ray));
 	cudaMemcpy( cudaIncidentRay, incidentRay, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(ray), cudaMemcpyHostToDevice);
 
 	int* terminateFlag = new int[(int)renderCam->resolution.x * (int)renderCam->resolution.y];
-	for(int i = 0; i < (int)renderCam->resolution.x*(int)renderCam->resolution.y; ++i){
-		terminateFlag[i] = 0;
-	}
 	int* cudaTerminateFlag = NULL;
 	cudaMalloc((void**)&cudaTerminateFlag, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(int));
 	cudaMemcpy( cudaTerminateFlag, terminateFlag, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(int), cudaMemcpyHostToDevice);
@@ -498,13 +478,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	for(int currentDepth = 0; currentDepth < traceDepth; currentDepth++){
 		if(currentDepth == 0){
-			// kernel launches
 			raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
-																cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, 0, isDOF);
+																cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, isDOF);
 		}
 		else{
 			raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
-																cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, 0, isDOF);
+																cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, isDOF);
 		}
 	}
 
