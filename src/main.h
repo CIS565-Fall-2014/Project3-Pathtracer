@@ -41,6 +41,7 @@ bool finishedRender;
 bool singleFrameMode;
 bool DOF;
 
+
 //-------------------------------
 //------------GL STUFF-----------
 //-------------------------------

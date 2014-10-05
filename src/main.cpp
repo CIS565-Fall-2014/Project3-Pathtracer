@@ -48,6 +48,7 @@ int main(int argc, char** argv){
   width = renderCam->resolution[0];
   height = renderCam->resolution[1];
 
+
   if(targetFrame >= renderCam->frames){
     cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
     targetFrame = 0;
@@ -107,6 +108,7 @@ void runCuda(){
     for (int i=0; i < renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
+
   
     // execute the kernel
     cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), DOF);

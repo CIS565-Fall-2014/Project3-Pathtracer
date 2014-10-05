@@ -129,13 +129,19 @@ __host__ __device__ float intersectRec(glm::vec3 rayOrigin, glm::vec3 rayDir, gl
 			{
 				glm::vec3 pt = rayOrigin + rayDir * t;
 				
+				//if(glm::length(glm::cross(pt - p1, pt - p3)) < 0.00001 )
+				//	return t;
+				//if(pt.x > -0.5 - 0.000001 && pt.x < 0.5 + 0.000001 && pt.y > -0.5 - 0.000001 && pt.y < 0.5 + 0.000001 && pt.z > -0.5 - 0.000001 && pt.z < 0.5 + 0.000001)
+				//	return t;
+				//else
+				//	return -1;
+
 				float s = calculateArea(p1, p2, p3);
 				float s1 = calculateArea(pt, p2, p3) / s;
 				float s2 = calculateArea(p1, pt, p3) / s;
 				float s3 = calculateArea(p1, p2, pt) / s;
 
 				if(s1 <= 1 && s2 <= 1 && s3 <= 1 && abs(s1 + s2 + s3 - 1) < 0.000001)
-					//return t / rayLength;
 					return t;
 				else {
 					s = calculateArea(p1, p3, p4);
