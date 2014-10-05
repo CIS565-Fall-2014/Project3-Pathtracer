@@ -356,7 +356,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool isDOF){
   
 	int traceDepth = 5; //determines how many bounces the raytracer traces
-	int numberOfLights = 1;
+	//int numberOfLights = 1;
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -397,62 +397,70 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaMalloc((void**)&cudaMaterials, numberOfMaterials*sizeof(material));
 	cudaMemcpy( cudaMaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
 
-	glm::vec3* lightSource = new glm::vec3[numberOfLights];
-	glm::vec3* lightColor = new glm::vec3[numberOfLights];
-
+	//int numberOfLights = 1;
 	int numberOfLightSource = 0;
 	
 	for(int i = 0; i < numberOfGeoms; ++i){
 		if(materials[i].emittance != 0){
-		numberOfLightSource++;
+			numberOfLightSource++;
+		}
+	}
+	glm::vec3* lightSource = new glm::vec3[numberOfLightSource];
+	glm::vec3* lightColor = new glm::vec3[numberOfLightSource];
+
+
+	for(int objIndex = 0, lightIndex = 0 ; objIndex < numberOfGeoms; ++objIndex){
+		if(materials[objIndex].emittance != 0){
+			switch(geomList[objIndex].type){
+				case SPHERE:
+					lightSource[lightIndex] = getRandomPointOnSphere(geomList[objIndex], (float)iterations * numberOfLightSource+ lightIndex );
+					break;
+				case CUBE:
+					lightSource[lightIndex] = getRandomPointOnCube(geomList[objIndex], (float)iterations * numberOfLightSource+ lightIndex );
+					break;
+			}
+			lightColor[lightIndex] = materials[objIndex].color / 15.0f * materials[objIndex].emittance; 
+			++lightIndex;
 		}
 	}
 
-	int totalNumberOfLights = numberOfLights;
-	int accumulateIndex = 0;
-	bool boolCeil = false;
-	int objIndex = 0; 
-	while(totalNumberOfLights > 0 && objIndex < numberOfGeoms){
-		if(materials[objIndex].emittance == 0){
-			++objIndex;
-			continue;
-		}
 
+	//int totalNumberOfLights = numberOfLights;
+	//int accumulateIndex = 0;
+	//bool boolCeil = false;
+	//int objIndex = 0; 
+	//while(totalNumberOfLights > 0 && objIndex < numberOfGeoms){
+	//	if(materials[objIndex].emittance == 0){
+	//		++objIndex;
+	//		continue;
+	//	}
 
-		int numberOfLightPerSource;
-		if(boolCeil)
-			numberOfLightPerSource = (int)ceil((float) totalNumberOfLights / numberOfLightSource);
-		else
-			numberOfLightPerSource = (int)floor((float) totalNumberOfLights / numberOfLightSource);
-		for(int i = 0; i < numberOfLightPerSource; ++i){
+	//	int numberOfLightPerSource;
+	//	if(boolCeil)
+	//		numberOfLightPerSource = (int)ceil((float) totalNumberOfLights / numberOfLightSource);
+	//	else
+	//		numberOfLightPerSource = (int)floor((float) totalNumberOfLights / numberOfLightSource);
+	//	for(int i = 0; i < numberOfLightPerSource; ++i){
 
-			lightSource[accumulateIndex + i] = getRandomPointOnCube(geomList[objIndex], (float)iterations * numberOfLights+ i );
-			//lightSource[accumulateIndex + i] = glm::vec3(0,8,0.25);
-			lightColor[accumulateIndex + i] = materials[objIndex].color / 15.0f * materials[objIndex].emittance; 
-		}
+	//		lightSource[accumulateIndex + i] = getRandomPointOnCube(geomList[objIndex], (float)iterations * numberOfLights+ i );
+	//		lightColor[accumulateIndex + i] = materials[objIndex].color / 15.0f * materials[objIndex].emittance; 
+	//	}
 
-		accumulateIndex += numberOfLightPerSource;
-		--numberOfLightSource;
-		totalNumberOfLights -= numberOfLightPerSource;
-		boolCeil = !boolCeil;
-		++objIndex;
-	}
-
-	//for(int i = 0; i < numberOfLights; ++i){
-	//	lightSource[i] =  getRandomPointOnCube(geomList[8], (float)iterations * i );
-	//	lightColor[i] = glm::vec3(1,1,1);
+	//	accumulateIndex += numberOfLightPerSource;
+	//	--numberOfLightSource;
+	//	totalNumberOfLights -= numberOfLightPerSource;
+	//	boolCeil = !boolCeil;
+	//	++objIndex;
 	//}
-
- 
 
 
 	glm::vec3* cudaLightPos = NULL;
-	cudaMalloc((void**)&cudaLightPos, numberOfLights *sizeof(glm::vec3));
-	cudaMemcpy( cudaLightPos, lightSource, numberOfLights * sizeof(glm::vec3), cudaMemcpyHostToDevice);
+	cudaMalloc((void**)&cudaLightPos, numberOfLightSource *sizeof(glm::vec3));
+	cudaMemcpy( cudaLightPos, lightSource, numberOfLightSource * sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
 	glm::vec3* cudaLightColor = NULL;
-	cudaMalloc((void**)&cudaLightColor, numberOfLights *sizeof(glm::vec3));
-	cudaMemcpy( cudaLightColor, lightColor, numberOfLights * sizeof(glm::vec3), cudaMemcpyHostToDevice);
+	cudaMalloc((void**)&cudaLightColor, numberOfLightSource *sizeof(glm::vec3));
+	cudaMemcpy( cudaLightColor, lightColor, numberOfLightSource * sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
 
 
@@ -470,7 +478,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	// kernel launches
 	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
-								cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, isDOF);
+								cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLightSource, isDOF);
 
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
