@@ -188,23 +188,24 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors, glm::vec3* radianceBuffer,
                             material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms,
-							glm::vec3* lightPos, glm::vec3* lightColor, int numberOfLights ){
+							glm::vec3* lightPos, glm::vec3* lightColor, int numberOfLights, bool isDOF ){
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);
 	glm::vec3 pixelColor(0, 0, 0);
 
-	float focalLength = 10;
-	float apertureRadius = 0.2;
 
 	int currentDepth = 0;
 	if((x < resolution.x && y < resolution.y )){
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
-		glm::vec3 focalPoint = cam.position + r.direction * focalLength;
-		glm::vec3 ptAperture =	getRandomPointOnAperture(cam.position, cam.view, cam.up, apertureRadius, time*index);
-		r.origin = ptAperture;
-		r.direction = glm::normalize(focalPoint - ptAperture);
+
+		if(isDOF){
+			glm::vec3 focalPoint = cam.position + r.direction * cam.focalLength;
+			glm::vec3 aperturePoint =	getRandomPointOnAperture(cam.position, cam.view, cam.up, cam.aperture, time*index);
+			r.origin = aperturePoint;
+			r.direction = glm::normalize(focalPoint - aperturePoint);
+		}
 
 		while(currentDepth < rayDepth){
 		
@@ -352,7 +353,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 // TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool isDOF){
   
 	int traceDepth = 5; //determines how many bounces the raytracer traces
 	int numberOfLights = 1;
@@ -464,10 +465,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cam.view = renderCam->views[frame];
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
+	cam.focalLength = renderCam->focalLength;
+	cam.aperture = renderCam->aperture;
 
 	// kernel launches
 	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
-														cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights);
+								cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, isDOF);
 
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 

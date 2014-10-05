@@ -109,7 +109,7 @@ void runCuda(){
     }
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), DOF);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -170,7 +170,7 @@ bool init(int argc, char* argv[]) {
   if (!glfwInit()) {
       return false;
   }
-
+  DOF = false;
   width = 800;
   height = 800;
   window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
@@ -409,6 +409,11 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		renderCam->ups->y = m21*up.x + m22*up.y + m23*up.z;
 		renderCam->ups->z = m31*up.x + m32*up.y + m33*up.z;
 
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if((key == GLFW_KEY_P ) && action == GLFW_PRESS){
+		DOF = !DOF;
 		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
 		iterations = 0;
 	}
