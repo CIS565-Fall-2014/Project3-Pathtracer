@@ -57,46 +57,6 @@ glm::vec3 generateRandomNumberFromThread( glm::vec2 resolution,
 }
 
 
-// TODO: IMPLEMENT THIS FUNCTION
-// Function that does the initial raycast from the camera
-__host__
-__device__
-ray raycastFromCameraKernel( glm::vec2 resolution,
-							 float current_iteration,
-							 int x,
-							 int y,
-							 glm::vec3 eyep,
-							 glm::vec3 vdir,
-							 glm::vec3 uvec,
-							 glm::vec2 fov )
-{
-	// TODO: Compute a, m, h, and v otuside this method since they remain constant between rays.
-
-	// A - cross product of C and U
-	glm::vec3 a = glm::cross( vdir, uvec );
-	
-	// M - midpoint of frame buffer
-	glm::vec3 m = eyep + vdir;
-
-	// H - horizontal NDC value; parallel to A
-	glm::vec3 h = ( a * glm::length( vdir ) * ( float )tan( fov.x * ( PI / 180.0f ) ) ) / glm::length( a );
-	
-	// V - vertical NDC value; parallel to B
-	glm::vec3 v = glm::vec3( 0.0f, resolution.y * glm::length( h ) / resolution.x, 0.0f );
-
-	float sx = ( float )x / ( resolution.x - 1.0f );
-	float sy = 1.0f - ( ( float )y / ( resolution.y - 1.0f ) );
-
-	glm::vec3 image_point = m + ( ( 2.0f * sx - 1.0f ) * h ) + ( ( 2.0f * sy - 1.0f ) * v );
-	glm::vec3 dir = image_point - eyep;
-
-	ray r;
-	r.origin = eyep;
-	r.direction = glm::normalize( dir );
-	return r;
-}
-
-
 // Kernel that blacks out a given image buffer
 __global__
 void clearImage( glm::vec2 resolution,
@@ -146,71 +106,6 @@ void sendImageToPBO( uchar4* PBOpos,
 }
 
 
-// TODO: IMPLEMENT THIS FUNCTION
-// Core raytracer kernel.
-__global__
-void raytraceRay( glm::vec2 resolution,
-				  float current_iteration, // Used solely for random number generation (I think).
-				  cameraData cam,
-				  int raytrace_depth,
-				  glm::vec3 *image,
-				  staticGeom *geoms,
-				  int num_geoms,
-				  material *materials )
-{
-	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
-	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
-	int index = x + ( y * resolution.x );
-
-	// Throw away pixels outside image resolution.
-	if ( ( x <= resolution.x && y <= resolution.y ) ) {
-		// Cast ray from camera through pixel.
-		ray r = raycastFromCameraKernel( resolution,
-										 current_iteration,
-										 x,
-										 y,
-										 cam.position,
-										 cam.view,
-										 cam.up,
-										 cam.fov );
-
-
-		////////////////////////////////////////////////////
-		// Intersection testing.
-		////////////////////////////////////////////////////
-
-		float dist_to_intersection;
-		int material_index;
-		glm::vec3 intersection_point;
-		glm::vec3 intersection_normal;
-		bool ray_did_intersect_something = sceneIntersection( r,
-															  geoms,
-															  num_geoms,
-															  dist_to_intersection,
-															  material_index,
-															  intersection_point,
-															  intersection_normal );
-
-
-		////////////////////////////////////////////////////
-		// Ray casting.
-		////////////////////////////////////////////////////
-
-		if ( ray_did_intersect_something ) {
-			// TODO: Recurse.
-			image[index] = materials[material_index].color;
-		}
-		else {
-			// TODO: Background color.
-			image[index] = glm::vec3( 0.0f, 0.0f, 0.0f );
-		}
-
-		// Assign random colors to output image pixels.
-		//image[index] = generateRandomNumberFromThread( resolution, current_iteration, x, y );
-	}
-}
-
-
 __host__
 __device__
 bool sceneIntersection( const ray &r,
@@ -254,8 +149,112 @@ bool sceneIntersection( const ray &r,
 }
 
 
-// TODO: FINISH THIS FUNCTION
-// Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management.
+
+
+// Compute rays from camera through pixels and store in ray_pool.
+__global__
+void raycastFromCameraKernel( ray *ray_pool,
+							 glm::vec2 resolution,
+							 glm::vec3 eyep,
+							 glm::vec3 m,
+							 glm::vec3 h,
+							 glm::vec3 v )
+{
+	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
+	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
+	int index = ( y * ( int )resolution.x ) + x;
+
+	if ( index > ( resolution.x * resolution.y ) ) {
+		return;
+	}
+
+	float sx = ( float )x / ( resolution.x - 1.0f );
+	float sy = 1.0f - ( ( float )y / ( resolution.y - 1.0f ) );
+
+	glm::vec3 image_point = m + ( ( 2.0f * sx - 1.0f ) * h ) + ( ( 2.0f * sy - 1.0f ) * v );
+	glm::vec3 dir = image_point - eyep;
+
+	ray r;
+	r.origin = eyep;
+	r.direction = glm::normalize( dir );
+
+	ray_pool[index] = r;
+}
+
+
+// Test kernel to verify raycastFromCameraKernel results were correct.
+__global__
+void testOutputKernel( glm::vec3 *image,
+					   ray *ray_pool,
+					   glm::vec2 resolution )
+{
+	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
+	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
+	int index = ( y * ( int )resolution.x ) + x;
+
+	if ( index > ( resolution.x * resolution.y ) ) {
+		return;
+	}
+
+	glm::vec3 normal_color = ray_pool[index].direction;
+	normal_color.x = ( normal_color.x < 0.0f ) ? ( normal_color.x * -1.0f ) : normal_color.x;
+	normal_color.y = ( normal_color.y < 0.0f ) ? ( normal_color.y * -1.0f ) : normal_color.y;
+	normal_color.z = ( normal_color.z < 0.0f ) ? ( normal_color.z * -1.0f ) : normal_color.z;
+
+	image[index] = normal_color;
+}
+
+
+// Core raytracer kernel.
+__global__
+void raytraceRay( glm::vec2 resolution,
+				  float current_iteration, // Used solely for random number generation (I think).
+				  cameraData cam,
+				  int raytrace_depth,
+				  glm::vec3 *image,
+				  staticGeom *geoms,
+				  int num_geoms,
+				  material *materials )
+{
+	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
+	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
+	int index = x + ( y * resolution.x );
+
+	// Throw away pixels outside image resolution.
+	if ( ( x <= resolution.x && y <= resolution.y ) ) {
+
+		// TODO: Compute ray.
+
+		// Intersection testing.
+		//float dist_to_intersection;
+		//int material_index;
+		//glm::vec3 intersection_point;
+		//glm::vec3 intersection_normal;
+		//bool ray_did_intersect_something = sceneIntersection( r,
+		//													  geoms,
+		//													  num_geoms,
+		//													  dist_to_intersection,
+		//													  material_index,
+		//													  intersection_point,
+		//													  intersection_normal );
+
+		// Ray casting.
+		//if ( ray_did_intersect_something ) {
+		//	// Recurse.
+		//	image[index] += materials[material_index].color;
+		//	
+		//	// Properly orient normal for cases where ray intersects inner surface of glass object.
+		//	intersection_normal = ( glm::dot( intersection_normal, r.direction ) < 0.0f ) ? intersection_normal : ( -1.0f * intersection_normal );
+		//}
+		//else {
+		//	// Background color.
+		//	image[index] += glm::vec3( 0.0f, 0.0f, 0.0f );
+		//}
+	}
+}
+
+
+// Wrapper that sets up kernel calls and handles memory management.
 void cudaRaytraceCore( uchar4 *pbo_pos,
 					   camera *render_cam,
 					   int frame,
@@ -265,17 +264,16 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 					   geom *geoms,
 					   int num_geoms )
 {
-	// TODO: Is there a reason tile_size = 8?
-	// TODO: Do the image x- and y-resolutions always need to be multiples of tile_size to ensure full blocks?
-	// TODO: Do the ray pooling thing. That probably goes here since this is the "memory management" method.
-
+	// Tune these for performance.
+	int depth = 10;
+	int camera_raycast_tile_size = 8;
+	int raytrace_tile_size = 8;
 
 	// Setup crucial magic.
-	int tile_size = 8;
-	dim3 threads_per_block( tile_size,
-							tile_size );
-	dim3 full_blocks_per_grid( ( int )ceil( ( float )render_cam->resolution.x / ( float )tile_size ),
-							   ( int )ceil( ( float )render_cam->resolution.y / ( float )tile_size ) );
+	dim3 threads_per_block( camera_raycast_tile_size,
+							camera_raycast_tile_size );
+	dim3 full_blocks_per_grid( ( int )ceil( ( float )render_cam->resolution.x / ( float )camera_raycast_tile_size ),
+							   ( int )ceil( ( float )render_cam->resolution.y / ( float )camera_raycast_tile_size ) );
   
 	// Send image to GPU.
 	glm::vec3 *cuda_image = NULL;
@@ -328,21 +326,57 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	cam.view = render_cam->views[frame];
 	cam.up = render_cam->ups[frame];
 	cam.fov = render_cam->fov;
+	
+	// Variables to compute rays originating from render camera.
+	glm::vec3 a = glm::cross( cam.view, cam.up );
+	glm::vec3 m = cam.position + cam.view; // Midpoint of frame buffer.
+	glm::vec3 h = ( a * glm::length( cam.view ) * ( float )tan( cam.fov.x * ( PI / 180.0f ) ) ) / glm::length( a ); // Horizontal NDC value.
+	glm::vec3 v = glm::vec3( 0.0f, cam.resolution.y * glm::length( h ) / cam.resolution.x, 0.0f ); // Vertical NDC value.
+
+	// Allocate device memory for ray pool.
+	ray *cuda_ray_pool = NULL;
+	int num_rays = ( int )( render_cam->resolution.x * render_cam->resolution.y );
+	cudaMalloc( ( void** )&cuda_ray_pool,
+				num_rays * sizeof( ray ) );
+	
+	// Initialize ray pool with rays originating at the render camera directed through each pixel in the image buffer.
+	raycastFromCameraKernel<<< full_blocks_per_grid, threads_per_block >>>( cuda_ray_pool,
+																			render_cam->resolution,
+																			cam.position,
+																			m,
+																			h,
+																			v );
+
+	// Launch raytraceRay kernel once per raytrace depth.
+	for ( int i = 0; i < depth; ++i ) {
+		dim3 threads_per_raytrace_block( raytrace_tile_size );
+		dim3 blocks_per_raytrace_grid( ( int )ceil( ( float )num_rays / ( float )raytrace_tile_size ) );
+
+		// TODO: Call raytraceRay kernel to compute pixel colors.
+
+		// TODO: Perform stream compaction on ray pool after raytraceRay kernel call using the thrust library.
+
+		//thrust::device_ptr<ray> cudaRayPoolDevicePtr(cudaRayPool);
+		//thrust::device_ptr<ray> compactCudaRayPoolDevicePtr = thrust::remove_if(cudaRayPoolDevicePtr, cudaRayPoolDevicePtr + numRays, is_terminated());
+			
+		// pointer arithmetic to figure out the number of rays.
+		//numRays = compactCudaRayPoolDevicePtr.get() - cudaRayPoolDevicePtr.get();
+	}
 
 	// Launch raytraceRay kernel.
-	raytraceRay<<< full_blocks_per_grid, threads_per_block >>>( render_cam->resolution,
-																( float )current_iteration,
-																cam,
-																1, // Start recursion with raytrace depth of 1.
-																cuda_image,
-																cuda_geoms,
-																num_geoms,
-																cuda_materials );
+	//raytraceRay<<< full_blocks_per_grid, threads_per_block >>>( render_cam->resolution,
+	//															( float )current_iteration,
+	//															cam,
+	//															1, // Start recursion with raytrace depth of 1.
+	//															cuda_image,
+	//															cuda_geoms,
+	//															num_geoms,
+	//															cuda_materials );
 
 	// Launch sendImageToPBO kernel.
 	sendImageToPBO<<< full_blocks_per_grid, threads_per_block >>>( pbo_pos,
 																   render_cam->resolution,
-																   cuda_image);
+																   cuda_image );
 
 	// Retrieve image from GPU.
 	cudaMemcpy( render_cam->image,
@@ -354,6 +388,7 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	cudaFree( cuda_image );
 	cudaFree( cuda_geoms );
 	cudaFree( cuda_materials );
+	cudaFree( cuda_ray_pool );
 	delete geom_list;
 
 	// Make certain the kernel has completed.
