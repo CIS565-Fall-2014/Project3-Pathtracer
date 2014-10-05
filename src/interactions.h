@@ -115,14 +115,33 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 
 __host__ __device__ int calculateSelfBSDF(ray& r, staticGeom geom, glm::vec3 intersectIn, glm::vec3 intersectOut, glm::vec3 normal, material m, float xi1, float xi2, int& restDepth){
 
-	if(m.hasReflective == 1){
+	int type;
+	if(m.hasScatter == 1){
+		type = 3;
+	}
+	else{
+		if(m.hasReflective == 1 && m.hasRefractive == 1){
+			if(xi1 < 0.5)
+				type = 1;
+			else
+				type = 2;
+		}else if(m.hasReflective == 1 && m.hasRefractive == 0){
+			type = 1;
+		}else if(m.hasReflective == 0 && m.hasRefractive == 1){
+			type = 2;
+		}else{
+			type = 3;
+		}
+	}
+
+	if(type == 1){
 		r.origin = intersectOut;
 		r.direction = calculateReflectionDirection(normal, r.direction);
 
 		return 1;
 	}
  
-	else if(m.hasRefractive == 1){
+	else if(type == 2){
 
 		//from air to object
 		float airToObjCosTheta1 = -1 * glm::dot(r.direction, normal);
@@ -180,7 +199,7 @@ __host__ __device__ int calculateSelfBSDF(ray& r, staticGeom geom, glm::vec3 int
 		return 2;
 	}
 
-	else/* if(m.hasScatter == 1)*/{
+	else if(type == 3){
 		r.origin = intersectOut;
 		r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, xi1, xi2));
 

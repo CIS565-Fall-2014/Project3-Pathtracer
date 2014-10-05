@@ -193,11 +193,12 @@ __global__ void raytraceRay(ray* rayLast, glm::vec2 resolution, float time, came
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int index = x + (y * resolution.x);
-
+	int preIndex = x + (y * resolution.x);
+	//int index =  x + (y * resolution.x);
+	int index = terminateFlag[preIndex] - 1;
 	
 	ray r; 
-	if((x < resolution.x && y < resolution.y && terminateFlag[index] == 0)){
+	if((x < resolution.x && y < resolution.y && terminateFlag[index] != 0)){
 
 		if(currentDepth == 0){
 			r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
@@ -248,7 +249,7 @@ __global__ void raytraceRay(ray* rayLast, glm::vec2 resolution, float time, came
 		if(hitCheck == false){ //Terminate the ray
 			radianceBuffer[currentDepth + index * totalDepth] = glm::vec3(0,0,0);
 			directRadiance = glm::vec3(0,0,0);
-			terminateFlag[index] = 1;
+			terminateFlag[index] = 0;
 		}
 		else{
 			material mate = materials[hitObjectIndex];
@@ -256,7 +257,7 @@ __global__ void raytraceRay(ray* rayLast, glm::vec2 resolution, float time, came
 			if(mate.emittance != 0){ //Terminate the ray
 				radianceBuffer[currentDepth + index * totalDepth] = mate.color * mate.emittance / 5.0f;
 				directRadiance = mate.color * mate.emittance / 5.0f;
-				terminateFlag[index] = 1;
+				terminateFlag[index] = 0;
 			}
 			else{
 
@@ -317,21 +318,21 @@ __global__ void raytraceRay(ray* rayLast, glm::vec2 resolution, float time, came
 					int restDepth = totalDepth - currentDepth;
 					int type = calculateSelfBSDF(r, geoms[hitObjectIndex], newEyePositionIn, newEyePositionOut, intersectionNormal, mate, u01(rng), u01(rng), restDepth); ////r
 					if(restDepth == 0)
-						terminateFlag[index] = 1;
+						terminateFlag[index] = 0;
 					else{
 						rayLast[index] = r;		
-						terminateFlag[index] = 0;
+						//terminateFlag[index] = 0;
 					}
 				}
 				else{
-					terminateFlag[index] = 1;
+					terminateFlag[index] = 0;
 				}
 			}
 		}
 
 
 		glm::vec3 newColor = colors[index];
-		if(terminateFlag[index] == 1){
+		if(terminateFlag[index] == 0){
 		
 			glm::vec3 radiance;
 			for(int d = totalDepth; d > 0; d--){
@@ -362,6 +363,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   
 	int traceDepth = 5; //determines how many bounces the raytracer traces
 	int numberOfLights = 1;
+	int numberOfPixels = (int)renderCam->resolution.x*(int)renderCam->resolution.y;
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -370,16 +372,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   
 	// send image to GPU
 	glm::vec3* cudaimage = NULL;
-	cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-	cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+	cudaMalloc((void**)&cudaimage, numberOfPixels * sizeof(glm::vec3));
+	cudaMemcpy( cudaimage, renderCam->image, numberOfPixels * sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
 	//Create radiance buffer
-	glm::vec3* radianceBuffer = new glm::vec3[ traceDepth * (int)renderCam->resolution.x * (int)renderCam->resolution.y];
-
-
+	glm::vec3* radianceBuffer = new glm::vec3[ traceDepth * numberOfPixels];
 	glm::vec3* cudaRadianceBuffer = NULL;
-	cudaMalloc((void**)&cudaRadianceBuffer, traceDepth * (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3));
-	cudaMemcpy( cudaRadianceBuffer, radianceBuffer, traceDepth * (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+	cudaMalloc((void**)&cudaRadianceBuffer, traceDepth * numberOfPixels * sizeof(glm::vec3));
+	cudaMemcpy( cudaRadianceBuffer, radianceBuffer, traceDepth * numberOfPixels * sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
 	// package geometry and materials and sent to GPU
 	staticGeom* geomList = new staticGeom[numberOfGeoms];
@@ -387,11 +387,31 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		staticGeom newStaticGeom;
 		newStaticGeom.type = geoms[i].type;
 		newStaticGeom.materialid = geoms[i].materialid;
-		newStaticGeom.translation = geoms[i].translations[frame];
+
+
+
+		//int move;
+		//if(iterations < 31)
+		//	move = iterations / 5;
+		//else
+		//	move = 6;
+
+
+
+
 		newStaticGeom.rotation = geoms[i].rotations[frame];
 		newStaticGeom.scale = geoms[i].scales[frame];
-		newStaticGeom.transform = geoms[i].transforms[frame];
-		newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+		//if(i == 7){
+		//  newStaticGeom.translation = geoms[i].translations[frame]+ glm::vec3(move*0.2, 0, 0);
+		//	glm::mat4 transform = utilityCore::buildTransformationMatrix(newStaticGeom.translation, geoms[i].rotations[frame], geoms[i].scales[frame]);
+		//	newStaticGeom.transform = utilityCore::glmMat4ToCudaMat4(transform);
+		//	newStaticGeom.inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+		//}
+		//else{
+			newStaticGeom.translation = geoms[i].translations[frame];
+			newStaticGeom.transform = geoms[i].transforms[frame];
+			newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+		//}
 		geomList[i] = newStaticGeom;
 	}
   
@@ -464,17 +484,20 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cam.aperture = renderCam->aperture;
 
 
-	ray* incidentRay = new ray[(int)renderCam->resolution.x * (int)renderCam->resolution.y];
+	ray* incidentRay = new ray[numberOfPixels];
 	ray* cudaIncidentRay = NULL;
-	cudaMalloc((void**)&cudaIncidentRay, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(ray));
-	cudaMemcpy( cudaIncidentRay, incidentRay, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(ray), cudaMemcpyHostToDevice);
+	cudaMalloc((void**)&cudaIncidentRay, numberOfPixels * sizeof(ray));
+	cudaMemcpy( cudaIncidentRay, incidentRay, numberOfPixels * sizeof(ray), cudaMemcpyHostToDevice);
 
-	int* terminateFlag = new int[(int)renderCam->resolution.x * (int)renderCam->resolution.y];
+	int* terminateFlag = new int[numberOfPixels];
+	for(int i = 0; i < numberOfPixels; ++i){
+		terminateFlag[i] = i+1;
+	}
 	int* cudaTerminateFlag = NULL;
-	cudaMalloc((void**)&cudaTerminateFlag, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(int));
-	cudaMemcpy( cudaTerminateFlag, terminateFlag, (int)renderCam->resolution.x*(int)renderCam->resolution.y * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMalloc((void**)&cudaTerminateFlag, numberOfPixels * sizeof(int));
+	cudaMemcpy( cudaTerminateFlag, terminateFlag, numberOfPixels * sizeof(int), cudaMemcpyHostToDevice);
 
-
+	int numberOfLiveThreads = numberOfPixels;
 
 	for(int currentDepth = 0; currentDepth < traceDepth; currentDepth++){
 		if(currentDepth == 0){
@@ -482,6 +505,25 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 																cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, isDOF);
 		}
 		else{
+			thrust::host_vector<int> h_input(numberOfLiveThreads);
+			thrust::host_vector<int> h_input_bool(numberOfLiveThreads);
+			thrust::host_vector<int> h_map(numberOfLiveThreads);
+			thrust::host_vector<int> h_output(numberOfLiveThreads);
+			for(int i = 0; i < numberOfLiveThreads ; ++i){
+				//h_input[i] = cudaTerminateFlag[i];
+			}
+			//size_t outputCount = 0;
+			for(size_t i = 0; i < numberOfLiveThreads; ++i){
+				if(h_input[i] != 0){
+					h_input_bool[i] = 1;
+					//++outputCount;
+				}
+			}
+			//thrust::exclusive_scan(h_input_bool.begin(), h_input_bool.end(), h_map.begin());
+			//thrust::scatter(h_input.begin(), h_input.end(), h_map.begin(), h_output.begin());
+			//numberOfLiveThreads = outputCount;
+
+			dim3 fullBlocksPerGridSecond((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
 			raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaIncidentRay, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudaRadianceBuffer, 
 																cudaMaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaLightPos, cudaLightColor, numberOfLights, currentDepth, cudaTerminateFlag, isDOF);
 		}
