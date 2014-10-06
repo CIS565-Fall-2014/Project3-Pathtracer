@@ -13,6 +13,7 @@
 #include "cudaMat4.h"
 #include "utilities.h"
 
+#define PI 3.141592657
 // Some forward declarations
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
@@ -71,9 +72,100 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
+__host__ __device__ void swap(float &f1, float &f2)
+{
+	float temp;
+	temp = f2;
+	f2 = f1;
+	f1 = temp;
+}
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+	float radius = .5;
 
-    return -1;
+	glm::vec3 ro = multiplyMV(box.inverseTransform, glm::vec4(r.origin, 1.0f));
+	glm::vec3 rd = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
+
+	ray rt; rt.origin = ro; rt.direction = rd;
+	float Tnear = -100000, Tfar = 100000;
+	//X plane
+	if (rd.x == 0)
+	{
+		if (ro.x < -radius || ro.x > radius) 
+			return  -1;
+	}
+	float T1 = (-radius - ro.x) / rd.x;
+	float T2 = (radius - ro.x) / rd.x;
+	if (T1 > T2)
+		swap(T1, T2);
+	if (T1 > Tnear)
+		Tnear = T1;
+	if (T2 < Tfar)
+		Tfar = T2;
+	if (Tnear > Tfar)
+		return -1;
+	if (Tfar < 0)
+		return -1;
+	//Y plane
+	if (rd.y == 0)
+	{
+		if (ro.y < -radius || ro.y > radius)
+			return  -1;
+	}
+	T1 = (-radius - ro.y) / rd.y;
+	T2 = (radius - ro.y) / rd.y;
+	if (T1 > T2)
+		swap(T1, T2);
+	if (T1 > Tnear)
+		Tnear = T1;
+	if (T2 < Tfar)
+		Tfar = T2;
+	if (Tnear > Tfar)
+		return -1;
+	if (Tfar < 0)
+		return -1;
+	//Z plane
+	if (rd.z == 0)
+	{
+		if (ro.z < -radius || ro.z > radius)
+			return  -1;
+	}
+	T1 = (-radius - ro.z) / rd.z;
+	T2 = (radius - ro.z) / rd.z;
+	if (T1 > T2)
+		swap(T1, T2);
+	if (T1 > Tnear)
+		Tnear = T1;
+	if (T2 < Tfar)
+		Tfar = T2;
+	if (Tnear > Tfar)
+		return -1;
+	if (Tfar < 0)
+		return -1;
+	//************loop completed***********
+	glm::vec3 fakeIntersectionPoint = getPointOnRay(rt, Tnear);
+	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(fakeIntersectionPoint, 1.0));
+	glm::vec3 realOrigin = multiplyMV(box.transform, glm::vec4(0, 0, 0, 1));
+
+	intersectionPoint = realIntersectionPoint;
+	//calculate normal
+	glm::vec3 tempNormal;
+	if (fakeIntersectionPoint.x > 0.499 && fakeIntersectionPoint.x < 0.501)
+		tempNormal = glm::vec3(1, 0, 0);
+	if (fakeIntersectionPoint.x > -0.501 && fakeIntersectionPoint.x < -0.499)
+		tempNormal = glm::vec3(-1, 0, 0);
+
+	if (fakeIntersectionPoint.y > 0.499 && fakeIntersectionPoint.y < 0.501)
+		tempNormal = glm::vec3(0, 1, 0);
+	if (fakeIntersectionPoint.y > -0.501 && fakeIntersectionPoint.y < -0.499)
+		tempNormal = glm::vec3(0, -1, 0);
+
+	if (fakeIntersectionPoint.z > 0.499 && fakeIntersectionPoint.z < 0.501)
+		tempNormal = glm::vec3(0, 0, 1);
+	if (fakeIntersectionPoint.z > -0.501 && fakeIntersectionPoint.z < -0.499)
+		tempNormal = glm::vec3(0, 0, -1);
+	normal = multiplyMV(box.transform, glm::vec4(tempNormal,0.0));
+
+	return Tnear;
 }
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
@@ -177,8 +269,13 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 // TODO: IMPLEMENT THIS FUNCTION
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
-
-  return glm::vec3(0,0,0);
+	thrust::default_random_engine rng(hash(randomSeed));
+	thrust::uniform_real_distribution<float> u01(0, 1);
+	thrust::uniform_real_distribution<float> u02(0, 2*PI);
+	float theta = acos(2*(float)u01(rng)-1);
+	float phi = (float)u02(rng);
+	glm::vec3 point(sin(theta)*cos(phi), sin(theta) * sin(phi), cos(theta));
+	return point+sphere.translation;
 }
 
 #endif
