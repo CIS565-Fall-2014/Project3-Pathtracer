@@ -5,22 +5,22 @@ This is a standalone pathtracer implemented on the GPU using CUDA and OpenGL.
 
 ###Features:
 
-  -####softshadow
-  -####area light
-  -####color bleeding
-  -####global illumination
+  -softshadow
+  -area light
+  -color bleeding
+  -global illumination
 
-  -####Ray 
+  -Ray 
 parallel instead of pixel parallel more maximum performance
 
-  -####Stream
+  -Stream
 compaction on rays for each depth level (use thrust library)
 
-  -####BSDF using Russian Roulette 
+  -BSDF using Russian Roulette 
   
-  -####Depth of Field, by jittering eye position and set image plane at focal length
+  -Depth of Field, by jittering eye position and set image plane at focal length
 
-  -####Fresnel Coefficients for reflection/refraction
+  -Fresnel Coefficients for reflection/refraction
 
    Assuming light unpolarized
 
@@ -28,11 +28,11 @@ compaction on rays for each depth level (use thrust library)
 
    use 1/2 (RS + RP) to get coefficient for reflection
 
-  -####Caustics (free from above)
+  -Caustics (free from above)
 
-  -####Obj loading (using tinyObjLoader), polygon mesh rendering
+  -Obj loading (using tinyObjLoader), polygon mesh rendering
 
-  -####Anti-Alisasing jittered pixle position
+  -Anti-Alisasing jittered pixle position
 
 
 
