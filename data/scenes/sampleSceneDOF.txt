@@ -12,7 +12,7 @@ RSCTCOEFF   0
 EMITTANCE   0
 
 MATERIAL 1 				//red diffuse
-RGB         .63 .06 .04    
+RGB         .63 .06 .04  
 DIFFCOE     1    
 SPECEX      0      
 SPECRGB     1 1 1      
@@ -37,9 +37,9 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 
-MATERIAL 3 				//red diffuse
-RGB         0.9 0.1 0.1 
-DIFFCOE     1     
+MATERIAL 3 				//red glossy
+RGB         .85 0.9 0.1
+DIFFCOE     0.8      
 SPECEX      0      
 SPECRGB     1 1 1       
 REFL        1       
@@ -50,9 +50,22 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 
-MATERIAL 4 				//Translucent
-RGB         0.95 0.5 0.4  
+MATERIAL 4 				//glass
+RGB         1 1 1  
 DIFFCOE     0.05   
+SPECEX      0      
+SPECRGB     1 1 1      
+REFL        1       
+REFR        1        
+REFRIOR     2.2      
+SCATTER     0        
+ABSCOEFF    0 0 0      
+RSCTCOEFF   2
+EMITTANCE   0
+
+MATERIAL 5 				//Translucent
+RGB         0.9 0.8 0.7  
+DIFFCOE     0.2   
 SPECEX      0      
 SPECRGB     1 1 1      
 REFL        1       
@@ -63,22 +76,9 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   2
 EMITTANCE   0
 
-MATERIAL 5 				//glass
-RGB         0 0 0    
-DIFFCOE     1  
-SPECEX      0      
-SPECRGB     1 1 1      
-REFL        0       
-REFR        1        
-REFRIOR     2.2       
-SCATTER     0        
-ABSCOEFF    .02 5.1 5.7      
-RSCTCOEFF   13
-EMITTANCE   0
-
-MATERIAL 6 				//green
-RGB         0.2 0.6 0.2   
-DIFFCOE     1    
+MATERIAL 6 				//red d
+RGB         0.9 0.2 0.1   
+DIFFCOE     0.85    
 SPECEX      0      
 SPECRGB     1 1 1     
 REFL        0       
@@ -100,7 +100,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   40
+EMITTANCE   1
 
 MATERIAL 8				//light
 RGB         1 1 1   
@@ -113,17 +113,30 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   8
+EMITTANCE   20
+
+MATERIAL 9 				//blue diffuse
+RGB         .1 .15 .63  
+DIFFCOE     0.85    
+SPECEX      0      
+SPECRGB     1 1 1      
+REFL        0       
+REFR        0        
+REFRIOR     0       
+SCATTER     0        
+ABSCOEFF    0 0 0      
+RSCTCOEFF   0
+EMITTANCE   0
 
 CAMERA
 RES         1024 1024
 FOVY        25
 ITERATIONS  20000
-FOCALLEN    12
-APER        0
-FILE        SSSscene.bmp
+FOCALLEN    10
+APER        0.19
+FILE        DOF.bmp
 frame 0
-EYE         0 4.5 13
+EYE         0 3 13
 VIEW        0 0 -1
 UP          0 1 0
 
@@ -133,15 +146,15 @@ material 0
 frame 0
 TRANS       0 0 0
 ROTAT       0 0 90
-SCALE       1 10 10 
+SCALE       1 20 20 
 
 OBJECT 1
 cube
 material 0
 frame 0
-TRANS       0 5 -5
+TRANS       0 5 -10
 ROTAT       0 90 0
-SCALE       1 10 10 
+SCALE       1 20 20 
 
 OBJECT 2
 cube
@@ -149,47 +162,47 @@ material 0
 frame 0
 TRANS       0 10 0
 ROTAT       0 0 90
-SCALE       1 10 10
+SCALE       1 20 20
 
 OBJECT 3
 cube
 material 1
 frame 0
-TRANS       -5 5 0
+TRANS       -8 5 0
 ROTAT       0 0 0
-SCALE       1 10 10
+SCALE       1 20 20
 
 OBJECT 4
 cube
 material 2
 frame 0
-TRANS       5 5 0
+TRANS       8 5 0
 ROTAT       0 0 0
-SCALE       1 10 10
+SCALE       1 20 20
 
 OBJECT 5
 sphere
-material 4
+material 3
 frame 0
-TRANS       0 3.5 0
-ROTAT       0 20 0
-SCALE       3.0 3.0 3.0
+TRANS       0.5 2 3
+ROTAT       5 10 15
+SCALE       2 2 2
 
 OBJECT 6
 sphere
-material 3
+material 6
 frame 0
-TRANS       2.5 2 3
+TRANS       2.75 1.5 6
 ROTAT       0 180 0
-SCALE       3 3 3
+SCALE       2 2 2
 
 OBJECT 7
 sphere
-material 6
+material 9
 frame 0
-TRANS       -2.25 2 -2
+TRANS       -4.25 2 -2.5
 ROTAT       0 180 0
-SCALE       3 3 3
+SCALE       2 2 2
 
 OBJECT 8
 cube
@@ -197,12 +210,20 @@ material 8
 frame 0
 TRANS       0 9.63 0
 ROTAT       0 0 90
-SCALE       .3 2 2
+SCALE       .3 3.3 3.3
 
 OBJECT 9
-cube
-material 7 
+sphere
+material 4
 frame 0
-TRANS       0 4.5 -4.63
-ROTAT       0 90 0
-SCALE       .3 2 2
+TRANS       -1.25 2 0.3
+ROTAT       0 180 0
+SCALE       2 2 2
+
+OBJECT 10
+sphere
+material 5
+frame 0
+TRANS       3 3.5 -2.5
+ROTAT       0 180 0
+SCALE       2 2 2

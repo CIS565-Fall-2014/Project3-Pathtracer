@@ -23,6 +23,8 @@ This is a standalone pathtracer implemented using CUDA and OpenGL.
 
   -Caustics (free from above)
 
+  -Obj loading, polygon mesh rendering
+
   -Anti-Alisasing jittered pixle position
 
 Assuming light unpolarized
@@ -32,7 +34,8 @@ Assuming light unpolarized
 use 1/2 (RS + RP) to get coefficient for reflection
 
 ##Result:
-![](scene2.bmp)
+![](DOF.0.bmp)
+![](SSS3.bmp)
 
 ##Performance
 

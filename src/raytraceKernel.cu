@@ -21,7 +21,7 @@
 #include "interactions.h"
 
 //Render Settings
-#define TRACE_DEPTH 5
+#define TRACE_DEPTH 10
 #define RAY_STREAM_COMPACTION_ON 0
 #define ENABLE_ANTIALIASING 1
 
