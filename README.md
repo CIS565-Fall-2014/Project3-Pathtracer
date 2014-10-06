@@ -1,46 +1,47 @@
-#CUDA Pathtracer (developing)
+#CUDA Pathtracer
 
-This is a standalone pathtracer implemented using CUDA and OpenGL.
+This is a standalone pathtracer implemented on the GPU using CUDA and OpenGL.
 
 
-##Features:
-###Features from Pathtracing
-  -softshadow
-  -area light
-  -color bleeding
-  -global illumination
+###Features:
 
-###Special Features:
-  -Ray parallel instead of pixel parallel more maximum performance
+  -####softshadow
+  -####area light
+  -####color bleeding
+  -####global illumination
 
-  -Stream compaction on rays for each depth level
+  -####Ray 
+parallel instead of pixel parallel more maximum performance
 
-  -BSDF using Russian Roulette 
+  -####Stream
+compaction on rays for each depth level (use thrust library)
+
+  -####BSDF using Russian Roulette 
   
-  -Depth of Field, by jittering eye position and set image plane at focal length
+  -####Depth of Field, by jittering eye position and set image plane at focal length
 
-  -Fresnel Coefficients for reflection/refraction
+  -####Fresnel Coefficients for reflection/refraction
 
-  -Caustics (free from above)
+   Assuming light unpolarized
 
-  -Obj loading, polygon mesh rendering
+   ![](fresnel1.bmp)
 
-  -Anti-Alisasing jittered pixle position
+   use 1/2 (RS + RP) to get coefficient for reflection
 
-Assuming light unpolarized
+  -####Caustics (free from above)
 
-![](fresnel1.bmp)
+  -####Obj loading (using tinyObjLoader), polygon mesh rendering
 
-use 1/2 (RS + RP) to get coefficient for reflection
+  -####Anti-Alisasing jittered pixle position
 
-##Result:
+
+
+###Result:
 ![](DOF.0.bmp)
 ![](SSS3.bmp)
 
-##Performance
+###Performance Analysis
 
-#Bugs to fix: 
-cube intersection/normal problem when dimension <= 0.01
 
-output image doesn't match OpenGL rendering
+
 
