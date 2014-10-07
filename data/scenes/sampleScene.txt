@@ -1,5 +1,5 @@
 MATERIAL 0				//white diffuse
-RGB         0 0 0       
+RGB         0.8 0.8 0.8       
 SPECEX      10      
 SPECRGB     1 1 1      
 REFL        0      
@@ -84,9 +84,9 @@ EMITTANCE   0
 
 MATERIAL 7				//left ball light
 RGB         .93 .93 .29       
-SPECEX      10     
+SPECEX      100     
 SPECRGB     1 1 1       
-REFL        0       
+REFL        1       
 REFR        0        
 REFRIOR     1.6     
 SCATTER     0        
@@ -107,7 +107,7 @@ RSCTCOEFF   0
 EMITTANCE   15
 
 MATERIAL 9				//light
-RGB         .29 .93 .93       
+RGB         1 1 1       
 SPECEX      0      
 SPECRGB     0 0 0       
 REFL        0       
@@ -119,7 +119,7 @@ RSCTCOEFF   0
 EMITTANCE   15
 
 MATERIAL 10				//light
-RGB         .93 .93 .29       
+RGB         1 1 1       
 SPECEX      0      
 SPECRGB     0 0 0       
 REFL        0       
@@ -129,6 +129,30 @@ SCATTER     0
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
 EMITTANCE   15
+
+MATERIAL 11				//red ball 
+RGB         .93 .06 .06       
+SPECEX      100      
+SPECRGB     0 0 0       
+REFL        1       
+REFR        0        
+REFRIOR     0       
+SCATTER     0        
+ABSCOEFF    0 0 0      
+RSCTCOEFF   0
+EMITTANCE   0
+
+MATERIAL 12				//green ball
+RGB         .06 .93 .06       
+SPECEX      100      
+SPECRGB     0 0 0       
+REFL        1       
+REFR        0        
+REFRIOR     0       
+SCATTER     0        
+ABSCOEFF    0 0 0      
+RSCTCOEFF   0
+EMITTANCE   0
 
 CAMERA
 RES         800 800
@@ -187,7 +211,7 @@ OBJECT 5
 sphere
 material 4
 frame 0
-TRANS       0 2 -2
+TRANS       1 2 0
 ROTAT       0 180 0
 SCALE       3 3 3
 
@@ -220,7 +244,7 @@ OBJECT 9
 cube
 material 9 
 frame 0
-TRANS       2.5 9.8 0
+TRANS       3 9.8 0
 ROTAT       0 0 90
 SCALE       .3 1.5 1.5
 
@@ -228,6 +252,22 @@ OBJECT 10
 cube
 material 10 
 frame 0
-TRANS       -2.5 9.8 0
+TRANS       -3 9.8 0
 ROTAT       0 0 90
 SCALE       .3 1.5 1.5
+
+OBJECT 11
+sphere
+material 11
+frame 0
+TRANS       3 1.1 -3
+ROTAT       0 0 0
+SCALE       2 2 2
+
+OBJECT 12
+sphere
+material 12
+frame 0
+TRANS       -2 1.2 1
+ROTAT       0 0 0
+SCALE       2 2 2
