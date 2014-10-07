@@ -3,6 +3,7 @@
 CUDA Pathtracer
 ===============
 Fall 2014
+=========
 
 PROJECT DESCRIPTION
 
