@@ -37,7 +37,7 @@ This is a GPU path tracing program, with following features:
 
 - Overview write up and performance impact:
   
-I add super sample anti-alisasing, which makes my render result much more beautiful. To do this, I just jitter the initial rays randomly in each iteration. And here is the comparison between the scene with SSAA and the scene without SSAA:
+I add super sample anti-alisasing, which makes my render result smoother. To do this, I just jitter the initial rays randomly in each iteration. And here is the comparison between the scene with SSAA and the scene without SSAA:
 
 ![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/DetailWithSSAA.bmp)
 
@@ -128,6 +128,25 @@ I try to add bump map for objects, but can only realize normal map now. To do th
 - Further optimized:
 
 Bump mapping is the combine of normal mapping and height mapping(which changes points position according to the map color). And I need to add height map, or get height map from the normal map to finish bump mapping.
+
+
+
+####6.Texture mapping
+- Reference:  http://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
+
+- Overview write up and performance impact:
+  
+I add texture for cubes and spheres. To do this, I add a new attribute for each object called MAP, and when we read the scene file we also read in the texture map's color to a buffer. When we do path trace, we get the color from this buffer according to the intersect point on object. And here is the scene with texture map(Much more colorful):
+
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_TextureMap.png)
+
+- Accelerate the feature: NULL
+
+- Compare to a CPU version: NULL
+
+- Further optimized:
+
+Right now the same texture map will be stored several times in the color buffer if it is assigned to different objects, as the map is an attribute of object. I think it will be better to give each texture map an index and read in the texrure map when we find a new texture index. In this way, we can save much memory space.
 
 
 
