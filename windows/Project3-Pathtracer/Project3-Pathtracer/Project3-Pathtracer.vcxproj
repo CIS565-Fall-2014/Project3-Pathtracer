@@ -94,7 +94,6 @@
     <ClCompile Include="..\..\..\src\objreader.cpp" />
     <ClCompile Include="..\..\..\src\scene.cpp" />
     <ClCompile Include="..\..\..\src\utilities.cpp" />
-    <ClCompile Include="temp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\..\..\src\raytraceKernel.cu">

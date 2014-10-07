@@ -160,8 +160,7 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 InterSectP,glm::vec3 Int
 		fresnel = calculateFresnel(InterSectN,r.direction,oldIOR,newIOR,reflectR,refractR);
 
 		//return reflect ray,refract ray randomly depends on their Coefficients
-		if(m.hasReflective>MINNUM) 
-			reflect_range =  fresnel.reflectionCoefficient;  
+		reflect_range =  fresnel.reflectionCoefficient;  
 
 		if((float)u01(rng)<reflect_range)
 		{

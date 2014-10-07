@@ -200,7 +200,7 @@ __global__ void InitRays(ray* rays, glm::vec2 resolution, cameraData cam, float 
 		thrust::default_random_engine rng(hash(index*time));
 		thrust::uniform_real_distribution<float> u01(0, 1);
 		ray r = raycastFromCameraKernel(resolution,0.0f, x + float(u01(rng)) -0.5f, y+float(u01(rng))-0.5f,cam.position,cam.view,cam.up,cam.fov);
-
+		//ray r = raycastFromCameraKernel(resolution,0.0f, x , y,cam.position,cam.view,cam.up,cam.fov);
 		if(DOFbool)
 	    {
 		    glm::vec3 rand3 = generateRandomNumberFromThread(resolution, time, x, y);
