@@ -113,8 +113,10 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 bool isRecording=false;
 void grabScreen(void);
 string scenename;
-bool streamcompact_b = false;
-bool texturemap_b = false;
-
+bool streamcompact_b = true;
+bool texturemap_b = true;
+bool bumpmap_b = true;
+bool DOF_b = true;
+bool MB_b = true;
 
 #endif

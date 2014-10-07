@@ -18,6 +18,9 @@
 
 extern bool streamcompact_b;
 extern bool texturemap_b;
+extern bool bumpmap_b;
+extern bool DOF_b;
+extern bool MB_b;
 
 void checkCUDAError(const char *msg) {
 	cudaError_t err = cudaGetLastError();
@@ -109,13 +112,18 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 // Core raytracer kernel
 __global__ void PathTraceColor(ray* remainrays,int raysnum,int currdepth,int maxdepth,
 	staticGeom* geoms, int numberOfGeoms, int* lightIndex, 
-	int lightNum,material* materials,float time,uint3* tcolors,int* tnums,bool textureb)
+	int lightNum,material* materials,float time,uint3* tcolors,int* tnums,bool textureb,uint3* bcolors,int* bnums,bool bumpb)
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if(index<=raysnum)
 	{
 		ray r = remainrays[index];
-		if(!r.exist) return;
+		if(!r.exist)  //If not exist, its new add color is 0
+		{
+			r.raycolor = glm::vec3(0,0,0);
+			remainrays[index] = r;	
+			return;
+		}
 
 		//clear all ray if currdepth == maxdepth
 		if(currdepth==maxdepth)
@@ -129,7 +137,8 @@ __global__ void PathTraceColor(ray* remainrays,int raysnum,int currdepth,int max
 		glm::vec3 InterSectP,InterSectN;
 		int IntersectgeomId = -1;
 		Intersect = Intersecttest(r,InterSectP,InterSectN,geoms,numberOfGeoms,IntersectgeomId);
-
+		if(bumpb)
+			bumpMap(geoms,IntersectgeomId,InterSectN,InterSectP,bcolors,bnums);
 		//if the ray intersect with nothing, give it black/backgroundcolor
 		if(Intersect==false)
 		{
@@ -181,7 +190,7 @@ __global__ void AddColor(glm::vec3* colors, ray* remainrays,int raysnum)
 	}
 }
 
-__global__ void InitRays(ray* rays, glm::vec2 resolution, cameraData cam, float time)
+__global__ void InitRays(ray* rays, glm::vec2 resolution, cameraData cam, float time,bool DOFbool)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -193,6 +202,19 @@ __global__ void InitRays(ray* rays, glm::vec2 resolution, cameraData cam, float 
 		thrust::default_random_engine rng(hash(index*time));
 		thrust::uniform_real_distribution<float> u01(0, 1);
 		ray r = raycastFromCameraKernel(resolution,0.0f, x + float(u01(rng)) -0.5f, y+float(u01(rng))-0.5f,cam.position,cam.view,cam.up,cam.fov);
+
+		if(DOFbool)
+	    {
+		    glm::vec3 rand3 = generateRandomNumberFromThread(resolution, time, x, y);
+		    glm::vec2 rand2 =  glm::vec2(rand3.x,rand3.y);
+		    glm::vec3 offset = glm::vec3(rand2.x * cos((float)TWO_PI*rand2.y), rand2.x * sin((float)TWO_PI*rand2.y), 0.0f) * cam.blurradius;
+		    glm::vec3 p = r.origin + r.direction * cam.focallength / glm::dot(cam.view, r.direction);
+		    r.origin = r.origin + offset;
+		    r.direction = glm::normalize(p - r.origin);
+        }
+
+		
+
 		r.exist = true;
 		r.initindex = index;
 		r.raycolor = glm::vec3(1,1,1);
@@ -221,7 +243,7 @@ struct Is_Not_Exist
 	}
 };
 
-//StreamCompact
+//StreamC)ompact
 void ThrustStreamCompact(thrust::device_ptr<ray> origin,int &N)
 {
 	//Count how many rays still exist
@@ -235,7 +257,8 @@ void ThrustStreamCompact(thrust::device_ptr<ray> origin,int &N)
 // TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials,
-	int numberOfMaterials, geom* geoms, int numberOfGeoms,std::vector<uint3> mapcolors,std::vector<int> maplastnums){
+	int numberOfMaterials, geom* geoms, int numberOfGeoms,std::vector<uint3> mapcolors,std::vector<int> maplastnums,
+	std::vector<uint3> bumcolors,std::vector<int> bumlastnums){
 
 	int traceDepth = 8; //determines how many bounces the raytracer traces
 
@@ -261,11 +284,34 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		newStaticGeom.transform = geoms[i].transforms[frame];
 		newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
 		newStaticGeom.transinverseTransform = geoms[i].transinverseTransforms[frame];
+		if(MB_b)
+		{
+			newStaticGeom.MBV = geoms[i].MBV[frame];
+			int tempit = iterations%50;
+			glm::mat4 transform;
+			if(tempit>=0&&tempit<25)
+			{
+				newStaticGeom.translation += (float)tempit * newStaticGeom.MBV;
+		        transform = utilityCore::buildTransformationMatrix(newStaticGeom.translation, newStaticGeom.rotation, newStaticGeom.scale);
+			}
+			else if(tempit>24)
+			{
+				newStaticGeom.translation -= (float)tempit * newStaticGeom.MBV;
+		        transform = utilityCore::buildTransformationMatrix(newStaticGeom.translation, newStaticGeom.rotation, newStaticGeom.scale);
+			}
+			
+		    newStaticGeom.transform = utilityCore::glmMat4ToCudaMat4(transform);
+		    newStaticGeom.inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+		}
+
 		newStaticGeom.tri = geoms[i].tri;
 		newStaticGeom.trinum = geoms[i].trinum;
 		newStaticGeom.texindex = geoms[i].texindex;
 		newStaticGeom.theight = geoms[i].theight;
 		newStaticGeom.twidth = geoms[i].twidth;
+		newStaticGeom.bumpindex = geoms[i].bumpindex;
+		newStaticGeom.bheight = geoms[i].bheight;
+		newStaticGeom.bwidth = geoms[i].bwidth;
 		geomList[i] = newStaticGeom;
 	}
 
@@ -326,6 +372,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cam.view = renderCam->views[frame];
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
+	cam.focallength = renderCam->focall;
+	cam.blurradius = renderCam->blurr;
 
 	//Transfer Texture Map
 	uint3* cudacolors = NULL;
@@ -355,13 +403,39 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		delete alllastnum;
 	}
 	
+	//Transfer Bump Map
+	uint3* cudabumcolors = NULL;
+	int* cudabumlastnums = NULL;
+	if(bumpmap_b)
+	{
+		if(iterations==1  && (bumlastnums.size()==0||bumcolors.size()==0))
+		{
+			std::cout<<"No Bump Map Set!"<<std::endl;
+			bumpmap_b = false;
+		}
+		uint3 *allcolors = new uint3[(int)bumcolors.size()];
+	    int *alllastnum = new int[(int)bumlastnums.size()];
+        for(int i=0;i<(int)bumcolors.size();i++)
+		    allcolors[i] = bumcolors[i];
 
+	    for(int i=0;i<(int)bumlastnums.size();i++)
+		    alllastnum[i] = bumlastnums[i];
+
+
+	    cudaMalloc((void**)&cudabumcolors, (int)bumcolors.size()*sizeof(uint3));
+	    cudaMemcpy( cudabumcolors, allcolors, (int)bumcolors.size()*sizeof(uint3), cudaMemcpyHostToDevice);
+		
+	    cudaMalloc((void**)&cudabumlastnums, (int)bumlastnums.size()*sizeof(int));
+	    cudaMemcpy( cudabumlastnums, alllastnum, (int)bumlastnums.size()*sizeof(int), cudaMemcpyHostToDevice);
+		delete allcolors;
+		delete alllastnum;
+	}
 
 	//set up init rays
 	int numberOfInitrays = renderCam->resolution.x*renderCam->resolution.y;
 	ray* cudarays = NULL;
 	cudaMalloc((void**)&cudarays, numberOfInitrays*sizeof(ray));
-	InitRays<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays,renderCam->resolution,cam,(float)iterations);
+	InitRays<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays,renderCam->resolution,cam,(float)iterations,DOF_b);
 
 	//set path trace dim
 	int raythreadsPerBlock = (int)(tileSize*tileSize);
@@ -373,12 +447,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		if(numberOfInitrays>0)
 		{
 			PathTraceColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudarays,numberOfInitrays,i,traceDepth,cudageoms,
-				numberOfGeoms,cudalightIds,lcount,cudamaterials,(float)iterations,cudacolors,cudalastnums,texturemap_b);
+				numberOfGeoms,cudalightIds,lcount,cudamaterials,(float)iterations,cudacolors,cudalastnums,texturemap_b
+				,cudabumcolors,cudabumlastnums,bumpmap_b);
 			AddColor<<<rayblocksPerGrid, raythreadsPerBlock>>>(cudaimage, cudarays,numberOfInitrays);
 			if(streamcompact_b)
 			{
 				thrust::device_ptr<ray> rayStart(cudarays);
 			    ThrustStreamCompact(rayStart,numberOfInitrays);
+				rayblocksPerGrid = ceil((float)numberOfInitrays/(float)raythreadsPerBlock);
 			}			
 		}	
 	}
@@ -398,6 +474,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaFree( cudarays );
 	cudaFree( cudacolors );
 	cudaFree( cudalastnums );
+	cudaFree( cudabumcolors );
+	cudaFree( cudabumlastnums );
 
 	delete geomList;
 	//Added

@@ -204,12 +204,12 @@ __host__ __device__ void textureMap( staticGeom* geoms,int geomIndex, material &
 		int bh = geoms[geomIndex].theight;
 		if(geoms[geomIndex].type==SPHERE)
 		{
-			glm::vec3 realNorthPole = multiplyMV(geoms[geomIndex].transform, glm::vec4(0, 0.5, 0, 1.0));
-			glm::vec3 realEquator = multiplyMV(geoms[geomIndex].transform, glm::vec4(0.5, 0, 0, 1.0));
-			glm::vec3 realOrigin = multiplyMV(geoms[geomIndex].transform, glm::vec4(0,0,0,1));
+			glm::vec3 NorthPole = multiplyMV(geoms[geomIndex].transform, glm::vec4(0, 0.5, 0, 1.0));
+			glm::vec3 Equator = multiplyMV(geoms[geomIndex].transform, glm::vec4(0.5, 0, 0, 1.0));
+			glm::vec3 Origin = multiplyMV(geoms[geomIndex].transform, glm::vec4(0,0,0,1));
 
-			glm::vec3 vn = glm::normalize(realNorthPole - realOrigin);
-			glm::vec3 ve = glm::normalize(realEquator - realOrigin);
+			glm::vec3 vn = glm::normalize(NorthPole - Origin);
+			glm::vec3 ve = glm::normalize(Equator - Origin);
 
 			float phi = std::acos(-glm::dot(vn, InterSectN));
 			float v = phi / PI;
@@ -262,6 +262,79 @@ __host__ __device__ void textureMap( staticGeom* geoms,int geomIndex, material &
 			m.color.x = tcolors[bIndex].x/255.0f;
 			m.color.y = tcolors[bIndex].y/255.0f;
 			m.color.z = tcolors[bIndex].z/255.0f;
+			return;
+		}
+		else
+			return;
+	}
+}
+
+
+//Added to read bump map
+__host__ __device__ void bumpMap( staticGeom* geoms,int geomIndex,glm::vec3 &InterSectN,glm::vec3 &InterSectP,uint3* bcolors,int* bnums)
+{
+	if(geoms[geomIndex].bumpindex != -1)
+	{
+		int bw = geoms[geomIndex].bwidth;
+		int bh = geoms[geomIndex].bheight;
+		if(geoms[geomIndex].type==SPHERE)
+		{
+			glm::vec3 NorthPole = multiplyMV(geoms[geomIndex].transform, glm::vec4(0, 0.5, 0, 1.0));
+			glm::vec3 Equator = multiplyMV(geoms[geomIndex].transform, glm::vec4(0.5, 0, 0, 1.0));
+			glm::vec3 Origin = multiplyMV(geoms[geomIndex].transform, glm::vec4(0,0,0,1));
+
+			glm::vec3 vn = glm::normalize(NorthPole - Origin);
+			glm::vec3 ve = glm::normalize(Equator - Origin);
+
+			float phi = std::acos(-glm::dot(vn, InterSectN));
+			float v = phi / PI;
+
+			float theta = (std::acos(glm::dot(ve, InterSectN) / sin(phi))) / (2 * PI);
+			float u;
+			if(glm::dot(glm::cross(vn, ve), InterSectN) > 0)
+				u = theta;
+			else
+				u = 1 - theta;
+
+			int bi = v * bw;
+			int bj = u * bh;
+			int bIndex = bi * bh + bj;
+			if(geoms[geomIndex].bumpindex>=1)
+				bIndex += bnums[geoms[geomIndex].bumpindex-1];
+
+			glm::vec3 Bumpuv = glm::vec3(2.0f*bcolors[bIndex].x/255.0f-1.0f,2.0f*bcolors[bIndex].y/255.0f-1.0f,2.0f*bcolors[bIndex].z/255.0f-1.0f);
+			InterSectN = glm::normalize(multiplyMV(geoms[geomIndex].transinverseTransform, glm::vec4(Bumpuv,0)));
+			return;
+		}
+		else if(geoms[geomIndex].type==CUBE)
+		{
+			glm::vec3 orginP = multiplyMV(geoms[geomIndex].inverseTransform, glm::vec4(InterSectP, 1.0));
+			float u,v; 
+			if(orginP[0]-0.5<MINNUM)
+			{
+				u = orginP[1]+0.5f;
+				v = orginP[2]+0.5f;
+			}
+			else if(orginP[1]-0.5<MINNUM)
+			{
+				u = orginP[0]+0.5f;
+				v = orginP[2]+0.5f;
+			}
+			else if(orginP[2]-0.5<MINNUM)
+			{
+				u = orginP[0]+0.5f;
+				v = orginP[1]+0.5f;
+			}
+			int bi = v * bw;
+			int bj = u * bh;
+			int bIndex = bi * bh + bj;
+			if(geoms[geomIndex].bumpindex>=1)
+				bIndex += bnums[geoms[geomIndex].bumpindex-1];
+
+			
+			glm::vec3 Bumpuv = glm::vec3(2.0f*bcolors[bIndex].x/255.0f-1.0f,2.0f*bcolors[bIndex].y/255.0f-1.0f,2.0f*bcolors[bIndex].z/255.0f-1.0f);
+			InterSectN = glm::normalize(multiplyMV(geoms[geomIndex].transinverseTransform, glm::vec4(Bumpuv,0)));
+
 			return;
 		}
 		else

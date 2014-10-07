@@ -10,10 +10,13 @@
 //Add FreeImage.lib
 #pragma   comment(lib,"FreeImage.lib")
 extern bool texturemap_b;
+extern bool bumpmap_b;
 
 scene::scene(string filename){
 	colors.clear();
 	lastnum.clear();
+	bump_colors.clear();
+	bump_lastnum.clear();
 	cout << "Reading scene from " << filename << " ..." << endl;
 	cout << " " << endl;
 	char* fname = (char*)filename.c_str();
@@ -134,6 +137,7 @@ int scene::loadObject(string objectid){
 	vector<glm::vec3> translations;
 	vector<glm::vec3> scales;
 	vector<glm::vec3> rotations;
+	vector<glm::vec3>  MBV;
 	
     while (!line.empty() && fp_in.good()){
 	    
@@ -145,7 +149,7 @@ int scene::loadObject(string objectid){
         }
 	    
 	    //load tranformations
-	    for(int i=0; i<4; i++){
+	    for(int i=0; i<6; i++){
             glm::vec3 translation; glm::vec3 rotation; glm::vec3 scale;
             utilityCore::safeGetline(fp_in,line);
             tokens = utilityCore::tokenizeString(line);
@@ -156,6 +160,9 @@ int scene::loadObject(string objectid){
             }else if(strcmp(tokens[0].c_str(), "SCALE")==0){
                 scales.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }
+			else if(strcmp(tokens[0].c_str(), "MBV")==0){
+				MBV.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
+			}
 			else if(strcmp(tokens[0].c_str(), "MAP")==0){
 				if(texturemap_b)
 				{
@@ -181,6 +188,31 @@ int scene::loadObject(string objectid){
 					}	
 				}			
 			}
+			else if(strcmp(tokens[0].c_str(), "BUMP")==0){
+				if(bumpmap_b)
+				{
+					string ext = "";
+					int h= 0,w=0;
+					newObject.bheight = h;
+					newObject.bwidth = w;
+					newObject.bumpindex = -1;
+					if(tokens.size()>1&&tokens[1].size()>=4)
+						ext = tokens[1].substr(tokens[1].length()-3,tokens[1].length());
+
+					if(strcmp(ext.c_str(), "jpg")==0||strcmp(ext.c_str(), "png")==0||strcmp(ext.c_str(), "bmp")==0)
+					{
+						if(LoadPic(tokens[1].c_str(),bump_colors,bump_lastnum,h,w))
+						{
+							cout<<"Finish load bump map"<<bump_lastnum.size()<<endl;
+							newObject.bumpindex = bump_lastnum.size()-1;
+							newObject.bheight = h;
+							newObject.bwidth = w;
+						}
+						else
+							cout<<"Bump map doesn't exist"<<endl;
+					}	
+				}			
+			}
 	    }
 	    
 	    frameCount++;
@@ -194,7 +226,9 @@ int scene::loadObject(string objectid){
 	newObject.transforms = new cudaMat4[frameCount];
 	newObject.inverseTransforms = new cudaMat4[frameCount];
 	newObject.transinverseTransforms = new cudaMat4[frameCount];
+	newObject.MBV = new glm::vec3[frameCount];
 	for(int i=0; i<frameCount; i++){
+		newObject.MBV[i] = MBV[i];
 		newObject.translations[i] = translations[i];
 		newObject.rotations[i] = rotations[i];
 		newObject.scales[i] = scales[i];
@@ -227,7 +261,8 @@ int scene::loadCamera(){
 	cout << "Loading Camera ..." << endl;
         camera newCamera;
 	float fovy;
-	
+	float focall;
+	float blurr;
 	//load static properties
 	for(int i=0; i<4; i++){
 		string line;
@@ -261,7 +296,7 @@ int scene::loadCamera(){
         }
 	    
 	    //load camera properties
-	    for(int i=0; i<3; i++){
+	    for(int i=0; i<5; i++){
             //glm::vec3 translation; glm::vec3 rotation; glm::vec3 scale;
             utilityCore::safeGetline(fp_in,line);
             tokens = utilityCore::tokenizeString(line);
@@ -272,6 +307,11 @@ int scene::loadCamera(){
             }else if(strcmp(tokens[0].c_str(), "UP")==0){
                 ups.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }
+			else if(strcmp(tokens[0].c_str(), "DOFL")==0){
+				focall = atof(tokens[1].c_str());
+			}else if(strcmp(tokens[0].c_str(), "DOFR")==0){
+				blurr = atof(tokens[1].c_str());
+			}
 	    }
 	    
 	    frameCount++;
@@ -294,6 +334,8 @@ int scene::loadCamera(){
 	float xscaled = (yscaled * newCamera.resolution.x)/newCamera.resolution.y;
 	float fovx = (atan(xscaled)*180)/PI;
 	newCamera.fov = glm::vec2(fovx, fovy);
+	newCamera.blurr = blurr;
+	newCamera.focall = focall;
 
 	renderCam = newCamera;
 	

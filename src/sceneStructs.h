@@ -52,6 +52,9 @@ struct geom {
 	cudaMat4* inverseTransforms;
 	cudaMat4* transinverseTransforms;
 
+    //data for Motion Blur
+	glm::vec3* MBV;
+
 	//data for obj
 	triangle tri;
 
@@ -62,6 +65,11 @@ struct geom {
 	int texindex;
 	int theight;
 	int twidth;
+
+	//Bump map data
+	int bumpindex;
+	int bheight;
+	int bwidth;
 };
 
 
@@ -75,6 +83,9 @@ struct staticGeom {
 	cudaMat4 inverseTransform;
 	cudaMat4 transinverseTransform;
 
+	//data for Motion Blur
+	glm::vec3 MBV;
+
 	//data for obj
 	int trinum;
 	//To accelerate
@@ -84,6 +95,11 @@ struct staticGeom {
 	int texindex;
 	int theight;
 	int twidth;
+
+	//Bump map data
+	int bumpindex;
+	int bheight;
+	int bwidth;
 };
 
 struct cameraData {
@@ -92,6 +108,10 @@ struct cameraData {
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+
+	//Added for DOF
+	float focallength;
+	float blurradius;
 };
 
 struct camera {
@@ -105,6 +125,10 @@ struct camera {
 	glm::vec3* image;
 	ray* rayList;
 	std::string imageName;
+
+	//Added for DOF
+	float focall;
+	float blurr;
 };
 
 struct material{

@@ -272,7 +272,7 @@ __host__ __device__ float triIntersectionTest(staticGeom mesh, ray r, glm::vec3&
 		glm::vec3 realIntersectionPoint = multiplyMV(mesh.transform, glm::vec4(getPointOnRay(rt, t), 1.0));
 		intersectionPoint = realIntersectionPoint;
 
-		normal = glm::normalize(multiplyMV(mesh.transinverseTransform, glm::vec4(mesh.tri.normal,1)));
+		normal = glm::normalize(multiplyMV(mesh.transinverseTransform, glm::vec4(mesh.tri.normal,0)));
 		if(glm::dot(r.direction,normal) > 0) 
 			normal = -1.0f * normal;
 		return t;

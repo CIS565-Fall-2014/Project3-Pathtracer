@@ -21,6 +21,8 @@
 #include <thrust/device_ptr.h>
 #include <vector>
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms,std::vector<uint3> allcolors,std::vector<int> alllastnums);
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, 
+	int numberOfMaterials, geom* geoms, int numberOfGeoms,std::vector<uint3> allcolors,std::vector<int> alllastnums
+	,std::vector<uint3> bumcolors,std::vector<int> bumlastnums);
 
 #endif

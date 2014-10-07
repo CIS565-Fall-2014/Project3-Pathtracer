@@ -39,6 +39,10 @@ public:
 	//Data for texture map
 	vector<int> lastnum;
 	vector<uint3> colors;
+
+	//Data for bump map
+	vector<int> bump_lastnum;
+	vector<uint3> bump_colors;
 };
 
 #endif

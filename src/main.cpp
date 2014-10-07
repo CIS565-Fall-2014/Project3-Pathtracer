@@ -13,22 +13,6 @@
 //-------------------------------
 
 int main(int argc, char** argv){
-	
-  //Added to make config
-  char judge;
-  cout<<"Stream Compact or not?(Input 'y'/'n')"<<endl;
-  cin>>judge;
-  if(judge=='n')
-	  streamcompact_b = false;
-  else
-	  streamcompact_b = true;
-
-  cout<<"Texrure map or not?(Input 'y'/'n')"<<endl;
-  cin>>judge;
-  if(judge=='y')
-	  texturemap_b = true;
-  else
-	  texturemap_b = false;
   // Set up pathtracer stuff
   bool loadedScene = false;
   finishedRender = false;
@@ -126,7 +110,8 @@ void runCuda(){
     }
 
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() ,renderScene->colors,renderScene->lastnum);
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), 
+		geoms, renderScene->objects.size() ,renderScene->colors,renderScene->lastnum,renderScene->bump_colors,renderScene->bump_lastnum);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -166,13 +151,13 @@ void runCuda(){
     if (targetFrame < renderCam->frames-1) {
 
       // clear image buffer and move onto next frame
-      targetFrame++;
-      iterations = 0;
-      for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
-        renderCam->image[i] = glm::vec3(0,0,0);
-      }
-      cudaDeviceReset(); 
-      finishedRender = false;
+		targetFrame++;
+		iterations = 0;
+		for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
+			renderCam->image[i] = glm::vec3(0,0,0);
+		}
+		cudaDeviceReset(); 
+		finishedRender = false;
     }
   }
 }
@@ -336,15 +321,103 @@ void errorCallback(int error, const char* description){
     fputs(description, stderr);
 }
 
+void ClearScreen()
+{
+	iterations = 0;
+	for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
+		renderCam->image[i] = glm::vec3(0,0,0);
+	}
+}
+
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
 
-	if (key == GLFW_KEY_R) 
-		isRecording = true;
-	if(key==GLFW_KEY_T)
-		isRecording = false;
+	if (key == GLFW_KEY_R&& action == GLFW_PRESS) 
+		isRecording = !isRecording;
+
+
+	if(key==GLFW_KEY_T && action == GLFW_PRESS)
+	{
+		ClearScreen();
+		texturemap_b =!texturemap_b;
+		if(texturemap_b)
+			cout<<"Texture Map Enabled!"<<endl;
+		else
+			cout<<"Texture Map Disabled!"<<endl;
+	}
+
+	if(key==GLFW_KEY_N  && action == GLFW_PRESS)
+	{
+		ClearScreen();
+		bumpmap_b =!bumpmap_b;
+		if(bumpmap_b)
+			cout<<"Bump Map(Normal Map) Enabled!"<<endl;
+		else
+			cout<<"Bump Map(Normal Map) Disabled!"<<endl;
+	}
+
+	if(key==GLFW_KEY_M  && action == GLFW_PRESS)
+	{
+		ClearScreen();
+		MB_b =!MB_b;
+		if(MB_b)
+			cout<<"Motion Blur Enabled!"<<endl;
+		else
+			cout<<"Motion Blur Disabled!"<<endl;
+	}
+
+	if(key==GLFW_KEY_SPACE  && action == GLFW_PRESS)
+	{
+		ClearScreen();
+		streamcompact_b =!streamcompact_b;
+		if(streamcompact_b)
+			cout<<"Stream Compaction Enabled!"<<endl;
+		else
+			cout<<"Stream Compaction Disabled!"<<endl;
+	}
+
+	if(key==GLFW_KEY_D && action == GLFW_PRESS)
+	{
+		ClearScreen();
+		DOF_b =!DOF_b;
+		if(DOF_b)
+			cout<<"Depth of field Enabled!"<<endl;
+		else
+			cout<<"Depth of field Disabled!"<<endl;
+	}
+
+	if(key==GLFW_KEY_UP)
+	{
+		ClearScreen();
+		renderCam->positions[0]=glm::vec3(renderCam->positions[0].x,renderCam->positions[0].y+0.1f,renderCam->positions[0].z);
+	}
+	else if(key==GLFW_KEY_DOWN)
+	{
+		ClearScreen();
+		renderCam->positions[0]= glm::vec3(renderCam->positions[0].x,renderCam->positions[0].y-0.1f,renderCam->positions[0].z);
+	}
+	else if(key==GLFW_KEY_LEFT)
+	{
+		ClearScreen();
+		renderCam->positions[0]= glm::vec3(renderCam->positions[0].x+0.1f,renderCam->positions[0].y,renderCam->positions[0].z);
+	}
+	else if(key==GLFW_KEY_RIGHT)
+	{
+		ClearScreen();
+		renderCam->positions[0]= glm::vec3(renderCam->positions[0].x-0.1f,renderCam->positions[0].y,renderCam->positions->z);
+	}
+	else if(key==GLFW_KEY_Z)
+	{
+		ClearScreen();
+		renderCam->positions[0]= glm::vec3(renderCam->positions[0].x,renderCam->positions[0].y,renderCam->positions[0].z-0.1f);
+	}
+	else if(key==GLFW_KEY_C)
+	{
+		ClearScreen();
+		renderCam->positions[0]= glm::vec3(renderCam->positions[0].x,renderCam->positions[0].y,renderCam->positions[0].z+0.1f);
+	}
 }
 
 
