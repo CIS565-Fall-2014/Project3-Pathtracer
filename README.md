@@ -30,10 +30,13 @@ This is a GPU path tracing program, with following features:
 - Anti-Alisasing
 
 ####1.Refraction
+
+
+*Reference: http://en.wikipedia.org/wiki/Fresnel_equations
+
+*I add fresnel reflection and refraction. And it enables me to add transparent objects in my scene. To do this, I just use the fresnel equations to compute the reflective and refractive coefficients whenever the ray hits a refractive object, and get the reflect ray and refract ray. Howeverm, as cuda path tracer works iteratively, we can just return one ray each time. So I generate a random number to decide which ray to return, based on the reflective and refractive coefficients. And here the  upper left sphere is refractive:
 ![](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_WithRefraction.png)
 
-I add fresnel reflection and refraction. And it enables me to add transparent objects in my scene. To do this, I just use the fresnel equations to compute the reflect and refract coefficients whenever the ray hits a refractive object. And as cuda path tracer works
-Reference: http://en.wikipedia.org/wiki/Fresnel_equations
 
 
 I add texture map for cube and sphere and the 
