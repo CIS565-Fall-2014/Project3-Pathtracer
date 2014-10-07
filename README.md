@@ -6,16 +6,17 @@ Fall 2014
 =========
 
 PROJECT DESCRIPTION
+-------------------
 
 This is a GPU path tracing program, with following features:
 
-Basic:
-* Raycasting from a camera into a scene through a pixel grid
-* Diffuse surfaces
-* Perfect specular reflective surfaces
-* Cube intersection testing
-* Sphere surface point sampling
-* Stream compaction optimization
+####Basic:
+- Raycasting from a camera into a scene through a pixel grid
+- Diffuse surfaces
+- Perfect specular reflective surfaces
+- Cube intersection testing
+- Sphere surface point sampling
+- Stream compaction optimization
 
 Extra:
 * Texture mapping 
