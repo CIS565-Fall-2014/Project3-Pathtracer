@@ -2,6 +2,7 @@
 
 CUDA Pathtracer
 ===============
+
 Fall 2014
 =========
 
@@ -18,20 +19,18 @@ This is a GPU path tracing program, with following features:
 - Sphere surface point sampling
 - Stream compaction optimization
 
-Extra:
-* Texture mapping 
-* Bump mapping
-* Depth of field
-* Refraction, i.e. glass
-* OBJ Mesh loading and rendering
-* Interactive camera
-* Motion blur
-* Anti-Alisasing
+####Extra:
+- Texture mapping 
+- Bump mapping
+- Depth of field
+- Refraction, i.e. glass
+- OBJ Mesh loading and rendering
+- Interactive camera
+- Motion blur
+- Anti-Alisasing
 
-The 'extra features' list is not comprehensive.  If you have a particular feature
-you would like to implement (e.g. acceleration structures, etc.) please contact us 
-first!
-
+####1.Texture mapping
+I add texture map for cube and sphere and the 
 For each 'extra feature' you must provide the following analysis :
 * overview write up of the feature
 * performance impact of the feature
