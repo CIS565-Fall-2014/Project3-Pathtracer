@@ -48,10 +48,10 @@ I think the main difference with CPU version is that I use a random number to de
 - Reference: http://www.cplusplus.com/forum/general/87738/
 
 - Overview write up and performance impact:
-I add OBJ Mesh reader and render obj in my scene. To do this, I firstly learned the format of obj files and then  wirte a obj reader by myself. And due to the different size of the objs I load into my scene, I scale all of the objs to the size of (1,1,1).(Maybe smaller, as the obj's length,width,height aren't always the same) After that, I load each triangle mesh as a new object in my scene to do path trace and thus the more meshes the obj file has, the slower the render will be. Here is the scene with an obj loaded:
+*I add OBJ Mesh reader and render obj in my scene. To do this, I firstly learned the format of obj files and then  wirte a obj reader by myself. And due to the different size of the objs I load into my scene, I scale all of the objs to the size of (1,1,1).(Maybe smaller, as the obj's length,width,height aren't always the same) After that, I load each triangle mesh as a new object in my scene to do path trace and thus the more meshes the obj file has, the slower the render will be. Here is the scene with an obj loaded:
 
 - Accelerate the feature: 
-I add bounding box to the obj object to accelerate the ray intersect part. 
+*I add bounding box to the obj object to accelerate the ray intersect part. 
 
 - Compare to a CPU version: None
 
