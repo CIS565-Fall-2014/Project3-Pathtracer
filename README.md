@@ -1,28 +1,10 @@
-CIS 565 Project3 : CUDA Pathtracer
-===================
+![](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_AllEffects.png)
 
 Fall 2014
 
 Due Wed, 10/8 (submit without penalty until Sun, 10/12)
 
-## INTRODUCTION
-In this project, you will implement a CUDA based pathtracer capable of
-generating pathtraced rendered images extremely quickly. Building a pathtracer can be viewed as a generalization of building a raytracer, so for those of you who have taken 460/560, the basic concept should not be very new to you. For those of you that have not taken
-CIS460/560, raytracing is a technique for generating images by tracing rays of
-light through pixels in an image plane out into a scene and following the way
-the rays of light bounce and interact with objects in the scene. More
-information can be found here:
-http://en.wikipedia.org/wiki/Ray_tracing_(graphics). Pathtracing is a generalization of this technique by considering more than just the contribution of direct lighting to a surface.
 
-Since in this class we are concerned with working in generating actual images
-and less so with mundane tasks like file I/O, this project includes basecode
-for loading a scene description file format, described below, and various other
-things that generally make up the render "harness" that takes care of
-everything up to the rendering itself. The core renderer is left for you to
-implement.  Finally, note that while this basecode is meant to serve as a
-strong starting point for a CUDA pathtracer, you are not required to use this
-basecode if you wish, and you may also change any part of the basecode
-specification as you please, so long as the final rendered result is correct.
 
 ## CONTENTS
 The Project3 root directory contains the following subdirectories:
