@@ -44,7 +44,7 @@ I add fresnel reflection and refraction. And it enables me to add transparent ob
   
 I think the main difference with CPU version is that I use a random number to decide which ray to pass on. But in CPU version(recursive), we can pass both reflect ray and refract ray  and add their results together. However, I think the result is the same.
 
-- Further optimized: None
+- Further optimized: NULL
 
 
 
@@ -62,15 +62,15 @@ I add OBJ Mesh reader and render obj in my scene. To do this, I firstly learned 
   
 I add bounding box to the obj object to accelerate the ray intersect part. 
 
-- Compare to a CPU version: None
+- Compare to a CPU version: NULL
 
 - Further optimized:
 
 If the objs are complex, I still need long time to render each frame even I add BB for them. So, I think maybe I should use more accelerate methods like kd-tree to make the render faster.
 
-
-
-
+ 
+ 
+ 
 ####3.Motion blur
 - Reference: http://www.cs.cmu.edu/afs/cs/academic/class/15462-s09/www/lec/13/lec13.pdf
 
@@ -82,7 +82,7 @@ I add motion blur for objects. To do this, I add a new attribute for each object
 
 - Accelerate the feature: NULL
 
-- Compare to a CPU version: None
+- Compare to a CPU version: NULL
 
 - Further optimized:
 
