@@ -112,7 +112,8 @@ void runCuda(){
   
     // execute the kernel
     cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), DOF);
-    
+	
+
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   } else {
