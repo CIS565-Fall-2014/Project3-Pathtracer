@@ -169,10 +169,8 @@ __global__ void PathTraceColor(ray* remainrays,int raysnum,int currdepth,int max
 		{
 			int seed = (index+1) * (time/2 + currdepth);
 		    int BSDF = calculateBSDF(r,InterSectP,InterSectN,currMaterial,seed,currdepth);	
-			if(BSDF==0)
-				r.raycolor = r.raycolor * currMaterial.color;
-		}
-		
+			r.raycolor = r.raycolor * currMaterial.color;
+		}	
 
 		remainrays[index] = r;		
 	}
