@@ -1,4 +1,4 @@
-![#pos=middle](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_AllEffects.png)
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_AllEffects.png)
 
 CUDA Pathtracer
 ===============
@@ -36,7 +36,7 @@ This is a GPU path tracing program, with following features:
   
 I add fresnel reflection and refraction. And it enables me to add transparent objects in my scene. To do this, I just use the fresnel equations to compute the reflective and refractive coefficients whenever the ray hits a refractive object, and get the reflect ray and refract ray. However, as my cuda path tracer works iteratively, I can just return one ray each time. So I generate a random number to decide which ray to return, based on the reflective and refractive coefficients. And here the  upper left sphere is refractive:
 
-![#pos=middle](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_WithRefraction.png)
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_WithRefraction.png)
 
 - Accelerate the feature: NULL
 
@@ -56,7 +56,7 @@ I think the main difference with CPU version is that I use a random number to de
   
 I add OBJ Mesh reader and render obj in my scene. To do this, I firstly learned the format of obj files and then  wirte a obj reader by myself. And due to the different size of the objs I load into my scene, I scale all of the objs to the size of (1,1,1).(Maybe smaller, as the obj's length,width,height aren't always the same) After that, I load each triangle mesh as a new object in my scene to do path trace and thus the more meshes the obj file has, the slower the render will be. Here is the scene with an obj loaded(I just use a tetra obj as it has only four meshes and can be rendered faster):
 
-![#pos=middle](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_WithOBJ.png)
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_WithOBJ.png)
 
 - Accelerate the feature:
   
@@ -78,7 +78,7 @@ If the objs are complex, I still need long time to render each frame even I add 
   
 I add motion blur for objects. To do this, I add a new attribute for each object called MBV, and the object will move its position according to this velocity vector(this part is hard-coded in cudaRaytraceCore). And here the green sphere has the motion blur effect:
 
-![#pos=middle](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_MotionBlur.png)
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_MotionBlur.png)
 
 - Accelerate the feature: NULL
 
