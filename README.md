@@ -22,6 +22,7 @@ This is a GPU path tracing program, with following features:
 - Stream compaction optimization
 
 ####Extra:
+- Anti-Alisasing
 - Refraction, i.e. glass
 - OBJ Mesh loading and rendering
 - Motion blur
@@ -29,7 +30,6 @@ This is a GPU path tracing program, with following features:
 - Texture mapping 
 - Depth of field
 - Interactive camera
-- Anti-Alisasing
 
 ####1.Refraction
 - Reference: http://en.wikipedia.org/wiki/Fresnel_equations
@@ -47,8 +47,6 @@ I add fresnel reflection and refraction. And it enables me to add transparent ob
 I think the main difference with CPU version is that I use a random number to decide which ray to pass on. But in CPU version(recursive), we can pass both reflect ray and refract ray  and add their results together. However, I think the result is the same.
 
 - Further optimized: NULL
-
-
 
 
 ####2.OBJ Mesh loading and rendering
@@ -69,8 +67,6 @@ I add bounding box to the obj object to accelerate the ray intersect part.
 - Further optimized:
 
 If the objs are complex, I still need long time to render each frame even I add BB for them. So, I think maybe I should use more accelerate methods like kd-tree to make the render faster.
-
- 
  
  
 ####3.Motion blur
@@ -89,6 +85,29 @@ I add motion blur for objects. To do this, I add a new attribute for each object
 - Further optimized:
 
 The users can only set the velocity for each object, I think I can add more parameters and let users control how the object move in each frame.
+
+
+####4.Bump mapping
+- Reference: 
+
+http://www.paulsprojects.net/tutorials/simplebump/simplebump.html
+http://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
+
+- Overview write up and performance impact:
+  
+I try to add bump map for objects, but can only realize normal map now. To do this, I add a new attribute for each object called BUMP, and when we read the scene file we also read in the normal map's color to a buffer. When we do ray intersect, we return the intersect normal according to the color we get from the normal map. And here is the scene with normal map(See the detail on the sphere and floor):
+
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_NormalMap.png.png)
+
+- Accelerate the feature: NULL
+
+- Compare to a CPU version: NULL
+
+- Further optimized:
+
+Bump mapping is the combine of normal mapping and height mapping(which changes points position according to the map color). And I need to add height map, or get height map from the normal map to finish bump mapping.
+
+
 
 
 
