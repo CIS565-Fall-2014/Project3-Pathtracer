@@ -91,13 +91,14 @@ The users can only set the velocity for each object, I think I can add more para
 - Reference: 
 
 http://www.paulsprojects.net/tutorials/simplebump/simplebump.html
+
 http://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
 
 - Overview write up and performance impact:
   
 I try to add bump map for objects, but can only realize normal map now. To do this, I add a new attribute for each object called BUMP, and when we read the scene file we also read in the normal map's color to a buffer. When we do ray intersect, we return the intersect normal according to the color we get from the normal map. And here is the scene with normal map(See the detail on the sphere and floor):
 
-![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_NormalMap.png.png)
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_NormalMap.png)
 
 - Accelerate the feature: NULL
 
