@@ -21,29 +21,45 @@ This is a GPU path tracing program, with following features:
 
 ####Extra:
 - Refraction, i.e. glass
+- OBJ Mesh loading and rendering
 - Texture mapping 
 - Bump mapping
 - Depth of field
-- OBJ Mesh loading and rendering
 - Interactive camera
 - Motion blur
 - Anti-Alisasing
 
 ####1.Refraction
-Reference: http://en.wikipedia.org/wiki/Fresnel_equations
+- Reference: http://en.wikipedia.org/wiki/Fresnel_equations
 
-Overview write up and performance impact:
+- Overview write up and performance impact:
 I add fresnel reflection and refraction. And it enables me to add transparent objects in my scene. To do this, I just use the fresnel equations to compute the reflective and refractive coefficients whenever the ray hits a refractive object, and get the reflect ray and refract ray. However, as my cuda path tracer works iteratively, I can just return one ray each time. So I generate a random number to decide which ray to return, based on the reflective and refractive coefficients. And here the  upper left sphere is refractive:
 ![](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_WithRefraction.png)
 
-Accelerate the feature: NULL
+- Accelerate the feature: NULL
 
-Compare to a CPU version: 
+- Compare to a CPU version: 
 I think the main difference with CPU version is that I use a random number to decide which ray to pass on. But in CPU version(recursive), we can pass both reflect ray and refract ray  and add their results together. However, I think the result is the same.
 
-Further optimized: None
+- Further optimized: None
 
-I add texture map for cube and sphere and the 
+
+####2.OBJ Mesh loading and rendering
+- Reference: http://www.cplusplus.com/forum/general/87738/
+
+- Overview write up and performance impact:
+I add OBJ Mesh reader and render obj in my scene. To do this, I firstly learned the format of obj files and then  wirte a obj reader by myself. And due to the different size of the objs I load into my scene, I scale all of the objs to the size of (1,1,1).(Maybe smaller, as the obj's length,width,height aren't always the same) After that, I load each triangle mesh as a new object in my scene to do path trace and thus the more meshes the obj file has, the slower the render will be. Here is the scene with an obj loaded:
+
+- Accelerate the feature: 
+I add bounding box to the obj object to accelerate the ray intersect part. 
+
+- Compare to a CPU version: None
+
+- Further optimized:
+If the objs are complex, I still need long time to rend each frame even I add BB for them. So, I think maybe I should use more accelerate methods like kd-tree to make the render faster.
+
+
+
 For each 'extra feature' you must provide the following analysis :
 * overview write up of the feature
 * performance impact of the feature
