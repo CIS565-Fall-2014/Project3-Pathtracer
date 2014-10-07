@@ -6,7 +6,7 @@ CUDA Pathtracer
 Fall 2014
 =========
 
-![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_AllEffects.png?raw=true)
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_AllEffects.png)
 
 PROJECT DESCRIPTION
 -------------------
@@ -39,7 +39,9 @@ This is a GPU path tracing program, with following features:
   
 I add super sample anti-alisasing, which makes my render result much more beautiful. To do this, I just jitter the initial rays randomly in each iteration. And here is the comparison between the scene with SSAA and the scene without SSAA:
 
-![Alt text]()
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/DetailWithSSAA.bmp)
+
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/DetailWithNoSSAA.bmp)
 
 - Accelerate the feature: NULL
 
