@@ -22,7 +22,7 @@ This is a GPU path tracing program, with following features:
 - Stream compaction optimization
 
 ####Extra:
-- Anti-Alisasing
+- Super sample anti-alisasing
 - Refraction, i.e. glass
 - OBJ Mesh loading and rendering
 - Motion blur
@@ -31,7 +31,26 @@ This is a GPU path tracing program, with following features:
 - Depth of field
 - Interactive camera
 
-####1.Refraction
+
+####1.Super sample anti-alisasing
+- Reference: http://en.wikipedia.org/wiki/Supersampling
+
+- Overview write up and performance impact:
+  
+I add super sample anti-alisasing, which makes my render result much more beautiful. To do this, I just jitter the initial rays randomly in each iteration. And here is the comparison between the scene with SSAA and the scene without SSAA:
+
+![Alt text]()
+
+- Accelerate the feature: NULL
+
+- Compare to a CPU version: 
+  
+In CPU version we may use grid algorithm to jitter the initial rays, but in GPU version we jitter the rays with Jitter algorithm. And their results are almost the same.
+
+- Further optimized: NULL
+
+
+####2.Refraction
 - Reference: http://en.wikipedia.org/wiki/Fresnel_equations
 
 - Overview write up and performance impact:
@@ -44,12 +63,12 @@ I add fresnel reflection and refraction. And it enables me to add transparent ob
 
 - Compare to a CPU version: 
   
-I think the main difference with CPU version is that I use a random number to decide which ray to pass on. But in CPU version(recursive), we can pass both reflect ray and refract ray  and add their results together. However, I think the result is the same.
+I think the main difference with CPU version is that I use a random number to decide which ray to pass on. But in CPU version(recursive), we pass both reflect ray and refract ray  and add their results together. However, I think the result is the same.
 
 - Further optimized: NULL
 
 
-####2.OBJ Mesh loading and rendering
+####3.OBJ Mesh loading and rendering
 - Reference: http://www.cplusplus.com/forum/general/87738/
 
 - Overview write up and performance impact:
@@ -69,7 +88,7 @@ I add bounding box to the obj object to accelerate the ray intersect part.
 If the objs are complex, I still need long time to render each frame even I add BB for them. So, I think maybe I should use more accelerate methods like kd-tree to make the render faster.
  
  
-####3.Motion blur
+####4.Motion blur
 - Reference: http://www.cs.cmu.edu/afs/cs/academic/class/15462-s09/www/lec/13/lec13.pdf
 
 - Overview write up and performance impact:
@@ -87,7 +106,7 @@ I add motion blur for objects. To do this, I add a new attribute for each object
 The users can only set the velocity for each object, I think I can add more parameters and let users control how the object move in each frame.
 
 
-####4.Bump mapping
+####5.Bump mapping
 - Reference: 
 
 http://www.paulsprojects.net/tutorials/simplebump/simplebump.html
