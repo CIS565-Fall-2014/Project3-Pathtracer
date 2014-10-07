@@ -1,10 +1,12 @@
-    ![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_AllEffects.png)
+
 
 CUDA Pathtracer
 ===============
 
 Fall 2014
 =========
+
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_AllEffects.png?raw=true)
 
 PROJECT DESCRIPTION
 -------------------
