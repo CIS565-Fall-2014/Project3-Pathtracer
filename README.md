@@ -12,7 +12,7 @@ PROJECT DESCRIPTION
 This is a GPU path tracing program, with following features:
 
 ####Basic:
-- Raycasting from a camera into a scene through a pixel grid
+- Raycasting from a camera into a scene through a ray grid
 - Diffuse surfaces
 - Perfect specular reflective surfaces
 - Cube intersection testing
@@ -20,16 +20,22 @@ This is a GPU path tracing program, with following features:
 - Stream compaction optimization
 
 ####Extra:
+- Refraction, i.e. glass
 - Texture mapping 
 - Bump mapping
 - Depth of field
-- Refraction, i.e. glass
 - OBJ Mesh loading and rendering
 - Interactive camera
 - Motion blur
 - Anti-Alisasing
 
-####1.Texture mapping
+####1.Refraction
+![](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_WithRefraction.png)
+
+I add fresnel reflection and refraction. And it enables me to add transparent objects in my scene. To do this, I just use the fresnel equations to compute the reflect and refract coefficients whenever the ray hits a refractive object. And as cuda path tracer works
+Reference: http://en.wikipedia.org/wiki/Fresnel_equations
+
+
 I add texture map for cube and sphere and the 
 For each 'extra feature' you must provide the following analysis :
 * overview write up of the feature
