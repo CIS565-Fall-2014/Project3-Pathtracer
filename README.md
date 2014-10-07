@@ -47,6 +47,8 @@ I think the main difference with CPU version is that I use a random number to de
 - Further optimized: None
 
 
+
+
 ####2.OBJ Mesh loading and rendering
 - Reference: http://www.cplusplus.com/forum/general/87738/
 
@@ -65,6 +67,8 @@ I add bounding box to the obj object to accelerate the ray intersect part.
 - Further optimized:
 
 If the objs are complex, I still need long time to render each frame even I add BB for them. So, I think maybe I should use more accelerate methods like kd-tree to make the render faster.
+
+
 
 
 ####3.Motion blur
