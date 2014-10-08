@@ -183,7 +183,7 @@ This one is the easiest one and we just defines more keys in keyCallback functio
 Using mouse to control the camera is more convenient, but to do this, I must speed my renderer up at first.
 
 
-### SCENE FORMAT
+### Scene Format
 
 The scene format has changed due to the features I add.<br />
 
@@ -227,7 +227,7 @@ BUMP 	texture/bumpmap.jpg<br />
 
 
 
-### SCENE CONTROL
+### Scene Control
 |Key | Function
 |------|----------
 |Directional keys | `Move camera up/down/left/right`
@@ -240,6 +240,6 @@ BUMP 	texture/bumpmap.jpg<br />
 |Esc| `Exit renderer`
 
 
-### Video Link
-
+### Video Link<br />
+http://youtu.be/AwxrfiRXsPQ
 
