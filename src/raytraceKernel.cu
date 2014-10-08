@@ -21,7 +21,7 @@
 #include "interactions.h"
 
 //Render Settings
-#define TRACE_DEPTH 10
+#define TRACE_DEPTH 5
 #define RAY_STREAM_COMPACTION_ON 0
 #define ENABLE_ANTIALIASING 1
 
@@ -97,7 +97,7 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	//if aa, jitter pixel position
 #if(ENABLE_ANTIALIASING)
 	{
-		thrust::default_random_engine rng(hash((time+1.0f)* xx * xx));
+		thrust::default_random_engine rng(hash((time+1.0f)* xx * yy));
 		thrust::uniform_real_distribution<float> u01(0.0f,1.0f);
 		xx += u01(rng);
 		yy += u01(rng);
