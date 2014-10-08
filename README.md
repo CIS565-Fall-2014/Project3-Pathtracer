@@ -10,7 +10,7 @@ This is a standalone pathtracer implemented on the GPU using CUDA and OpenGL.
 ![](std1.bmp)
 
  -Subsurface Scattering
-![](SSS3.bmp)
+![](SSS.bmp)
 
  -Depth of Field
 ![](DOF.0.bmp)
