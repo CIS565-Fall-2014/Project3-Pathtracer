@@ -13,7 +13,7 @@ PROJECT DESCRIPTION
 
 This is a GPU path tracing program, with following features:
 
-####Basic:
+###Basic:
 - Raycasting from a camera into a scene through a ray grid
 - Diffuse surfaces
 - Perfect specular reflective surfaces
@@ -21,7 +21,7 @@ This is a GPU path tracing program, with following features:
 - Sphere surface point sampling
 - Stream compaction optimization
 
-####Extra:
+###Extra:
 - Super sample anti-alisasing
 - Refraction, i.e. glass
 - OBJ Mesh loading and rendering
@@ -117,7 +117,7 @@ http://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
 
 - Overview write up and performance impact:
   
-I try to add bump map for objects, but can only realize normal map now. To do this, I add a new attribute for each object called BUMP, and when we read the scene file we also read in the normal map's color to a buffer. When we do ray intersect, we return the intersect normal according to the color we get from the normal map. And here is the scene with normal map(See the detail on the sphere and floor):
+I try to add bump map for objects, but can only realize normal map now. To do this, I add a new attribute for each object called BUMP, and when renderer reads the scene file, it also stores the normal map's color to a buffer. When it does ray intersect, it returns the intersect normal according to the corresponding color in the buffer. And here is the scene with normal map(See the detail on the sphere and floor):
 
 ![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_NormalMap.png)
 
@@ -136,7 +136,7 @@ Bump mapping is the combine of normal mapping and height mapping(which changes p
 
 - Overview write up and performance impact:
   
-I add texture for cubes and spheres. To do this, I add a new attribute for each object called MAP, and when we read the scene file we also read in the texture map's color to a buffer. When we do path trace, we get the color from this buffer according to the intersect point on object. And here is the scene with texture map(Much more colorful):
+I add texture for cubes and spheres. To do this, I add a new attribute for each object called MAP, and when renderer reads the scene file, it also reads in the texture map's color to a buffer. When the program does path trace, it gets the color from this buffer according to the intersect point's position. And here is the scene with texture map(Much more colorful):
 
 ![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_TextureMap.png)
 
@@ -146,123 +146,95 @@ I add texture for cubes and spheres. To do this, I add a new attribute for each 
 
 - Further optimized:
 
-Right now the same texture map will be stored several times in the color buffer if it is assigned to different objects, as the map is an attribute of object. I think it will be better to give each texture map an index and read in the texrure map when we find a new texture index. In this way, we can save much memory space.
+Right now the same texture map will be stored several times in the color buffer if it is assigned to different objects, as the map is an attribute of object. I think it will be better to give each texture map an index and read in the texrure map when a new texture index appears. In this way, much memory space can be saved.
 
 
+####7.Depth of field
+- Reference:  http://www.keithlantz.net/2013/03/path-tracer-depth-of-field/
+
+- Overview write up and performance impact:
+  
+I add depth of field in my scene. To do this, I add two new attributes for camera, DOFL and DOFR. DOFL decides the camera's distance to focal plane(on z axis) and DOFR decides the blurradius(The higher, the more blurred the scene will be). According to these two parameters, in each iteration before the path tracer begins, the camera's position and the initial rays' direction will be jittered. In this way, I get a scene picture with depth of field:
+
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_DepthOfField.png)
+
+- Accelerate the feature: NULL
+
+- Compare to a CPU version: NULL
+
+- Further optimized:
+
+Maybe I can add more focal length to let the camera focus on more focal planes. Although it is not correct theoretically, we may get some fantastic results.
 
 
+####8.Interactive camera
+- Reference:  NULL
+
+- Overview write up and performance impact:
+  
+This one is the easiest one and we just defines more keys in keyCallback function. When the key is pressed, I just clear the screen and redo the path trace based on the new camera's position.
+
+- Accelerate the feature: NULL
+
+- Compare to a CPU version: NULL
+
+- Further optimized:
+
+Using mouse to control the camera is more convenient, but to do this, I must speed my renderer up at first.
 
 
-For each 'extra feature' you must provide the following analysis :
-* overview write up of the feature
-* performance impact of the feature
-* if you did something to accelerate the feature, why did you do what you did
-* compare your GPU version to a CPU version of this feature (you do NOT need to 
-  implement a CPU version)
-* how can this feature be further optimized (again, not necessary to implement it, but
-  should give a roadmap of how to further optimize and why you believe this is the next
-  step)
+### SCENE FORMAT
 
-## SCENE FORMAT
-This project uses a custom scene description format.
-Scene files are flat text files that describe all geometry, materials,
-lights, cameras, render settings, and animation frames inside of the scene.
-Items in the format are delimited by new lines, and comments can be added at
-the end of each line preceded with a double-slash.
+The scene format has changed due to the features I add.
 
-Materials are defined in the following fashion:
+Materials: Unchanged
 
-* MATERIAL (material ID)								//material header
-* RGB (float r) (float g) (float b)					//diffuse color
-* SPECX (float specx)									//specular exponent
-* SPECRGB (float r) (float g) (float b)				//specular color
-* REFL (bool refl)									//reflectivity flag, 0 for
-  no, 1 for yes
-* REFR (bool refr)									//refractivity flag, 0 for
-  no, 1 for yes
-* REFRIOR (float ior)									//index of refraction
-  for Fresnel effects
-* SCATTER (float scatter)								//scatter flag, 0 for
-  no, 1 for yes
-* ABSCOEFF (float r) (float b) (float g)				//absorption
-  coefficient for scattering
-* RSCTCOEFF (float rsctcoeff)							//reduced scattering
-  coefficient
-* EMITTANCE (float emittance)							//the emittance of the
-  material. Anything >0 makes the material a light source.
+Cameras: Add two new parameters
+DOFL(focal length)  //The camera's distance to focal plane(on z axis)  
+DOFR(blur radius)   //The blur extent
 
-Cameras are defined in the following fashion:
+Example:
+CAMERA
+RES         800 800
+FOVY        25
+ITERATIONS  5000
+FILE        test.bmp
+frame 0
+EYE         0 4.5 14
+VIEW        0 0 -1
+UP          0 1 0
+DOFL        14.0
+DOFR        0.7
 
-* CAMERA 												//camera header
-* RES (float x) (float y)								//resolution
-* FOVY (float fovy)										//vertical field of
-  view half-angle. the horizonal angle is calculated from this and the
-  reslution
-* ITERATIONS (float interations)							//how many
-  iterations to refine the image, only relevant for supersampled antialiasing,
-  depth of field, area lights, and other distributed raytracing applications
-* FILE (string filename)									//file to output
-  render to upon completion
-* frame (frame number)									//start of a frame
-* EYE (float x) (float y) (float z)						//camera's position in
-  worldspace
-* VIEW (float x) (float y) (float z)						//camera's view
-  direction
-* UP (float x) (float y) (float z)						//camera's up vector
 
-Objects are defined in the following fashion:
-* OBJECT (object ID)										//object header
-* (cube OR sphere OR mesh)								//type of object, can
-  be either "cube", "sphere", or "mesh". Note that cubes and spheres are unit
-  sized and centered at the origin.
-* material (material ID)									//material to
-  assign this object
-* frame (frame number)									//start of a frame
-* TRANS (float transx) (float transy) (float transz)		//translation
-* ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
-* SCALE (float scalex) (float scaley) (float scalez)		//scale
+Objects:  Add three new parameters
+MBV(Motion blur velocity)  //The velocity the object has 
+MAP(Texture map)           //The object's texture map's path
+BUMP(Bump map)           //The object's bump map's path
 
-An example scene file setting up two frames inside of a Cornell Box can be
-found in the scenes/ directory.
 
-For meshes, note that the base code will only read in .obj files. For more 
-information on the .obj specification see http://en.wikipedia.org/wiki/Wavefront_.obj_file.
-
-An example of a mesh object is as follows:
-
+Example:
 OBJECT 0
-mesh tetra.obj
+cube
 material 0
 frame 0
-TRANS       0 5 -5
-ROTAT       0 90 0
-SCALE       .01 10 10 
+TRANS       0 0 0
+ROTAT       0 0 90
+SCALE       .01 10 10   
+MBV     0 0 0
+MAP  texture/wood.jpg
+BUMP  texture/bumpmap.jpg
 
-Check the Google group for some sample .obj files of varying complexity.
 
 
-## SELF-GRADING
-* On the submission date, email your grade, on a scale of 0 to 100, to Harmony,
-  harmoli+cis565@seas.upenn.com, with a one paragraph explanation.  Be concise and
-  realistic.  Recall that we reserve 30 points as a sanity check to adjust your
-  grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We
-  hope to only use this in extreme cases when your grade does not realistically
-  reflect your work - it is either too high or too low.  In most cases, we plan
-  to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as
-  the path tracer.  We will determine the weighting at the end of the semester
-  based on the size of each project.
-
-## SUBMISSION
-Please change the README to reflect the answers to the questions we have posed
-above.  Remember:
-* this is a renderer, so include images that you've made!
-* be sure to back your claims for optimization with numbers and comparisons
-* if you reference any other material, please provide a link to it
-* you wil not e graded on how fast your path tracer runs, but getting close to
-  real-time is always nice
-* if you have a fast GPU renderer, it is good to show case this with a video to
-  show interactivity.  If you do so, please include a link.
-
-Be sure to open a pull request and to send Harmony your grade and why you
-believe this is the grade you should get.
+### SCENE CONTROL
+        key                    function
+Directional keys        Move camera up/down/left/right
+       Z/C              Zoom in/out
+        D               Enable/Disable depth of field  
+        M               Enable/Disable motion blur   
+        N               Enable/Disable bump map 
+        T               Enable/Disable texture map 
+      Space             Enable/Disable stream compact
+       Esc              Exit renderer
+ 
