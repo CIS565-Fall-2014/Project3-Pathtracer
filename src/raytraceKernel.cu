@@ -35,13 +35,18 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
   return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
+// TODO: TEST THIS FUNCTION
 // Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
-  ray r;
-  r.origin = glm::vec3(0,0,0);
-  r.direction = glm::vec3(0,0,-1);
-  return r;
+    glm::vec2 ndc = glm::vec2(x, y) / resolution * 2.f - glm::vec2(1, 1);
+    glm::vec3 dir = glm::normalize(view - eye);
+    glm::vec3 norX = glm::normalize(glm::cross(dir, up)) * glm::tan(fov.x);
+    glm::vec3 norY = glm::normalize(glm::cross(norX, dir)) * glm::tan(fov.y);
+
+    ray r;
+    r.origin = eye;
+    r.direction = dir + norX * ndc.x + norY * ndc.y;
+    return r;
 }
 
 //Kernel that blacks out a given image buffer
@@ -99,7 +104,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
   if((x<=resolution.x && y<=resolution.y)){
 
-    colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+    //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
    }
 }
 
