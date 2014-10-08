@@ -47,7 +47,7 @@ I add super sample anti-alisasing, which makes my render result smoother. To do 
 
 - Compare to a CPU version: 
   
-In CPU version we may use grid algorithm to jitter the initial rays, but in GPU version we jitter the rays with Jitter algorithm. And their results are almost the same.
+In CPU version we may use grid algorithm to jitter the initial rays, but in GPU version we jitter the rays randomly. Their results are almost the same.
 
 - Further optimized: NULL
 
