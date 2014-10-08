@@ -13,7 +13,7 @@ PROJECT DESCRIPTION
 
 This is a GPU path tracing program, with following features:
 
-###Basic Features:
+###1.Basic Features:
 - Raycasting from a camera into a scene through a ray grid
 - Diffuse surfaces
 - Perfect specular reflective surfaces
@@ -21,7 +21,14 @@ This is a GPU path tracing program, with following features:
 - Sphere surface point sampling
 - Stream compaction optimization
 
-###Extra Features:
+#### Stream compaction
+I use thrust to do stream compaction, that after each iteration in path trace, only valid rays are kept to pass on in next iteration. With stream compaction, the renderer won't run the empty thread any more and much time can be saved. To make comparison, I set blocksize as 64 and then record the renderer's run time for 100 iterations with/without stream compaction with different max trace depth and the plot shows the result:<br />
+
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/Performance%20Evaluation.bmp)
+
+We can see that the higher the max trace depth is, the more time stream compaction will save.
+
+###2.Extra Features:
 - Super sample anti-alisasing
 - Refraction, i.e. glass
 - OBJ Mesh loading and rendering
@@ -32,7 +39,7 @@ This is a GPU path tracing program, with following features:
 - Interactive camera
 
 
-####1.Super sample anti-alisasing
+####(1) Super sample anti-alisasing
 - Reference: http://en.wikipedia.org/wiki/Supersampling
 
 - Overview write up and performance impact:
@@ -52,7 +59,7 @@ In CPU version we may use grid algorithm to jitter the initial rays, but in GPU 
 - Further optimized: NULL
 
 
-####2.Refraction
+####(2) Refraction
 - Reference: http://en.wikipedia.org/wiki/Fresnel_equations
 
 - Overview write up and performance impact:
@@ -70,7 +77,7 @@ I think the main difference with CPU version is that I use a random number to de
 - Further optimized: NULL
 
 
-####3.OBJ Mesh loading and rendering
+####(3) OBJ Mesh loading and rendering
 - Reference: http://www.cplusplus.com/forum/general/87738/
 
 - Overview write up and performance impact:
@@ -90,7 +97,7 @@ I add bounding box to the obj object to accelerate the ray intersect part.
 If the objs are complex, I still need long time to render each frame even I add BB for them. So, I think maybe I should use more accelerate methods like kd-tree to make the renderer faster.
  
  
-####4.Motion blur
+####(4) Motion blur
 - Reference: http://www.cs.cmu.edu/afs/cs/academic/class/15462-s09/www/lec/13/lec13.pdf
 
 - Overview write up and performance impact:
@@ -108,7 +115,7 @@ I add motion blur for objects. To do this, I add a new attribute for each object
 The users can only set the velocity for each object, I think I can add more parameters and let users control how the object move in each frame.
 
 
-####5.Bump mapping
+####(5) Bump mapping
 - Reference: 
 
 http://www.paulsprojects.net/tutorials/simplebump/simplebump.html
@@ -131,7 +138,7 @@ Bump mapping is the combine of normal mapping and height mapping(which changes p
 
 
 
-####6.Texture mapping
+####(6) Texture mapping
 - Reference:  http://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
 
 - Overview write up and performance impact:
@@ -149,7 +156,7 @@ I add texture for cubes and spheres. To do this, I add a new attribute for each 
 Right now the same texture map will be stored several times in the color buffer if it is assigned to different objects, as the map is an attribute of object. I think it will be better to give each texture map an index and read in the texrure map when a new texture index appears. In this way, much memory space can be saved.
 
 
-####7.Depth of field
+####(7) Depth of field
 - Reference:  http://www.keithlantz.net/2013/03/path-tracer-depth-of-field/
 
 - Overview write up and performance impact:
@@ -167,7 +174,7 @@ I add depth of field in my scene. To do this, I add two new attributes for camer
 Maybe I can add more focal length to let the camera focus on more focal planes. Although it is not correct physically, we may get some fantastic results.
 
 
-####8.Interactive camera
+####(8) Interactive camera
 - Reference:  NULL
 
 - Overview write up and performance impact:
@@ -183,7 +190,7 @@ This one is the easiest one and I just defines more keys in keyCallback function
 Using mouse to control the camera is more convenient, but to do this, I must speed my renderer up at first.
 
 
-### Scene Format
+###3.Scene Format
 
 The scene format has changed due to the features I add.<br />
 
@@ -226,8 +233,7 @@ MAP  	texture/wood.jpg<br />
 BUMP 	texture/bumpmap.jpg<br />
 
 
-
-### Scene Control
+###4.Scene Control
 |Key | Function
 |------|----------
 |Directional keys | `Move camera up/down/left/right`
@@ -240,6 +246,6 @@ BUMP 	texture/bumpmap.jpg<br />
 |Esc| `Exit renderer`
 
 
-### Video Link<br />
+###5.Video Link<br />
 http://youtu.be/AwxrfiRXsPQ
 
