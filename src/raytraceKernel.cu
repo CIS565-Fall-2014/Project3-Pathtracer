@@ -96,7 +96,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
       PBOpos[index].z = color.z;
   }
 }
-__device__ void intersectionTest(staticGeom *geoms, int numberOfGeoms, ray currentRay, staticGeom *&intersectionGeom, glm::vec3 &intersectionPoint, glm::vec3 &intersectionNormal){
+__device__ float intersectionTest(staticGeom *geoms, int numberOfGeoms, ray currentRay, staticGeom *&intersectionGeom, glm::vec3 &intersectionPoint, glm::vec3 &intersectionNormal){
 	float Tnear = 10000;
 	for (size_t i = 0; i < numberOfGeoms; i++)
 	{
@@ -118,36 +118,9 @@ __device__ void intersectionTest(staticGeom *geoms, int numberOfGeoms, ray curre
 			intersectionGeom = &geoms[i];
 		}
 	}
+	return Tnear;
 }
-__device__ glm::vec3 raytracerBounce(glm::vec2 resolution, float time, cameraData cam, int rayDepth,
-	staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, ray currentRay, 
-	staticGeom *&intersectionGeom, glm::vec3 &intersectionPoint, glm::vec3 &intersectionNormal)
-{
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int index = x + (y * resolution.x);
 
-	staticGeom *bounceGeom = NULL;
-	glm::vec3 bouncePoint(0), bounceNormal(0);
-
-	intersectionTest(geoms, numberOfGeoms, currentRay, bounceGeom, bouncePoint, bounceNormal);
-	if (bounceGeom == NULL)
-	{
-		return glm::vec3(0);
-	}
-	if (rayDepth <=0)
-	{
-		return materials[bounceGeom->materialid].emittance * materials[bounceGeom->materialid].color;
-	}
-	if (materials[bounceGeom->materialid].emittance > 0)
-	{
-		return materials[bounceGeom->materialid].emittance * materials[bounceGeom->materialid].color;
-	}
-
-	glm::vec3 color = raytracerBounce(resolution, time, cam, rayDepth - 1, geoms, numberOfGeoms, materials, 
-		numberOfMaterials, currentRay, bounceGeom,bouncePoint, bounceNormal) * materials[bounceGeom->materialid].color;
-	return color;
-}
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
@@ -161,37 +134,56 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
   ray currentRay;
   staticGeom *intersectionGeom = NULL;
   glm::vec3 intersectionPoint(0), intersectionNormal(0);
-
+  glm::vec3  color(0);
   currentRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 
   if((x<resolution.x && y<resolution.y))
   {
 	  intersectionTest(geoms, numberOfGeoms, currentRay, intersectionGeom, intersectionPoint, intersectionNormal);
 	  if (intersectionGeom != NULL)
-		  colors[index] += materials[intersectionGeom->materialid].color;
-	  //got the nearest intersection distance Tnear and intersection points normals in the array;
-	  while (bounceCount++ < rayDepth&& intersectionGeom != NULL)
 	  {
-		  staticGeom *bounceGeom = NULL;
-		  glm::vec3 bouncePoint, bounceNormal;
-		  currentRay.origin = intersectionPoint;
-		  currentRay.direction = getRandomDirectionInSphere(time, time);
-		  if (glm::dot(currentRay.direction, intersectionNormal))
-			  currentRay.direction *= -1;
-		  intersectionTest(geoms, numberOfGeoms, currentRay, bounceGeom, bouncePoint, bounceNormal);
-		  if (bounceGeom != NULL)
-		  {
-			  intersectionGeom = bounceGeom;
-			  intersectionPoint = bouncePoint;
-			  intersectionNormal = bounceNormal;
+			color = materials[intersectionGeom->materialid].color;
+	  }
+	  //got the nearest intersection distance Tnear and intersection points normals in the array;
+	  while (++bounceCount < rayDepth&& intersectionGeom != NULL)
+	  {
+		  intersectionGeom = NULL;
 
-			  colors[index] = materials[intersectionGeom->materialid].color ;
+		  currentRay.origin = intersectionPoint;
+		  thrust::default_random_engine rng(hash(index*time));
+		  thrust::uniform_real_distribution<float> u01(0, 1);
+		  thrust::uniform_real_distribution<float> u02(0, 1);
+		  //currentRay.direction = calculateRandomDirectionInHemisphere(intersectionNormal,u01(rng), u02(rng));
+		  currentRay.direction = getRandomDirectionInSphere(index*time, index*time);
+		  //currentRay.direction = intersectionNormal;
+		  if (glm::dot(currentRay.direction, intersectionNormal) < 0 )
+		  {
+			  currentRay.direction *= -1;
+		  }
+		  float distance = intersectionTest(geoms, numberOfGeoms, currentRay, intersectionGeom, intersectionPoint, intersectionNormal);
+		
+		  if (intersectionGeom != NULL)
+		  {
+			  //calculate diffuse color
+			  if (materials[intersectionGeom->materialid].emittance > 0)	//light
+			  {
+				  color *= materials[intersectionGeom->materialid].emittance * materials[intersectionGeom->materialid].color;
+				  break;
+			  }
+			  if (bounceCount == rayDepth -1)
+			  {
+				  color *= 0;
+				  break;
+			  }
+			  color *= materials[intersectionGeom->materialid].color;
 		  }
 		  else
 		  {
+			  color *= 0;
 			  break;
-		  }
+		  } 
 	  }
+	  colors[index] = colors[index] / (time + 1) * time + color / (time + 1);
    }
 }
 
@@ -199,10 +191,10 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
-  int traceDepth = 1; //determines how many bounces the raytracer traces
+  int traceDepth = 5; //determines how many bounces the raytracer traces
 
   // set up crucial magic
-  int tileSize = 8;
+  int tileSize = 16;
   dim3 threadsPerBlock(tileSize, tileSize);
   dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
   

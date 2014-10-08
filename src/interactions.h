@@ -92,7 +92,7 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
 // This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 	thrust::default_random_engine rng(hash(xi1));
-	thrust::uniform_real_distribution<float> u01(0, 1);
+	thrust::uniform_real_distribution<float> u01(0, PI);
 	thrust::uniform_real_distribution<float> u02(0, 2 * PI);
 	float theta = acos(2 * (float)u01(rng) - 1);
 	float phi = (float)u02(rng);
