@@ -13,7 +13,7 @@ PROJECT DESCRIPTION
 
 This is a GPU path tracing program, with following features:
 
-###Basic:
+###Basic Features:
 - Raycasting from a camera into a scene through a ray grid
 - Diffuse surfaces
 - Perfect specular reflective surfaces
@@ -21,7 +21,7 @@ This is a GPU path tracing program, with following features:
 - Sphere surface point sampling
 - Stream compaction optimization
 
-###Extra:
+###Extra Features:
 - Super sample anti-alisasing
 - Refraction, i.e. glass
 - OBJ Mesh loading and rendering
@@ -172,7 +172,7 @@ Maybe I can add more focal length to let the camera focus on more focal planes. 
 
 - Overview write up and performance impact:
   
-This one is the easiest one and we just defines more keys in keyCallback function. When the key is pressed, I just clear the screen and redo the path trace based on the new camera's position.
+This one is the easiest one and we just defines more keys in keyCallback function. When the key is pressed, I just clear the screen and redo the path trace based on the new camera's position. See more detail in the video link.
 
 - Accelerate the feature: NULL
 
@@ -185,56 +185,61 @@ Using mouse to control the camera is more convenient, but to do this, I must spe
 
 ### SCENE FORMAT
 
-The scene format has changed due to the features I add.
+The scene format has changed due to the features I add.<br />
 
-Materials: Unchanged
+Materials: Unchanged<br />
 
-Cameras: Add two new parameters
-DOFL(focal length)  //The camera's distance to focal plane(on z axis)  
-DOFR(blur radius)   //The blur extent
+Cameras: Add two new parameters<br />
+DOFL(focal length)  //The camera's distance to focal plane(on z axis)  <br />
+DOFR(blur radius)   //The blur extent<br />
 
-Example:
-CAMERA
-RES         800 800
-FOVY        25
-ITERATIONS  5000
-FILE        test.bmp
-frame 0
-EYE         0 4.5 14
-VIEW        0 0 -1
-UP          0 1 0
-DOFL        14.0
-DOFR        0.7
-
-
-Objects:  Add three new parameters
-MBV(Motion blur velocity)  //The velocity the object has 
-MAP(Texture map)           //The object's texture map's path
-BUMP(Bump map)           //The object's bump map's path
+Example:<br />
+CAMERA<br />
+RES         800 800<br />
+FOVY        25<br />
+ITERATIONS  5000<br />
+FILE        test.bmp<br />
+frame 0<br />
+EYE         0 4.5 14<br />
+VIEW        0 0 -1<br />
+UP          0 1 0<br />
+DOFL        14.0<br />
+DOFR        0.7<br />
 
 
-Example:
-OBJECT 0
-cube
-material 0
-frame 0
-TRANS       0 0 0
-ROTAT       0 0 90
-SCALE       .01 10 10   
-MBV     0 0 0
-MAP  texture/wood.jpg
-BUMP  texture/bumpmap.jpg
+Objects:  Add three new parameters<br />
+MBV(Motion blur velocity)  //The velocity the object has <br />
+MAP(Texture map)           //The object's texture map's path<br />
+BUMP(Bump map)           //The object's bump map's path<br />
+
+
+Example:<br />
+OBJECT0<br />
+cube<br />
+material	 0<br />
+frame 	0<br />
+TRANS 	  0 0 0<br />
+ROTAT  	   0 0 90<br />
+SCALE  	   .01 10 10   <br />
+MBV  	 0 0 0<br />
+MAP  	texture/wood.jpg<br />
+BUMP 	texture/bumpmap.jpg<br />
 
 
 
 ### SCENE CONTROL
-        key                    function
-Directional keys        Move camera up/down/left/right
-       Z/C              Zoom in/out
-        D               Enable/Disable depth of field  
-        M               Enable/Disable motion blur   
-        N               Enable/Disable bump map 
-        T               Enable/Disable texture map 
-      Space             Enable/Disable stream compact
-       Esc              Exit renderer
- 
+|Key | Function
+|------|----------
+|Directional keys | `Move camera up/down/left/right`
+|Z/C |  `Zoom in/out`
+|D | `Enable/Disable depth of field`
+|M| `Enable/Disable motion blur`
+|N| `Enable/Disable bump map`
+|T| ` Enable/Disable texture map`
+|Space| `Enable/Disable stream compact`
+|Esc| `Exit renderer`
+
+
+### Video Link
+
+
