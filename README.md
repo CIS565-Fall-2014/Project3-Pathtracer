@@ -87,7 +87,7 @@ I add bounding box to the obj object to accelerate the ray intersect part.
 
 - Further optimized:
 
-If the objs are complex, I still need long time to render each frame even I add BB for them. So, I think maybe I should use more accelerate methods like kd-tree to make the render faster.
+If the objs are complex, I still need long time to render each frame even I add BB for them. So, I think maybe I should use more accelerate methods like kd-tree to make the renderer faster.
  
  
 ####4.Motion blur
@@ -117,7 +117,7 @@ http://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
 
 - Overview write up and performance impact:
   
-I try to add bump map for objects, but can only realize normal map now. To do this, I add a new attribute for each object called BUMP, and when renderer reads the scene file, it also stores the normal map's color to a buffer. When it does ray intersect, it returns the intersect normal according to the corresponding color in the buffer. And here is the scene with normal map(See the detail on the sphere and floor):
+I try to add bump map for objects, but can only realize normal map now. To do this, I add a new attribute for each object called BUMP, and when renderer reads the scene file, it also stores the normal map's color to a buffer. When it does ray intersect, it returns the intersect normal according to the corresponding color in the buffer. And here is the scene with normal map(See the details on the sphere and floor):
 
 ![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_NormalMap.png)
 
@@ -164,7 +164,7 @@ I add depth of field in my scene. To do this, I add two new attributes for camer
 
 - Further optimized:
 
-Maybe I can add more focal length to let the camera focus on more focal planes. Although it is not correct theoretically, we may get some fantastic results.
+Maybe I can add more focal length to let the camera focus on more focal planes. Although it is not correct physically, we may get some fantastic results.
 
 
 ####8.Interactive camera
@@ -172,7 +172,7 @@ Maybe I can add more focal length to let the camera focus on more focal planes. 
 
 - Overview write up and performance impact:
   
-This one is the easiest one and we just defines more keys in keyCallback function. When the key is pressed, I just clear the screen and redo the path trace based on the new camera's position. See more detail in the video link.
+This one is the easiest one and I just defines more keys in keyCallback function. When the key is pressed, renderer will clear the screen and redo the path trace based on the new camera's position. See more detail in the video link.
 
 - Accelerate the feature: NULL
 
@@ -187,9 +187,9 @@ Using mouse to control the camera is more convenient, but to do this, I must spe
 
 The scene format has changed due to the features I add.<br />
 
-Materials: Unchanged<br />
+- Materials: Unchanged<br />
 
-Cameras: Add two new parameters<br />
+- Cameras: Add two new parameters<br />
 DOFL(focal length)  //The camera's distance to focal plane(on z axis)  <br />
 DOFR(blur radius)   //The blur extent<br />
 
@@ -207,7 +207,7 @@ DOFL        14.0<br />
 DOFR        0.7<br />
 
 
-Objects:  Add three new parameters<br />
+- Objects:  Add three new parameters<br />
 MBV(Motion blur velocity)  //The velocity the object has <br />
 MAP(Texture map)           //The object's texture map's path<br />
 BUMP(Bump map)           //The object's bump map's path<br />
