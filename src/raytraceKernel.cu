@@ -103,7 +103,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms)
+                            staticGeom* geoms, int numberOfGeoms, material *mats, int numberOfMaterials)
 {
 
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -112,6 +112,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
     if (x <= resolution.x && y <= resolution.y) {
         ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+        staticGeom tmin_geom;
         glm::vec3 tmin_pos;
         glm::vec3 tmin_nor;
         float tmin = 1e38f;
@@ -119,29 +120,41 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
             glm::vec3 p;
             glm::vec3 n;
             float t = 2e38f;
-            staticGeom *g = &geoms[i];
-            if (g->type == SPHERE) {
-                t = sphereIntersectionTest(*g, r, p, n);
-            } else if (g->type == CUBE) {
-                t = boxIntersectionTest(*g, r, p, n);
-            } else if (g->type == MESH) {
+            staticGeom g = geoms[i];
+            if (g.type == SPHERE) {
+                t = sphereIntersectionTest(g, r, p, n);
+            } else if (g.type == CUBE) {
+                t = boxIntersectionTest(g, r, p, n);
+            } else if (g.type == MESH) {
             } else {
             }
             if (t > 0 && t < tmin) {
                 tmin = t;
+                tmin_geom = g;
                 tmin_pos = p;
                 tmin_nor = n;
             }
         }
 
         //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
-        //colors[index] = tmin < 1e37 ? glm::vec3(1, 1, 1) : glm::vec3();
-        colors[index] = tmin < 1e37 ? glm::abs(tmin_nor) : glm::vec3();
-        //colors[index] = tmin < 1e37 ? glm::abs(tmin_pos) / 10.f : glm::vec3();
-        //colors[index] = glm::vec3(
-        //        glm::abs(r.direction.x),
-        //        glm::abs(r.direction.y),
-        //        glm::abs(r.direction.z));
+        if (tmin < 1e37) {
+            material mat = mats[tmin_geom.materialid];
+            // Camera test
+            //colors[index] = glm::vec3(
+            //        glm::abs(r.direction.x),
+            //        glm::abs(r.direction.y),
+            //        glm::abs(r.direction.z));
+            // Intersection test
+            //colors[index] = glm::vec3(1, 1, 1);
+            // Intersection normal test
+            //colors[index] = glm::abs(tmin_nor);
+            // Intersection position test
+            //colors[index] = glm::abs(tmin_pos);
+            // Material color test
+            colors[index] = mat.color;
+        } else {
+            colors[index] = glm::vec3();
+        }
     }
 }
 
@@ -178,7 +191,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
     staticGeom* cudageoms = NULL;
     cudaMalloc((void**)&cudageoms, numberOfGeoms * sizeof(staticGeom));
-    cudaMemcpy( cudageoms, geomList, numberOfGeoms * sizeof(staticGeom), cudaMemcpyHostToDevice);
+    cudaMemcpy(cudageoms, geomList, numberOfGeoms * sizeof(staticGeom), cudaMemcpyHostToDevice);
+
+    material* cudamats = NULL;
+    cudaMalloc((void**)&cudamats, numberOfMaterials * sizeof(material));
+    cudaMemcpy(cudamats, materials, numberOfMaterials * sizeof(material), cudaMemcpyHostToDevice);
 
     // package camera
     cameraData cam;
@@ -189,17 +206,18 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cam.fov = renderCam->fov;
 
     // kernel launches
-    raytraceRay <<< fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms);
+    raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamats, numberOfMaterials);
 
-    sendImageToPBO <<< fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
+    sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
     // retrieve image from GPU
     cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
     // free up stuff, or else we'll leak memory like a madman
-    cudaFree( cudaimage );
-    cudaFree( cudageoms );
-    delete geomList;
+    cudaFree(cudaimage);
+    cudaFree(cudageoms);
+    cudaFree(cudamats);
+    delete[] geomList;
 
     // make certain the kernel has completed
     cudaThreadSynchronize();
