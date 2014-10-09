@@ -103,7 +103,9 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material *mats, int numberOfMaterials)
+                            staticGeom* geoms, int numberOfGeoms,
+                            staticGeom* lights, int numberOfLights,
+                            material *mats, int numberOfMaterials)
 {
 
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -150,8 +152,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
             //colors[index] = glm::abs(tmin_nor);
             // Intersection position test
             //colors[index] = glm::abs(tmin_pos);
-            // Material color test
-            colors[index] = mat.color;
+            // Material color/emittance test
+            colors[index] = mat.emittance ? mat.color : mat.color * 0.5f;
         } else {
             colors[index] = glm::vec3();
         }
@@ -177,6 +179,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
     // package geometry and materials and sent to GPU
     staticGeom* geomList = new staticGeom[numberOfGeoms];
+    staticGeom* lightList = new staticGeom[numberOfGeoms];
+    int numberOfLights = 0;
     for (int i = 0; i < numberOfGeoms; i++) {
         staticGeom newStaticGeom;
         newStaticGeom.type = geoms[i].type;
@@ -187,11 +191,18 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
         newStaticGeom.transform = geoms[i].transforms[frame];
         newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
         geomList[i] = newStaticGeom;
+        if (materials[newStaticGeom.materialid].emittance > 0) {
+            lightList[numberOfLights] = newStaticGeom;
+            numberOfLights += 1;
+        }
     }
 
     staticGeom* cudageoms = NULL;
     cudaMalloc((void**)&cudageoms, numberOfGeoms * sizeof(staticGeom));
     cudaMemcpy(cudageoms, geomList, numberOfGeoms * sizeof(staticGeom), cudaMemcpyHostToDevice);
+    staticGeom* cudalights = NULL;
+    cudaMalloc((void**)&cudalights, numberOfLights * sizeof(staticGeom));
+    cudaMemcpy(cudalights, lightList, numberOfLights * sizeof(staticGeom), cudaMemcpyHostToDevice);
 
     material* cudamats = NULL;
     cudaMalloc((void**)&cudamats, numberOfMaterials * sizeof(material));
@@ -206,7 +217,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cam.fov = renderCam->fov;
 
     // kernel launches
-    raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamats, numberOfMaterials);
+    raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(
+            renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage,
+            cudageoms, numberOfGeoms,
+            cudalights, numberOfLights,
+            cudamats, numberOfMaterials);
 
     sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
