@@ -1,5 +1,6 @@
 # General
 builds/
+build/
 
 # Compiled objects
 *.o

@@ -76,14 +76,14 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r)
 }
 
 
-__host__ __device__ float squareIntersectionTest(glm::vec3 ro, glm::vec3 rd, int xyz, float dist, glm::vec3 &normal)
+__host__ __device__ float squareIntersectionTest(ray r, int xyz, float dist, glm::vec3 &normal)
 {
-    if (glm::abs(rd[xyz]) < 0.00001f) {
+    if (glm::abs(r.direction[xyz]) < 0.00001f) {
         return -1;
     }
 
-    float t = (dist - ro[xyz]) / rd[xyz];
-    glm::vec3 ix = ro + rd * t;
+    float t = (dist - r.origin[xyz]) / r.direction[xyz];
+    glm::vec3 ix = getPointOnRay(r, t);
 
     normal = glm::vec3();
     normal[xyz] = dist;
@@ -96,18 +96,19 @@ __host__ __device__ float squareIntersectionTest(glm::vec3 ro, glm::vec3 rd, int
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
 {
-    glm::vec3 ro = multiplyMV(box.inverseTransform, glm::vec4(r.origin, 1.0f));
-    glm::vec3 rd = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
+    ray r1;
+    r1.origin = multiplyMV(box.inverseTransform, glm::vec4(r.origin, 1.0f));
+    r1.direction = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
 
     const glm::vec3 vmin(-0.5, -0.5, -0.5);
     const glm::vec3 vmax(+0.5, +0.5, +0.5);
-    float norfact = (glm::all(glm::lessThan(vmin, ro))
-                     && glm::all(glm::lessThan(ro, vmax))) ? -1 : 1;
+    float norfact = (glm::all(glm::lessThan(vmin, r1.origin))
+                     && glm::all(glm::lessThan(r1.origin, vmax))) ? -1 : 1;
     float tmin = 1e38f;
     for (int xyz = 0; xyz < 3; ++xyz) {
         for (float dist = -0.5; dist < 0.75f; dist += 1) {
             glm::vec3 nor;
-            float t = squareIntersectionTest(ro, rd, xyz, dist, nor);
+            float t = squareIntersectionTest(r1, xyz, dist, nor);
             if (t > 0 && t < tmin) {
                 tmin = t;
                 normal = nor;
@@ -116,6 +117,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
     }
     normal *= norfact;
     normal = glm::normalize(multiplyMV(box.transform, glm::vec4(normal, 0.0f)));
+    intersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(r1, tmin), 1.0f));
     return tmin < 1e37f ? tmin : -1;
 }
 

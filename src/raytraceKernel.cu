@@ -50,7 +50,7 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 
     ray r;
     r.origin = eye;
-    r.direction = dir + norX * ndc.x + norY * ndc.y;
+    r.direction = glm::normalize(dir + norX * ndc.x + norY * ndc.y);
     return r;
 }
 
@@ -137,6 +137,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
         //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
         //colors[index] = tmin < 1e37 ? glm::vec3(1, 1, 1) : glm::vec3();
         colors[index] = tmin < 1e37 ? glm::abs(tmin_nor) : glm::vec3();
+        //colors[index] = tmin < 1e37 ? glm::abs(tmin_pos) / 10.f : glm::vec3();
         //colors[index] = glm::vec3(
         //        glm::abs(r.direction.x),
         //        glm::abs(r.direction.y),
