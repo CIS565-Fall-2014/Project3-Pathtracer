@@ -87,7 +87,6 @@ __host__ __device__ float squareIntersectionTest(glm::vec3 ro, glm::vec3 rd, int
     return (-0.5 <= ix[yzx] && ix[yzx] <= 0.5 && -0.5 <= ix[zxy] && ix[zxy] <= 0.5) ? t : -1;
 }
 
-// TODO: TEST THIS FUNCTION
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
 {

@@ -38,12 +38,11 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
     return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
 }
 
-// TODO: TEST THIS FUNCTION
 // Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
 {
     std::cout << fov.x << " " << fov.y << std::endl;
-    fov *= PI / 180.f * 2;
+    fov *= PI / 180.f;
     glm::vec2 ndc = glm::vec2(1 - x / resolution.x * 2, 1 - y / resolution.y * 2);
     glm::vec3 dir = glm::normalize(view);
     glm::vec3 norX = glm::normalize(glm::cross(dir , up )) * glm::tan(fov.x);
