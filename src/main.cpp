@@ -47,7 +47,7 @@ int main(int argc, char** argv){
   height = renderCam->resolution[1];
 
   if(targetFrame >= renderCam->frames){
-    cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
+    cout << "Warning: Specified target frame is out of range , defaulting to frame 0." << endl;
     targetFrame = 0;
   }
 
@@ -127,7 +127,8 @@ void runCuda(){
       gammaSettings gamma;
       gamma.applyGamma = true;
       gamma.gamma = 1.0;
-      gamma.divisor = 1.0; 
+      //gamma.divisor = 1.0; 
+	  gamma.divisor = renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;

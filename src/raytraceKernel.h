@@ -8,11 +8,20 @@
 #ifndef RAYTRACEKERNEL_H
 #define RAYTRACEKERNEL_H
 
+
 #include <stdio.h>
 #include <thrust/random.h>
+#include <thrust/remove.h>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_ptr.h>
 #include <cuda.h>
 #include <cmath>
 #include "sceneStructs.h"
+
+#define MAX_DEPTH 8
+#define STREAM_COMPACT 1
+#define LIGHT_STRENGTH 8   //anything with emittance bigger than this is regarded as light
 
 void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
 

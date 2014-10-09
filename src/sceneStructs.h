@@ -14,6 +14,10 @@
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
 struct ray {
+	glm::vec3 attenuate;
+	bool isDead;
+	int pixel;
+	glm::vec3 color;
 	glm::vec3 origin;
 	glm::vec3 direction;
 };
@@ -45,6 +49,7 @@ struct cameraData {
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+	int time;
 };
 
 struct camera {
