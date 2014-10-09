@@ -224,7 +224,7 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 
 }
 
-// TODO: TEST THIS FUNCTION
+// TODO: TEST THIS FUNCTION: probably wrong with nonuniform scaling applied
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed)
 {
@@ -234,10 +234,10 @@ __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float ra
     float th = (float) u(rng);
     float ph = (float) glm::acos(v(rng));
 
-    return glm::vec3(
+    return multiplyMV(sphere.transform, glm::vec4(
             glm::cos(ph) * glm::cos(th),
             glm::cos(ph) * glm::sin(th),
-            glm::sin(ph));
+            glm::sin(ph), 1.0f));
 }
 
 #endif
