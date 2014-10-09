@@ -69,11 +69,49 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
-// Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
-__host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 
-    return -1;
+__host__ __device__ float squareIntersectionTest(glm::vec3 ro, glm::vec3 rd, int xyz, float dist, glm::vec3 &normal)
+{
+    if (glm::abs(rd[xyz]) < 0.00001f) {
+        return -1;
+    }
+
+    float t = (dist - ro[xyz]) / rd[xyz];
+    glm::vec3 ix = ro + rd * t;
+
+    normal = glm::vec3();
+    normal[xyz] = dist;
+
+    int yzx = (xyz + 1) % 3;
+    int zxy = (xyz + 2) % 3;
+    return (-0.5 <= ix[yzx] && ix[yzx] <= 0.5 && -0.5 <= ix[zxy] && ix[zxy] <= 0.5) ? t : -1;
+}
+
+// TODO: TEST THIS FUNCTION
+// Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
+__host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
+{
+    glm::vec3 ro = multiplyMV(box.inverseTransform, glm::vec4(r.origin, 1.0f));
+    glm::vec3 rd = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
+
+    const glm::vec3 vmin(-0.5, -0.5, -0.5);
+    const glm::vec3 vmax(+0.5, +0.5, +0.5);
+    float norfact = (glm::all(glm::lessThan(vmin, ro))
+            && glm::all(glm::lessThan(ro, vmax))) ? -1 : 1;
+    float tmin = 1e38f;
+    for (int xyz = 0; xyz < 3; ++xyz) {
+        for (float dist = -0.5; dist < 0.75f; dist += 1) {
+            glm::vec3 nor;
+            float t = squareIntersectionTest(ro, rd, xyz, dist, nor);
+            if (t > 0 && t < tmin) {
+                tmin = t;
+                normal = nor;
+            }
+        }
+    }
+    normal *= norfact;
+    normal = glm::normalize(multiplyMV(box.transform, glm::vec4(normal, 0.0f)));
+    return tmin < 1e37f ? tmin : -1;
 }
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.

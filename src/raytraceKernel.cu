@@ -16,6 +16,7 @@
 #include "intersections.h"
 #include "interactions.h"
 
+
 void checkCUDAError(const char *msg)
 {
     cudaError_t err = cudaGetLastError();
@@ -41,9 +42,11 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 // Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
 {
-    glm::vec2 ndc = glm::vec2(x, y) / resolution * 2.f - glm::vec2(1, 1);
-    glm::vec3 dir = glm::normalize(view - eye);
-    glm::vec3 norX = glm::normalize(glm::cross(dir, up)) * glm::tan(fov.x);
+    std::cout << fov.x << " " << fov.y << std::endl;
+    fov *= PI / 180.f * 2;
+    glm::vec2 ndc = glm::vec2(1 - x / resolution.x * 2, 1 - y / resolution.y * 2);
+    glm::vec3 dir = glm::normalize(view);
+    glm::vec3 norX = glm::normalize(glm::cross(dir , up )) * glm::tan(fov.x);
     glm::vec3 norY = glm::normalize(glm::cross(norX, dir)) * glm::tan(fov.y);
 
     ray r;
@@ -108,9 +111,37 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * resolution.x);
 
-    if ((x <= resolution.x && y <= resolution.y)) {
+    if (x <= resolution.x && y <= resolution.y) {
+        ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+        glm::vec3 tmin_pos;
+        glm::vec3 tmin_nor;
+        float tmin = 1e38f;
+        for (int i = 0; i < numberOfGeoms; ++i) {
+            glm::vec3 p;
+            glm::vec3 n;
+            float t = 2e38f;
+            staticGeom *g = &geoms[i];
+            if (g->type == SPHERE) {
+                t = sphereIntersectionTest(*g, r, p, n);
+            } else if (g->type == CUBE) {
+                t = boxIntersectionTest(*g, r, p, n);
+            } else if (g->type == MESH) {
+            } else {
+            }
+            if (t > 0 && t < tmin) {
+                tmin = t;
+                tmin_pos = p;
+                tmin_nor = n;
+            }
+        }
 
         //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+        //colors[index] = tmin < 1e37 ? glm::vec3(1, 1, 1) : glm::vec3();
+        colors[index] = tmin < 1e37 ? glm::abs(tmin_nor) : glm::vec3();
+        //colors[index] = glm::vec3(
+        //        glm::abs(r.direction.x),
+        //        glm::abs(r.direction.y),
+        //        glm::abs(r.direction.z));
     }
 }
 
