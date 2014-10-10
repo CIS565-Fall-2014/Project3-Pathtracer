@@ -31,19 +31,19 @@ and Importance Sampling (cos weighted).
 Refraction was done based on snell's law and fresnel equation.
 Both clear glass or colored glass can be handled here. Wondering doing some frosted glass...
 
-## Texture mapping 
-## Depth of field
+* Texture mapping 
+* Depth of field
 
-##OBJ Mesh loading and rendering
-## Interactive camera
+* OBJ Mesh loading and rendering
+* Interactive camera
 Interactive Camera is implemented to provide flexible in rendering angles, including pan, tilt, zoom, everything. 
 Play with camera like a camera man! :) Rendering will start fresh every time camera is changed.
 *W - move up
 *Q - move down
-S - move left
-D - move right
-Q - move forward (zoom in)
-E - move backward (zoom out)
+*S - move left
+*D - move right
+*Q - move forward (zoom in)
+*E - move backward (zoom out)
 up - rotate up
 down - rotate down
 left - rotate left
