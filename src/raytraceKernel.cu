@@ -48,9 +48,21 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
     glm::vec3 norX = glm::normalize(glm::cross(dir , up )) * glm::tan(fov.x);
     glm::vec3 norY = glm::normalize(glm::cross(norX, dir)) * glm::tan(fov.y);
 
+#if 0
+    // This is probably totally wrong but is mainly here for checking to make
+    // sure that the time-averaging code results in convergence
+    const float BLUR = 0.02f;
+    thrust::default_random_engine rng(hash((x + y * resolution.x) * time));
+    thrust::uniform_real_distribution<float> u(-BLUR, BLUR);
+    thrust::uniform_real_distribution<float> v(-BLUR, BLUR);
+    glm::vec3 lens = norX * u(rng) + norY * v(rng);
+#else
+    glm::vec3 lens;
+#endif
+
     ray r;
-    r.origin = eye;
-    r.direction = glm::normalize(dir + norX * ndc.x + norY * ndc.y);
+    r.origin = eye + lens;
+    r.direction = glm::normalize(dir + lens + norX * ndc.x + norY * ndc.y);
     return r;
 }
 
@@ -100,6 +112,12 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
     }
 }
 
+struct pathray {
+    int index;
+    glm::vec3 color;
+    ray r;
+};
+
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
@@ -112,51 +130,78 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * resolution.x);
 
-    if (x <= resolution.x && y <= resolution.y) {
-        ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
-        staticGeom tmin_geom;
-        glm::vec3 tmin_pos;
-        glm::vec3 tmin_nor;
-        float tmin = 1e38f;
-        for (int i = 0; i < numberOfGeoms; ++i) {
-            glm::vec3 p;
-            glm::vec3 n;
-            float t = 2e38f;
-            staticGeom g = geoms[i];
-            if (g.type == SPHERE) {
-                t = sphereIntersectionTest(g, r, p, n);
-            } else if (g.type == CUBE) {
-                t = boxIntersectionTest(g, r, p, n);
-            } else if (g.type == MESH) {
-            } else {
-            }
-            if (t > 0 && t < tmin) {
-                tmin = t;
-                tmin_geom = g;
-                tmin_pos = p;
-                tmin_nor = n;
-            }
-        }
+    thrust::default_random_engine rng(hash(time));
+    thrust::uniform_real_distribution<float> u01(0, 1);
 
-        //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
-        if (tmin < 1e37) {
+    if (x <= resolution.x && y <= resolution.y) {
+        struct pathray pr = {
+            index, glm::vec3(1, 1, 1),
+            raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov),
+        };
+        for (int depth = 0; depth < rayDepth; ++depth) {
+            if (pr.index == -1) {
+                // This path was terminated
+                continue;
+            }
+
+            ray r = pr.r;
+            staticGeom tmin_geom;
+            glm::vec3 tmin_pos;
+            glm::vec3 tmin_nor;
+            float tmin = 1e38f;
+            for (int i = 0; i < numberOfGeoms; ++i) {
+                glm::vec3 p;
+                glm::vec3 n;
+                float t = 2e38f;
+                staticGeom g = geoms[i];
+                if (g.type == SPHERE) {
+                    t = sphereIntersectionTest(g, r, p, n);
+                } else if (g.type == CUBE) {
+                    t = boxIntersectionTest(g, r, p, n);
+                } else if (g.type == MESH) {
+                }
+                if (t > 0 && t < tmin) {
+                    tmin = t;
+                    tmin_geom = g;
+                    tmin_pos = p;
+                    tmin_nor = n;
+                }
+            }
+
+            if (tmin > 9e37) {
+                // Empty space; abort ray
+                // TODO: add some here instead of treating as black?
+                pr.index = -1;
+                pr.color = glm::vec3();
+                continue;
+            }
+
             material mat = mats[tmin_geom.materialid];
-            // Camera test
-            //colors[index] = glm::vec3(
-            //        glm::abs(r.direction.x),
-            //        glm::abs(r.direction.y),
-            //        glm::abs(r.direction.z));
-            // Intersection test
-            //colors[index] = glm::vec3(1, 1, 1);
-            // Intersection normal test
-            //colors[index] = glm::abs(tmin_nor);
-            // Intersection position test
-            //colors[index] = glm::abs(tmin_pos);
-            // Material color/emittance test
-            colors[index] = mat.emittance ? mat.color : mat.color * 0.5f;
-        } else {
-            colors[index] = glm::vec3();
+
+            if (mat.emittance) {
+                // Hit a light; abort ray
+                pr.color = mat.emittance * mat.color;
+                pr.index = -1;
+                continue;
+            }
+
+            // Calculate the ray of the next bounce
+            float raytype = u01(rng) * 1;
+            if (raytype < 1) {
+                // Next bounce is diffuse
+                pr.color *= mat.color;
+                pr.r.direction = calculateRandomDirectionInHemisphere(
+                        tmin_nor, u01(rng), u01(rng));
+                pr.r.origin = tmin_pos + pr.r.direction * 0.001f;
+            } else {
+                pr.index = -1;
+                continue;
+            }
         }
+        if (pr.index != -1) {
+            pr.color = glm::vec3();
+        }
+        colors[index] = (colors[index] * time + pr.color) / (time + 1);
     }
 }
 
@@ -165,7 +210,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
 
-    int traceDepth = 1; //determines how many bounces the raytracer traces
+    int traceDepth = 2; //determines how many bounces the raytracer traces
 
     // set up crucial magic
     int tileSize = 8;
