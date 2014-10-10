@@ -54,7 +54,7 @@ STEP_SIZE - step size of camera movements
 *right - rotate right
 , - rotate CCW
 . - rotate CW
-[![ScreenShot]( https://raw.github.com/GabLeRoux/WebMole/master/ressources/WebMole_Youtube_Video.png)] (http://www.youtube.com/embed/RtjJXwnUBZo)
+[![ScreenShot](windows\Project3-Pathtracer\Project3-Pathtracer\YoutubeThumbnail.png)] (http://www.youtube.com/embed/RtjJXwnUBZo)
 <iframe width="420" height="315" src="//www.youtube.com/embed/RtjJXwnUBZo" frameborder="0" allowfullscreen></iframe>
 
 * overview write up of the feature
