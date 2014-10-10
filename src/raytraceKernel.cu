@@ -60,7 +60,7 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
 }
 
 //Kernel that writes the image to the OpenGL PBO directly.
-__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image){
+__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image, float time){
   
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -72,6 +72,11 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
       color.x = image[index].x*255.0;
       color.y = image[index].y*255.0;
       color.z = image[index].z*255.0;
+
+	  // output needs to be normalized against number of iterations for EACH frame drawn to the screen
+	  color.r /= time;
+	  color.g /= time;
+	  color.b /= time;
 
       if(color.x>255){
         color.x = 255;
@@ -106,6 +111,10 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
 
+  // REMEMBER:
+  /*
+       - do a colors[] +=, not a colors[] = ... I need to ACCUMULATE colors and then divide (see PBO function above)
+  */
   if((x<=resolution.x && y<=resolution.y)){
 	  //colors[index] += glm::vec3(0, .2, .7);
 	  colors[index] += generateRandomNumberFromThread(resolution, time, x, y);
@@ -160,16 +169,16 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
 
-  std::cout << "\nKernel launches about to start\n" << std::endl;
-  std::cout << "iterations is: " << iterations << std::endl;
+  //std::cout << "\nKernel launches about to start\n" << std::endl;
+  //std::cout << "iterations is: " << iterations << std::endl;
   // kernel launches
   raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms);
 
-  std::cout << "\nraytraceRay call is done\n" << std::endl;
+  //std::cout << "\nraytraceRay call is done\n" << std::endl;
 
-  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
+  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
 
-  std::cout << "\nKernel calls are done\n" << std::endl;
+  //std::cout << "\nKernel calls are done\n" << std::endl;
 
   // retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);

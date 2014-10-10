@@ -71,6 +71,11 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
+
+// METHOD, based on sphereIntersectionTest below
+/*
+     - transform the ray into normalized space (this places a unit cube at the origin)
+*/
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 
     return -1;
@@ -174,7 +179,7 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
        
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
+// TODO-[DONE]: IMPLEMENT THIS FUNCTION
 // Generates a random point on a given sphere
 
 // METHOD, based on getRandomPointOnCube above

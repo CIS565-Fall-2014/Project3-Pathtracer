@@ -22,7 +22,13 @@ Used:
 
 ##### boxIntersectionTest()
 
+Makes use of a helper function "planeIntersectionTest()". I've implemented this
+stuff in CIS 560 before so the code is being reused here.
 
+See:
+
+* http://www.siggraph.org/education/materials/HyperGraph/raytrace/rayplane_intersection.htm
+* https://github.com/citizen-of-infinity/SCHOOL-CIS-560-Raytracer/blob/master/CIS560hw2/intersect.cpp
 
 
 

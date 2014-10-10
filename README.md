@@ -118,7 +118,7 @@ reference are marked with the comment LOOK.
 
 * intersections.h contains functions for geometry intersection testing and
   point generation. You will need to complete:
-    * boxIntersectionTest(), which takes in a box and a ray and performs an
+    * *[IN PROGRESS]* boxIntersectionTest(), which takes in a box and a ray and performs an
       intersection test. This function should work in the same way as
       sphereIntersectionTest().
     * **[DONE]** getRandomPointOnSphere(), which takes in a sphere and returns a random
