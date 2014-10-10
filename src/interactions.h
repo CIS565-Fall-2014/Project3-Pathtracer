@@ -58,39 +58,71 @@ bool calculateScatterAndAbsorption( ray& r,
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__
 __device__
-glm::vec3 calculateTransmissionDirection( glm::vec3 normal,
-										  glm::vec3 incident,
-										  float incidentIOR,
-										  float transmittedIOR )
+glm::vec3 calculateTransmissionDirection( glm::vec3 normal,			// Intersection normal.
+										  glm::vec3 incident,		// Incoming ray direction.
+										  float ior_incident,		// Incoming index of refraction.
+										  float ior_transmitted )	// Outgoing index of refraction.
 {
-	return glm::vec3( 0.0f, 0.0f, 0.0f );
+	glm::vec3 normal_oriented = ( glm::dot( normal, incident ) < 0.0f ) ? normal : ( -1.0f * normal );
+	bool ray_is_entering = ( glm::dot( normal, normal_oriented ) > 0.0f );
+
+	float n = ior_incident / ior_transmitted;
+	float c1 = glm::dot( incident, normal_oriented );
+	float c2 = 1.0f - ( n * n * ( 1.0f - c1 * c1 ) );
+
+	// If angle is too shallow, then all light is reflected.
+	if ( c2 < 0.0f ) {
+		//return glm::vec3( 0.0f, 0.0f, 0.0f );
+		return calculateReflectionDirection( normal, incident );
+	}
+
+	return glm::normalize( ( incident * n ) - ( normal * ( ( ray_is_entering ? 1.0f : -1.0f ) * ( c1 * n + sqrt( c2 ) ) ) ) );
 }
 
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__
 __device__
-glm::vec3 calculateReflectionDirection( glm::vec3 normal,
-										glm::vec3 incident )
+glm::vec3 calculateReflectionDirection( glm::vec3 normal,		// Intersection normal.
+										glm::vec3 incident )	// Incoming ray direction.
 {
-	return ( incident - ( 2.0f * glm::dot( normal, incident ) * normal ) );
+	//glm::vec3 normal_oriented = ( glm::dot( normal, incident ) < 0.0f ) ? normal : ( -1.0f * normal );
+	//return glm::normalize( incident - ( 2.0f * glm::dot( normal_oriented, incident ) * normal_oriented ) );
+
+	return incident - ( 2.0f * glm::dot( normal, incident ) * normal );
 }
 
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__
 __device__
-Fresnel calculateFresnel( glm::vec3 normal,
-						  glm::vec3 incident,
-						  float incidentIOR,
-						  float transmittedIOR,
-						  glm::vec3 reflectionDirection,
-						  glm::vec3 transmissionDirection )
+Fresnel calculateFresnel( glm::vec3 normal,				// Intersection normal.
+						  glm::vec3 incident,			// Incoming ray direction.
+						  float ior_incident,			// Incoming index of refraction.
+						  float ior_transmitted,		// Outgoing index of refraction.
+						  glm::vec3 reflection_dir,		// Reflecton direction.
+						  glm::vec3 transmission_dir )	// Transmission direction.
 {
+	float n = ior_incident / ior_transmitted;
+	float a = n - 1.0f;
+	float b = n + 1.0f;
+	float Ro = ( a * a ) / ( b * b );
+
+	glm::vec3 normal_oriented = ( glm::dot( normal, incident ) < 0.0f ) ? normal : ( -1.0f * normal );
+	bool ray_is_entering = ( glm::dot( normal, normal_oriented ) > 0.0f );
+	float angle = ray_is_entering ? glm::dot( -incident, normal ) : glm::dot( transmission_dir, normal );
+	float c = 1.0f - angle;
+
+	float R = Ro + ( 1.0f - Ro ) * c * c * c * c * c;
+
+	//float P = 0.25f + 0.5f * R;
+	//float RP = R / P;
+	//float TP = ( 1.0f - R ) / ( 1.0f - P );
+
 	Fresnel fresnel;
-
-	fresnel.reflectionCoefficient = 1;
-	fresnel.transmissionCoefficient = 0;
+	fresnel.reflectionCoefficient = R;
+	fresnel.transmissionCoefficient = 1.0f - R;
+	
 	return fresnel;
 }
 
@@ -156,14 +188,16 @@ int calculateBSDF( ray& r,
 				   glm::vec3& unabsorbedColor,
 				   material m )
 {
-	// Diffuse.
-	if ( !m.hasReflective && !m.hasRefractive ) {
-		return 0;
-	}
-	// Perfect specular.
-	else {
-		return 1;
-	}
+	//// Diffuse.
+	//if ( !m.hasReflective && !m.hasRefractive ) {
+	//	return 0;
+	//}
+	//// Perfect specular.
+	//else {
+	//	return 1;
+	//}
+
+	return 0;
 };
 
 #endif

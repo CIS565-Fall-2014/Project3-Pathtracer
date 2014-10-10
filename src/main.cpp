@@ -13,7 +13,7 @@
 // Constants
 ////////////////////////////////////////////////////
 
-const std::string SCENE_FILE_NAME = "sampleScene";
+const std::string SCENE_FILE_NAME = "sampleScene_02";
 const std::string OUTPUT_IMAGE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\renders\\";
 
 
