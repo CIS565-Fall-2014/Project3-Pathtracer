@@ -88,9 +88,10 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
     glm::vec3 tmin_n;
     glm::vec3 tmax_n;
     for (int xyz = 0; xyz < 3; ++xyz) {
-        if (glm::abs(q.direction[xyz]) > 0.0001f) {
-            float t1 = (-0.5f - q.origin[xyz]) / q.direction[xyz];
-            float t2 = (+0.5f - q.origin[xyz]) / q.direction[xyz];
+        float qdxyz = q.direction[xyz];
+        /*if (glm::abs(qdxyz) > 0.00001f)*/ {
+            float t1 = (-0.5f - q.origin[xyz]) / qdxyz;
+            float t2 = (+0.5f - q.origin[xyz]) / qdxyz;
             float ta = glm::min(t1, t2);
             float tb = glm::max(t1, t2);
             glm::vec3 n;
