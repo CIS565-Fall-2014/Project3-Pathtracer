@@ -269,7 +269,7 @@ above.  Remember:
 * if you have a fast GPU renderer, it is good to show case this with a video to
   show interactivity.  If you do so, please include a link.
 
-Things to keep in mind for "performance analysis":
+Things to keep in mind for "performance analysis":<br>
 (just copy this list over for future projects)
 1. See how changing block/tile size affects performance (Project-1)
 2. Change input parameters to see how rendering time, etc is affected. Plot
