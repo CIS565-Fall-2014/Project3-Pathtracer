@@ -256,7 +256,7 @@ __global__ void pathray_step(struct pathray *pathrays, int pathraycount, float t
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
-    const int traceDepth = 4; //determines how many bounces the raytracer traces
+    const int traceDepth = 16; //determines how many bounces the raytracer traces
     const int pixelcount = ((int) renderCam->resolution.x) * ((int) renderCam->resolution.y);
 
     // set up crucial magic
@@ -313,7 +313,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cam.fov = renderCam->fov;
 
     // kernel launches
-    const int TPB = 256;
+    const int TPB = 64;
     int pathraycount = pixelcount;
     int bc = (pathraycount + TPB - 1) / TPB;
     float time = iterations;
