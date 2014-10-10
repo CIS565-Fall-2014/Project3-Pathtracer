@@ -121,7 +121,7 @@ reference are marked with the comment LOOK.
     * boxIntersectionTest(), which takes in a box and a ray and performs an
       intersection test. This function should work in the same way as
       sphereIntersectionTest().
-    * getRandomPointOnSphere(), which takes in a sphere and returns a random
+    * **[DONE]** getRandomPointOnSphere(), which takes in a sphere and returns a random
       point on the surface of the sphere with an even probability distribution.
       This function should work in the same way as getRandomPointOnCube(). You can
       (although do not necessarily have to) use this to generate points on a sphere

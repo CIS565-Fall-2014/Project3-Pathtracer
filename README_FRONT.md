@@ -3,7 +3,8 @@ CIS 565 Project 3: CUDA Pathtracer
 
 #### Michael Li
 
-Text overview, some pictures.
+[Text overview, some pictures.]
+
 
 
 
@@ -13,7 +14,15 @@ Text overview, some pictures.
 
 ##### getRandomPointOnSphere()
 
-Used: http://mathworld.wolfram.com/SpherePointPicking.html
+Used:
+
+* http://mathworld.wolfram.com/SpherePointPicking.html
+* http://tutorial.math.lamar.edu/Classes/CalcIII/SphericalCoords.aspx
+
+
+##### boxIntersectionTest()
+
+
 
 
 
@@ -21,7 +30,9 @@ Used: http://mathworld.wolfram.com/SpherePointPicking.html
 
 ### Extra feature analysis
 
-"extra features", performance analysis
+["extra features", performance analysis]
+
+
 
 
 
@@ -29,4 +40,4 @@ Used: http://mathworld.wolfram.com/SpherePointPicking.html
 
 ### Overall comments
 
-Potential ideas for better optimization
+[Potential ideas for better optimization]
