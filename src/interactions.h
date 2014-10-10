@@ -90,12 +90,19 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
 // Now that you know how cosine weighted direction generation works, try implementing 
 // non-cosine (uniform) weighted random direction generation.
 // This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
+
+// NOTE: this seems really similar to just getting some point in intersections.h.
+// It looks like NOTHING that's actually "random" happens in either this function or the one above (random hemisphere).
+// I guess xi1 and xi2 are random numbers given to me. Based on personal testing of calculateRandomDirectionInHemisphere,
+// I expect these random numbers to be between 0 and 1.
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
   return glm::vec3(0,0,0);
 }
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
 // Returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
+
+// NOTE: this function REQUIRES both "diffuse" and "perfect specular reflective" functionality!
 __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
                                        AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
                                        glm::vec3& color, glm::vec3& unabsorbedColor, material m){

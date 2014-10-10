@@ -19,6 +19,9 @@ __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+
+__host__ __device__ float planeIntersectionTest(ray r, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3& intersectionPoint);
+
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
 
@@ -35,7 +38,7 @@ __host__ __device__ unsigned int hash(unsigned int a){
 
 // Quick and dirty epsilon check
 __host__ __device__ bool epsilonCheck(float a, float b){
-    if(fabs(fabs(a)-fabs(b)) < EPSILON){
+    if(fabs(a-b) < EPSILON){ // changed this to make it correct
         return true;
     }else{
         return false;
@@ -69,16 +72,192 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
+// TODO-[DONE]: IMPLEMENT THIS FUNCTION
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 
 // METHOD, based on sphereIntersectionTest below
 /*
      - transform the ray into normalized space (this places a unit cube at the origin)
+	 - attempt an intersect with each of the 6 faces and find the shortest
+	 - transfer everything back into world coordinates (make sure to transfer the normal correctly!)
+	 - use original r and realWorldIntersectionPoint to calculate the right distance to return
 */
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 
-    return -1;
+	glm::vec3 r_norm_origin = multiplyMV(box.inverseTransform, glm::vec4(r.origin,1.0f));
+
+	glm::vec3 r_norm_direction = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction,0.0f)));
+
+	double min_t = -1.0;
+	bool min_t_set = false;
+
+	ray r_norm; r_norm.origin = r_norm_origin; r_norm.direction = r_norm_direction;
+
+	glm::vec3 isectpt(0,0,0);
+
+	float isectdist;
+	glm::vec3 norm_normal(0,0,0);
+
+	//x = -.5
+	// if the result of planeIntersectionTest is NOT -1 ...
+	if (!epsilonCheck(
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(-.5,0,0), glm::vec3(-.5,0,1), glm::vec3(-.5,1,0), isectpt),
+		-1.f)) {
+		if (isectpt.y <= .5 + EPSILON && isectpt.y >= -.5 - EPSILON && isectpt.z <= .5 + EPSILON && isectpt.z >= -.5 - EPSILON) {
+			if (!min_t_set) {
+				min_t_set = true;
+				min_t = isectdist;
+				norm_normal = glm::vec3(-1,0,0);
+			}
+			else {
+				if (isectdist < min_t) norm_normal = glm::vec3(-1,0,0);
+				min_t = (isectdist < min_t ? isectdist : min_t);
+			}
+		}
+	}
+	//x = .5
+	if (!epsilonCheck(
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(.5,0,0), glm::vec3(.5,0,1), glm::vec3(.5,1,0), isectpt),
+		-1.f)) {
+		if (isectpt.y <= .5 + EPSILON && isectpt.y >= -.5 - EPSILON && isectpt.z <= .5 + EPSILON && isectpt.z >= -.5 - EPSILON) {
+			if (!min_t_set) {
+				min_t_set = true;
+				min_t = isectdist;
+				norm_normal = glm::vec3(1,0,0);
+			}
+			else {
+				if (isectdist < min_t) norm_normal = glm::vec3(1,0,0);
+				min_t = (isectdist < min_t ? isectdist : min_t);
+			}
+		}
+	}
+	//y = -.5
+	if (!epsilonCheck(
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,-.5,0), glm::vec3(0,-.5,1), glm::vec3(1,-.5,0), isectpt),
+		-1.f)) {
+		if (isectpt.x <= .5 + EPSILON && isectpt.x >= -.5 - EPSILON && isectpt.z <= .5 + EPSILON && isectpt.z >= -.5 - EPSILON) {
+			if (!min_t_set) {
+				min_t_set = true;
+				min_t = isectdist;
+				norm_normal = glm::vec3(0,-1,0);
+			}
+			else {
+				if (isectdist < min_t) norm_normal = glm::vec3(0,-1,0);
+				min_t = (isectdist < min_t ? isectdist : min_t);
+			}
+		}
+	}
+	//y = .5
+	if (!epsilonCheck(
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,.5,0), glm::vec3(0,.5,1), glm::vec3(1,.5,0), isectpt),
+		-1.f)) {
+		if (isectpt.x <= .5 + EPSILON && isectpt.x >= -.5 - EPSILON && isectpt.z <= .5 + EPSILON && isectpt.z >= -.5 - EPSILON) {
+			if (!min_t_set) {
+				min_t_set = true;
+				min_t = isectdist;
+				norm_normal = glm::vec3(0,1,0);
+			}
+			else {
+				if (isectdist < min_t) norm_normal = glm::vec3(0,1,0);
+				min_t = (isectdist < min_t ? isectdist : min_t);
+			}
+		}
+	}
+	//z = -.5
+	if (!epsilonCheck(
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,0,-.5), glm::vec3(0,1,-.5), glm::vec3(1,0,-.5), isectpt),
+		-1.f)) {
+		if (isectpt.x <= .5 + EPSILON && isectpt.x >= -.5 - EPSILON && isectpt.y <= .5 + EPSILON && isectpt.y >= -.5 - EPSILON) {
+			if (!min_t_set) {
+				min_t_set = true;
+				min_t = isectdist;
+				norm_normal = glm::vec3(0,0,-1);
+			}
+			else {
+				if (isectdist < min_t) norm_normal = glm::vec3(0,0,-1);
+				min_t = (isectdist < min_t ? isectdist : min_t);
+			}
+			
+		}
+	}
+	//z = .5
+	if (!epsilonCheck(
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,0,.5), glm::vec3(0,1,.5), glm::vec3(1,0,.5), isectpt),
+		-1.f)) {
+		if (isectpt.x <= .5 + EPSILON && isectpt.x >= -.5 - EPSILON && isectpt.y <= .5 + EPSILON && isectpt.y >= -.5 - EPSILON) {
+			if (!min_t_set) {
+				min_t_set = true;
+				min_t = isectdist;
+				norm_normal = glm::vec3(0,0,1);
+			}
+			else {
+				if (isectdist < min_t) norm_normal = glm::vec3(0,0,1);
+				min_t = (isectdist < min_t ? isectdist : min_t);
+			}
+		}
+	}
+
+	// no intersection
+	if (!min_t_set) return -1;
+
+	// distance to the cube where ray, box, and distance are ALL normed
+	isectdist = min_t;
+
+	// calculate world pt and normal
+	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(r_norm, isectdist), 1.0));
+
+	cudaMat4 C = box.transform;
+	// I want (C-inverse)-transpose
+	cudaMat4 Cit = utilityCore::glmMat4ToCudaMat4(glm::transpose(glm::inverse(utilityCore::cudaMat4ToGlmMat4(C))));
+
+	glm::vec3 realNormal = glm::normalize(multiplyMV(Cit, glm::vec4(norm_normal, 0.0))); // as specified on slide 793 in the FALL 2013 notes for CIS 560
+																						 // since the normal is a vector, its w-coordinate is 0
+
+	// use references to update intersection point and normal
+	intersectionPoint = realIntersectionPoint;
+	normal = realNormal;
+
+	return glm::length(r.origin - realIntersectionPoint); //return the distance, WORLD to WORLD
+
+}
+
+// A helper function that intersects a ray with a plane. This function does NOT perform
+// any transformations, nor does it have anything to do with normals. p1-p3 are 3 points
+// which define a plane. They must not be collinear.
+// returns -1 for no intersection, otherwise, distance to intersection. The point can be found in intersectionPoint
+__host__ __device__ float planeIntersectionTest(ray r, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3& intersectionPoint){
+
+	//vectors along the plane
+	glm::vec3 vs1 = p2-p1;
+	glm::vec3 vs2 = p3-p1;
+
+	glm::vec3 n = glm::normalize(glm::cross(vs1, vs2));
+
+	float A = n.x;
+	float B = n.y;
+	float C = n.z;
+	float D = -1 * (A*p1.x + B*p1.y + C*p1.z);
+
+
+	float tDenom = glm::dot(n, r.direction);
+
+	if (epsilonCheck(abs(tDenom), 0)) return -1;
+
+	float tNumer = -1 * (glm::dot(n, r.origin) + D);
+
+	float t = tNumer/tDenom;
+
+	if (t < 0.0 && t > -1 * EPSILON) t = 0.0;
+
+	if (t >= 0.0) {
+
+		intersectionPoint = r.origin + t * r.direction;
+
+		return t;
+	}
+	else {
+		return -1;
+	}
 }
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.

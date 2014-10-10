@@ -7,6 +7,7 @@
 
 #include "main.h"
 #include <cstring>
+
 #define GLEW_STATIC
 
 //-------------------------------

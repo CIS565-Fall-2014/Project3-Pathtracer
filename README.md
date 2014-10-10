@@ -101,7 +101,7 @@ with a TODO comment. Areas that are useful to and serve as hints for optional
 features are marked with TODO (Optional). Functions that are useful for
 reference are marked with the comment LOOK.
 
-* raytraceKernel.cu contains the core raytracing CUDA kernel. You will need to
+* *[IN PROGRESS]* raytraceKernel.cu contains the core raytracing CUDA kernel. You will need to
   complete:
     * cudaRaytraceCore() handles kernel launches and memory management; this
       function already contains example code for launching kernels,
@@ -115,10 +115,12 @@ reference are marked with the comment LOOK.
       take in a camera, image buffer, geometry, materials, and lights, and should
       trace a ray through the scene and write the resultant color to a pixel in the
       image buffer.
+	* Remember that **stream compaction optimization** needs to be done somewhere
+	  in here!
 
 * intersections.h contains functions for geometry intersection testing and
   point generation. You will need to complete:
-    * *[IN PROGRESS]* boxIntersectionTest(), which takes in a box and a ray and performs an
+    * **[DONE]** boxIntersectionTest(), which takes in a box and a ray and performs an
       intersection test. This function should work in the same way as
       sphereIntersectionTest().
     * **[DONE]** getRandomPointOnSphere(), which takes in a sphere and returns a random
@@ -129,7 +131,7 @@ reference are marked with the comment LOOK.
 
 * interactions.h contains functions for ray-object interactions that define how
   rays behave upon hitting materials and objects. You will need to complete:
-    * getRandomDirectionInSphere(), which generates a random direction in a
+    * *[IN PROGRESS]* getRandomDirectionInSphere(), which generates a random direction in a
       sphere with a uniform probability. This function works in a fashion
       similar to that of calculateRandomDirectionInHemisphere(), which generates a
       random cosine-weighted direction in a hemisphere.
