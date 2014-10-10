@@ -1,4 +1,4 @@
-// CIS565 CUDA Raytracer: A parallel raytracer for Patrick Cozzi's CIS565: GPU Computing at the University of Pennsylvania
+// CIS565 CUDA Pathtracer: A parallel pathtracer for Patrick Cozzi's CIS565: GPU Computing at the University of Pennsylvania
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 // This file includes code from:
 // Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
@@ -69,11 +69,65 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 
-    return -1;
+  // Move into object coordinates to treat it as an AABB
+  glm::vec3 ro = multiplyMV(box.inverseTransform, glm::vec4(r.origin,1.0f));
+  glm::vec3 rd = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction,0.0f)));
+  ray rt; rt.origin = ro; rt.direction = rd;
+
+  // Define the bounds of the box in its own coordinates
+  float omin = -0.5f;
+  float omax = 0.5f;
+
+  // Initiate the min/max distance values
+  float tmin = 0.0f;
+  float tmax = FLT_MAX;
+
+  // Note: This calculation was inspired by "Real-Time Collision Detection" by Christer Ericson
+  for (int i = 0; i < 3; i++) {
+
+	  if (epsilonCheck(rt.direction[i], 0.0f)) {
+		  // Just check the origin in this dimension
+		  if (rt.origin[i] < omin || rt.origin[i] > omax) {
+			  return -1;
+		  }
+	  } else {
+		  float t1 = (omin - rt.origin[i]) / rt.direction[i];
+		  float t2 = (omax - rt.origin[i]) / rt.direction[i];
+		  if (t1 > t2) {
+			  float temp = t1;
+			  t1 = t2;
+			  t2 = temp;
+		  }
+		  tmin = max(tmin, t1);
+		  tmax = min(tmax, t2);
+		  if (tmin > tmax)
+			  return -1;
+	  }
+  }
+
+  if (tmin < 0.0) {
+	  tmin = tmax;
+  }
+
+  glm::vec3 objectIntersectionPoint = getPointOnRay(rt, tmin);
+  intersectionPoint = multiplyMV(box.transform, glm::vec4(objectIntersectionPoint, 1.0f));
+
+  //Compute the normal by determining the face
+  glm::vec3 objNorm(0.0f, 0.0f, 0.0f);
+  for (int i = 0; i < 3; i++) {
+	  if (abs(objectIntersectionPoint[i] - omin) < 0.01) {
+		  objNorm[i] = -1.0f;
+	  } else if (abs(objectIntersectionPoint[i] - omax) < 0.01) {
+		  objNorm[i] = 1.0f;
+	  }
+  }
+  normal = glm::normalize(multiplyMV(box.transform, glm::vec4(objNorm, 1.0f)));
+        
+  return glm::length(r.origin - intersectionPoint);
+
 }
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
@@ -174,11 +228,23 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
        
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
 
-  return glm::vec3(0,0,0);
+  thrust::default_random_engine rng(hash(randomSeed));
+  thrust::uniform_real_distribution<float> u01(0,PI);
+  thrust::uniform_real_distribution<float> u02(0,2*PI);
+
+  // Sample the theta spherical coordinate value
+  float theta = (float)u01(rng);
+
+  // Sample the phi spherical coordinate value
+  float phi = (float)u02(rng);
+
+  // Convert to cartesian coords to get the vector
+  glm::vec3 v(sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta));
+
+  return v;
 }
 
 #endif

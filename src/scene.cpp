@@ -102,7 +102,7 @@ int scene::loadObject(string objectid){
             if(strcmp(tokens[0].c_str(), "TRANS")==0){
                 translations.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }else if(strcmp(tokens[0].c_str(), "ROTAT")==0){
-                rotations.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
+                rotations.push_back(glm::vec3(atof(tokens[1].c_str())*PI/180.0, atof(tokens[2].c_str())*PI/180.0, atof(tokens[3].c_str())*PI/180.0));
             }else if(strcmp(tokens[0].c_str(), "SCALE")==0){
                 scales.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }

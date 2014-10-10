@@ -1,4 +1,4 @@
-// CIS565 CUDA Raytracer: A parallel raytracer for Patrick Cozzi's CIS565: GPU Computing at the University of Pennsylvania
+// CIS565 CUDA Pathtracer: A parallel pathtracer for Patrick Cozzi's CIS565: GPU Computing at the University of Pennsylvania
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 // This file includes code from:
 //       Rob Farber for CUDA-GL interop, from CUDA Supercomputing For The Masses: http://www.drdobbs.com/architecture-and-design/cuda-supercomputing-for-the-masses-part/222600097
@@ -20,6 +20,7 @@ int main(int argc, char** argv){
   targetFrame = 0;
   singleFrameMode = false;
 
+  /*
   // Load scene file
   for(int i=1; i<argc; i++){
     string header; string data;
@@ -33,6 +34,11 @@ int main(int argc, char** argv){
       singleFrameMode = true;
     }
   }
+  */
+
+  string data = std::string("C:\\\\Users\\Dave\\Documents\\Github\\Project3-Pathtracer\\data\\scenes\\sampleScene.txt");
+  renderScene = new scene(data);
+  loadedScene = true;
 
   if(!loadedScene){
     cout << "Error: scene file needed!" << endl;
@@ -106,7 +112,7 @@ void runCuda(){
     }
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaPathtraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
