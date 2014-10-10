@@ -12,7 +12,9 @@
 #include <thrust/remove.h>
 
 #include "sceneStructs.h"
+#define GLM_FORCE_RADIANS
 #include "glm/glm.hpp"
+#include "glm/gtx/norm.hpp"
 #include "utilities.h"
 #include "raytraceKernel.h"
 #include "intersections.h"
@@ -163,37 +165,10 @@ __global__ void merge_dead_pathrays(struct pathray *pathrays, int pathraycount, 
     }
 }
 
-__global__ void merge_live_pathrays(struct pathray *pathrays, int pathraycount, float time, glm::vec3 *colors)
+__device__ float scene_intersect(ray r,
+        staticGeom *geoms, int numberOfGeoms,
+        staticGeom &tmin_geom, glm::vec3 &tmin_pos, glm::vec3 &tmin_nor)
 {
-    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-    if (index >= pathraycount) {
-        return;
-    }
-
-    struct pathray pr = pathrays[index];
-    if (pr.status == ALIVE) {
-        // If the path never hit a light, assume it's 0 for now.
-        // TODO: take a direct path to the light sources?
-        merge_pathray(pr, time, colors);
-    }
-}
-
-__global__ void pathray_step(struct pathray *pathrays, int pathraycount, float time, int depth,
-                            staticGeom* geoms, int numberOfGeoms,
-                            staticGeom* lights, int numberOfLights,
-                            material *mats, int numberOfMaterials)
-{
-    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-    if (index >= pathraycount) {
-        return;
-    }
-
-    struct pathray pr = pathrays[index];
-
-    ray r = pr.r;
-    staticGeom tmin_geom;
-    glm::vec3 tmin_pos;
-    glm::vec3 tmin_nor;
     float tmin = 1e38f;
     for (int i = 0; i < numberOfGeoms; ++i) {
         glm::vec3 p;
@@ -213,6 +188,60 @@ __global__ void pathray_step(struct pathray *pathrays, int pathraycount, float t
             tmin_nor = n;
         }
     }
+    return tmin;
+}
+
+__global__ void merge_live_pathrays(struct pathray *pathrays,
+        int pathraycount, float time, glm::vec3 *colors,
+        staticGeom* geoms, int numberOfGeoms,
+        staticGeom* lights, int numberOfLights,
+        material *mats, int numberOfMaterials)
+{
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if (index >= pathraycount) {
+        return;
+    }
+
+    struct pathray pr = pathrays[index];
+    if (pr.status == ALIVE) {
+        // If the path never hit a light, go straight to the lights
+        glm::vec3 lightcolor;
+        for (int i = 0; i < numberOfLights; ++i) {
+            staticGeom l = lights[i];
+            ray r = pr.r;
+            r.direction = glm::normalize(l.translation - r.origin);
+            staticGeom tmin_geom;
+            glm::vec3 tmin_pos;
+            glm::vec3 tmin_nor;
+            float tmin = scene_intersect(r, geoms, numberOfGeoms, tmin_geom, tmin_pos, tmin_nor);
+            material mat = mats[tmin_geom.materialid];
+            if (mat.emittance) {
+                lightcolor += mat.emittance * mat.color * 0.01f / glm::distance2(tmin_pos, l.translation);
+            }
+        }
+        pr.color *= lightcolor / (float) numberOfLights;
+        merge_pathray(pr, time, colors);
+    }
+}
+
+__global__ void pathray_step(struct pathray *pathrays,
+        int pathraycount, float time, int depth,
+        staticGeom* geoms, int numberOfGeoms,
+        staticGeom* lights, int numberOfLights,
+        material *mats, int numberOfMaterials)
+{
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if (index >= pathraycount) {
+        return;
+    }
+
+    struct pathray pr = pathrays[index];
+
+    ray r = pr.r;
+    staticGeom tmin_geom;
+    glm::vec3 tmin_pos;
+    glm::vec3 tmin_nor;
+    float tmin = scene_intersect(r, geoms, numberOfGeoms, tmin_geom, tmin_pos, tmin_nor);
 
     if (tmin > 9e37) {
         // Empty space; abort ray
@@ -255,7 +284,7 @@ __global__ void pathray_step(struct pathray *pathrays, int pathraycount, float t
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
-    const int traceDepth = 16; //determines how many bounces the raytracer traces
+    const int traceDepth = 1024; //determines how many bounces the raytracer traces
     const int pixelcount = ((int) renderCam->resolution.x) * ((int) renderCam->resolution.y);
 
     // set up crucial magic
@@ -336,10 +365,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
         which = which ^ 1;
     }
     // And finally handle all of the paths that haven't died yet
-    // (Disabled until I figure out what to actually do with the colors paths)
-    //if (bc > 0) {
-    //    merge_live_pathrays<<<bc, TPB>>>(pathrays[which], pathraycount, time, cudaimage);
-    //}
+    if (bc > 0) {
+        merge_live_pathrays<<<bc, TPB>>>(pathrays[which],
+                pathraycount, time, cudaimage,
+                cudageoms, numberOfGeoms,
+                cudalights, numberOfLights,
+                cudamats, numberOfMaterials);
+    }
 
     sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
