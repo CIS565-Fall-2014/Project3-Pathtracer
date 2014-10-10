@@ -343,31 +343,35 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
 	else if( key ==GLFW_KEY_A ){   //left
-		//glm::vec3 right = glm::cross(renderCam->views[0], renderCam->ups[0]);
-		//renderCam->positions[0] += - (float)STEP_SIZE * right;
-		renderCam->positions[0].x -= (float)STEP_SIZE;
+		glm::vec3 right = glm::cross(renderCam->views[0], renderCam->ups[0]);
+		renderCam->positions[0] += (float)STEP_SIZE *0.5f * right;
+		//renderCam->positions[0].x -= (float)STEP_SIZE * 0.5f;
 		cameraReset();
 	}
 	else if( key ==GLFW_KEY_D ){   //right
-		//glm::vec3 right = glm::cross(renderCam->views[0], renderCam->ups[0]);
-		//renderCam->positions[0] += (float)STEP_SIZE * right;
-		renderCam->positions[0].x += (float)STEP_SIZE;
+		glm::vec3 right = glm::cross(renderCam->views[0], renderCam->ups[0]);
+		renderCam->positions[0] += -(float)STEP_SIZE * 0.5f*right;
+		//renderCam->positions[0].x += (float)STEP_SIZE * 0.5f;
 		cameraReset();
 	}
 	else if( key ==GLFW_KEY_W ){   //up
-		renderCam->positions[0] += (float)STEP_SIZE * (renderCam->ups[0]);
+		renderCam->positions[0] += (float)STEP_SIZE *0.5f* (renderCam->ups[0]);
+		//renderCam->positions[0].y += (float)STEP_SIZE * 0.5f;
 		cameraReset();
 	}
 	else if( key ==GLFW_KEY_S ){   //down
-		renderCam->positions[0] += - (float)STEP_SIZE * (renderCam->ups[0]);
+		renderCam->positions[0] += - (float)STEP_SIZE *0.5f* (renderCam->ups[0]);
+		//renderCam->positions[0].y -= (float)STEP_SIZE * 0.5f;
 		cameraReset();
 	}
 	else if ( key ==GLFW_KEY_Q ){  //forward
-		renderCam->positions[0] += (float)STEP_SIZE * (renderCam->views[0]);
+		renderCam->positions[0] += (float)STEP_SIZE * 0.5f* (renderCam->views[0]);
+		//renderCam->positions[0].z -= (float)STEP_SIZE * 0.5f;
 		cameraReset();
 	}
 	else if ( key == GLFW_KEY_E ){  //backward
-		renderCam->positions[0] += - (float)STEP_SIZE * (renderCam->views[0]);
+		renderCam->positions[0] += - (float)STEP_SIZE * 0.5f* (renderCam->views[0]);
+		//renderCam->positions[0].z += (float)STEP_SIZE * 0.5f;
 		cameraReset();
 	}
 	else{

@@ -33,11 +33,15 @@ Both clear glass or colored glass can be handled here. Wondering doing some fros
 
 ##Texture mapping 
 ##Depth of field
+in order to have to depth of field effects, specify camera aperture and focal length in scene txt file, 
+and turn on "DEPTH_OF_FIELD" in "raytracerKernel.h" and "scene.h"
+
 
 ##OBJ Mesh loading and rendering
 ##Interactive camera
 Interactive Camera is implemented to provide flexible in rendering angles, including pan, tilt, zoom, everything. 
 Play with camera like a camera man! :) Rendering will start fresh every time camera is changed.
+STEP_SIZE - step size of camera movements
 *W - move up
 *Q - move down
 *S - move left
@@ -50,6 +54,8 @@ Play with camera like a camera man! :) Rendering will start fresh every time cam
 *right - rotate right
 , - rotate CCW
 . - rotate CW
+[![ScreenShot]( https://raw.github.com/GabLeRoux/WebMole/master/ressources/WebMole_Youtube_Video.png)] (http://www.youtube.com/embed/RtjJXwnUBZo)
+<iframe width="420" height="315" src="//www.youtube.com/embed/RtjJXwnUBZo" frameborder="0" allowfullscreen></iframe>
 
 * overview write up of the feature
 * performance impact of the feature
@@ -63,6 +69,12 @@ Play with camera like a camera man! :) Rendering will start fresh every time cam
 
 
 ## SCENE FORMAT
+I have some scene files that are interesting to render:
+* sampleScene
+I modified the original file and in current version, there is diffuse item, highly reflective item, glass item.
+WIHOUT depth of field.
+* myScene
+Everything same as "sampleScene" except this one is 
 This project uses a custom scene description format.
 Scene files are flat text files that describe all geometry, materials,
 lights, cameras, render settings, and animation frames inside of the scene.
@@ -121,8 +133,6 @@ Objects are defined in the following fashion:
 * ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
 * SCALE (float scalex) (float scaley) (float scalez)		//scale
 
-An example scene file setting up two frames inside of a Cornell Box can be
-found in the scenes/ directory.
 
 For meshes, note that the base code will only read in .obj files. For more 
 information on the .obj specification see http://en.wikipedia.org/wiki/Wavefront_.obj_file.
@@ -137,6 +147,5 @@ TRANS       0 5 -5
 ROTAT       0 90 0
 SCALE       .01 10 10 
 
-Check the Google group for some sample .obj files of varying complexity.
 
 

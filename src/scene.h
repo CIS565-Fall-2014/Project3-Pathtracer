@@ -16,6 +16,8 @@
 
 using namespace std;
 
+#define DEPTH_OF_FIELD 1
+
 class scene{
 private:
     ifstream fp_in;

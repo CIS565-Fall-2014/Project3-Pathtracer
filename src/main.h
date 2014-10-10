@@ -30,7 +30,7 @@
 #include "scene.h"
 
 using namespace std;
-#define STEP_SIZE 0.3
+#define STEP_SIZE 0.6f   //step size of camera movement
 //-------------------------------
 //----------PATHTRACER-----------
 //-------------------------------

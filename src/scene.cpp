@@ -140,7 +140,14 @@ int scene::loadCamera(){
 	float fovy;
 	
 	//load static properties
-	for(int i=0; i<6; i++){
+	int num;
+	if(DEPTH_OF_FIELD){
+		num = 6;  //6 lines to read
+	}
+	else{
+		num = 4;
+	}
+	for(int i=0; i<num; i++){
 		string line;
         utilityCore::safeGetline(fp_in,line);
 		vector<string> tokens = utilityCore::tokenizeString(line);
@@ -157,6 +164,7 @@ int scene::loadCamera(){
 		}else if(strcmp(tokens[0].c_str(), "APERTURE")==0){
 			newCamera.aperture = atof(tokens[1].c_str());
 		}
+	}
 	}
         
 	//load time variable properties (frames)
