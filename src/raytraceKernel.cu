@@ -118,7 +118,6 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 struct pathray {
     bool alive;
     int index;
-    int depth;
     glm::vec3 color;
     ray r;
 };
@@ -137,7 +136,7 @@ __global__ void init_pathrays(struct pathray *pathrays, float time, cameraData c
 
     if (x < cam.resolution.x && y < cam.resolution.y) {
         struct pathray pr ={
-            true, index, 0, glm::vec3(1, 1, 1),
+            true, index, glm::vec3(1, 1, 1),
             raycastFromCameraKernel(cam.resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov),
         };
         pathrays[index] = pr;
@@ -170,7 +169,7 @@ __global__ void merge_live_pathrays(struct pathray *pathrays, int pathraycount, 
     }
 
     struct pathray pr = pathrays[index];
-    if (pr.alive) {
+    if (pr.alive && pr.index != -1) {
         // If the path never hit a light, assume it's 0 for now.
         // TODO: take a direct path to the light sources?
         pr.color = glm::vec3();
@@ -178,7 +177,7 @@ __global__ void merge_live_pathrays(struct pathray *pathrays, int pathraycount, 
     }
 }
 
-__global__ void pathray_step(struct pathray *pathrays, int pathraycount, float time,
+__global__ void pathray_step(struct pathray *pathrays, int pathraycount, float time, int depth,
                             staticGeom* geoms, int numberOfGeoms,
                             staticGeom* lights, int numberOfLights,
                             material *mats, int numberOfMaterials)
@@ -234,7 +233,7 @@ __global__ void pathray_step(struct pathray *pathrays, int pathraycount, float t
     }
 
     // Calculate the ray of the next bounce
-    thrust::default_random_engine rng(hash(index * time));
+    thrust::default_random_engine rng(hash(index * time) ^ hash(depth));
     thrust::uniform_real_distribution<float> u01(0, 1);
     float branchcount = 2.f;
     float raytype = u01(rng) * branchcount;
@@ -322,19 +321,17 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     init_pathrays<<<fullBlocksPerGrid, threadsPerBlock>>>(pathrays, time, cam);
     for (int depth = 0; depth < traceDepth; ++depth) {
         // Compute one ray along each path
-        pathray_step<<<bc, TPB>>>(pathrays, pathraycount, time,
+        pathray_step<<<bc, TPB>>>(pathrays, pathraycount, time, depth,
             cudageoms, numberOfGeoms,
             cudalights, numberOfLights,
             cudamats, numberOfMaterials);
-        if (depth != traceDepth - 1) {
-            // Merge all of the dead paths into the image
-            merge_dead_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
-            // Stream compact all of the dead paths away
-            //   (this is required; otherwise dead paths keep getting merged!)
-            pathraycount = thrust::remove_if(thrust::device,
-                    pathrays, pathrays + pathraycount, pathray_is_dead()) - pathrays;
-            bc = (pathraycount + TPB - 1) / TPB;
-        }
+        // Merge all of the dead paths into the image
+        merge_dead_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
+        // Stream compact all of the dead paths away
+        //   (this is required; otherwise dead paths keep getting merged!)
+        pathraycount = thrust::remove_if(thrust::device,
+                pathrays, pathrays + pathraycount, pathray_is_dead()) - pathrays;
+        bc = (pathraycount + TPB - 1) / TPB;
     }
     // And finally handle all of the paths that haven't died yet
     merge_live_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
