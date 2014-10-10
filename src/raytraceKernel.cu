@@ -31,6 +31,7 @@ enum MaterialType {
 // Some forward declarations.
 __host__ __device__ bool sceneIntersection( const ray &r, staticGeom *geoms, int num_geoms, float &t, int &id, glm::vec3 &intersection_point, glm::vec3 &intersection_normal );
 __host__ __device__ MaterialType determineMaterialType( material mat );
+__host__ __device__ glm::vec2 computePixelSubsampleLocation( glm::vec2 pixel_index, glm::vec2 image_resolution, int current_iteration );
 
 
 void checkCUDAError( const char *msg )
@@ -159,42 +160,42 @@ bool sceneIntersection( const ray &r,
 }
 
 
-__host__
-__device__
-bool lightIntersection( const ray &r,
-						staticGeom *geoms,
-						int num_geoms,
-						int &obj_id )
-{
-	float t = FLT_MAX;
-	float temp_t = -1.0f;
-	glm::vec3 temp_intersection_point;
-	glm::vec3 temp_intersection_normal;
-
-	// Find nearest intersection, if any.
-	for ( int i = 0; i < num_geoms; ++i ) {
-		if ( geoms[i].type == SPHERE ) {
-			temp_t = sphereIntersectionTest( geoms[i],
-											 r,
-											 temp_intersection_point,
-											 temp_intersection_normal );
-		}
-		else if ( geoms[i].type == CUBE ) {
-			temp_t = boxIntersectionTest( geoms[i],
-										  r,
-										  temp_intersection_point,
-										  temp_intersection_normal );
-		}
-
-		// Update nearest intersection if closer intersection has been found.
-		if ( temp_t > 0.0f && temp_t < t ) {
-			t = temp_t;
-			obj_id = i;
-		}
-	}
-
-	return ( t < FLT_MAX );
-}
+//__host__
+//__device__
+//bool lightIntersection( const ray &r,
+//						staticGeom *geoms,
+//						int num_geoms,
+//						int &obj_id )
+//{
+//	float t = FLT_MAX;
+//	float temp_t = -1.0f;
+//	glm::vec3 temp_intersection_point;
+//	glm::vec3 temp_intersection_normal;
+//
+//	// Find nearest intersection, if any.
+//	for ( int i = 0; i < num_geoms; ++i ) {
+//		if ( geoms[i].type == SPHERE ) {
+//			temp_t = sphereIntersectionTest( geoms[i],
+//											 r,
+//											 temp_intersection_point,
+//											 temp_intersection_normal );
+//		}
+//		else if ( geoms[i].type == CUBE ) {
+//			temp_t = boxIntersectionTest( geoms[i],
+//										  r,
+//										  temp_intersection_point,
+//										  temp_intersection_normal );
+//		}
+//
+//		// Update nearest intersection if closer intersection has been found.
+//		if ( temp_t > 0.0f && temp_t < t ) {
+//			t = temp_t;
+//			obj_id = i;
+//		}
+//	}
+//
+//	return ( t < FLT_MAX );
+//}
 
 
 // Compute rays from camera through pixels and store in ray_pool.
@@ -204,7 +205,8 @@ void raycastFromCameraKernel( ray *ray_pool,
 							 glm::vec3 eyep,
 							 glm::vec3 m,
 							 glm::vec3 h,
-							 glm::vec3 v )
+							 glm::vec3 v,
+							 int current_iteration )
 {
 	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
 	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
@@ -214,10 +216,17 @@ void raycastFromCameraKernel( ray *ray_pool,
 		return;
 	}
 
-	float sx = ( float )x / ( resolution.x - 1.0f );
-	float sy = 1.0f - ( ( float )y / ( resolution.y - 1.0f ) );
+	// TODO: Add a switch to turn anti-aliasing on/off.
+	glm::vec2 pixel_location = computePixelSubsampleLocation( glm::vec2( x, y ), resolution, current_iteration );
+
+	float sx = pixel_location.x / ( resolution.x - 1.0f );
+	float sy = 1.0f - ( pixel_location.y / ( resolution.y - 1.0f ) );
+
+	//float sx = ( float )x / ( resolution.x - 1.0f );
+	//float sy = 1.0f - ( ( float )y / ( resolution.y - 1.0f ) );
 
 	glm::vec3 image_point = m + ( ( 2.0f * sx - 1.0f ) * h ) + ( ( 2.0f * sy - 1.0f ) * v );
+
 	glm::vec3 dir = image_point - eyep;
 
 	ray r;
@@ -226,6 +235,46 @@ void raycastFromCameraKernel( ray *ray_pool,
 	r.image_coords = glm::vec2( x, y );
 
 	ray_pool[index] = r;
+}
+
+
+__host__
+__device__
+glm::vec2 computePixelSubsampleLocation( glm::vec2 pixel_index,
+										 glm::vec2 image_resolution,
+										 int current_iteration )
+{
+	const int SUBSAMPLE_ROWS = 4;
+	const int SUBSAMPLE_COLS = 4;
+
+	float row_height = 1.0f / SUBSAMPLE_ROWS;
+	float col_width = 1.0f / SUBSAMPLE_COLS;
+
+	float left_bounds, upper_bounds;
+	float x_percentage, y_percentage, new_x, new_y;
+
+	int sub_pixel_num = current_iteration % ( SUBSAMPLE_ROWS * SUBSAMPLE_COLS );
+	
+	// partition pixel into grid using perfect_square and randomly sample one ray through each grid space
+	upper_bounds = ( float )pixel_index.y;
+	for ( int y = 0; y < SUBSAMPLE_ROWS; ++y ) {
+		left_bounds = ( float )pixel_index.x;
+		for ( int x = 0; x < SUBSAMPLE_COLS; ++x ) {
+			if ( ( y * SUBSAMPLE_COLS ) + x == sub_pixel_num ) {
+				glm::vec3 rand = generateRandomNumberFromThread( image_resolution, current_iteration, pixel_index.x, pixel_index.y );
+				x_percentage = rand.x;
+				y_percentage = rand.y;
+
+				new_x = left_bounds + ( col_width * x_percentage );
+				new_y = upper_bounds + ( row_height * y_percentage );
+
+				return glm::vec2( new_x, new_y );
+			}
+			left_bounds += col_width;
+		}
+		upper_bounds += row_height;
+	}
+	return pixel_index;
 }
 
 
@@ -549,7 +598,8 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 																			cam.position,
 																			m,
 																			h,
-																			v );
+																			v,
+																			( float )current_iteration );
 
 	//testOutputKernel<<< full_blocks_per_grid, threads_per_block >>>( cuda_image,
 	//																 cuda_ray_pool,
