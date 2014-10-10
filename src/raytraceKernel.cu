@@ -122,9 +122,9 @@ struct pathray {
     ray r;
 };
 
-struct pathray_is_dead {
+struct pathray_is_alive {
     __host__ __device__ bool operator()(const struct pathray pr) {
-        return !pr.alive;
+        return pr.alive;
     }
 };
 
@@ -264,11 +264,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     dim3 threadsPerBlock(tileSize, tileSize);
     dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x) / float(tileSize)), (int)ceil(float(renderCam->resolution.y) / float(tileSize)));
 
-    // send image to GPU
-    glm::vec3* cudaimage = NULL;
-    cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3));
-    cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3), cudaMemcpyHostToDevice);
-
     // package geometry and materials and sent to GPU
     staticGeom* geomList = new staticGeom[numberOfGeoms];
     staticGeom* lightList = new staticGeom[numberOfGeoms];
@@ -289,19 +284,25 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
         }
     }
 
-    staticGeom* cudageoms = NULL;
-    cudaMalloc((void**)&cudageoms, numberOfGeoms * sizeof(staticGeom));
+    // send image to GPU
+    static glm::vec3* cudaimage = NULL;
+    static staticGeom* cudageoms = NULL;
+    static staticGeom* cudalights = NULL;
+    static material* cudamats = NULL;
+    static struct pathray *pathrays[2];
+    if (cudaimage == NULL) {
+        cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3));
+        cudaMalloc((void**)&cudageoms, numberOfGeoms * sizeof(staticGeom));
+        cudaMalloc((void**)&cudalights, numberOfLights * sizeof(staticGeom));
+        cudaMalloc((void**)&cudamats, numberOfMaterials * sizeof(material));
+        cudaMalloc((void**)&pathrays[0], pixelcount * sizeof(struct pathray));
+        cudaMalloc((void**)&pathrays[1], pixelcount * sizeof(struct pathray));
+    }
+
+    cudaMemcpy(cudaimage, renderCam->image, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3), cudaMemcpyHostToDevice);
     cudaMemcpy(cudageoms, geomList, numberOfGeoms * sizeof(staticGeom), cudaMemcpyHostToDevice);
-    staticGeom* cudalights = NULL;
-    cudaMalloc((void**)&cudalights, numberOfLights * sizeof(staticGeom));
     cudaMemcpy(cudalights, lightList, numberOfLights * sizeof(staticGeom), cudaMemcpyHostToDevice);
-
-    material* cudamats = NULL;
-    cudaMalloc((void**)&cudamats, numberOfMaterials * sizeof(material));
     cudaMemcpy(cudamats, materials, numberOfMaterials * sizeof(material), cudaMemcpyHostToDevice);
-
-    struct pathray *pathrays = NULL;
-    cudaMalloc((void **) &pathrays, pixelcount * sizeof(struct pathray));
 
     // package camera
     cameraData cam;
@@ -316,24 +317,28 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     int pathraycount = pixelcount;
     int bc = (pathraycount + TPB - 1) / TPB;
     float time = iterations;
-    init_pathrays<<<fullBlocksPerGrid, threadsPerBlock>>>(pathrays, time, cam);
+    int which = 0;
+    init_pathrays<<<fullBlocksPerGrid, threadsPerBlock>>>(pathrays[which], time, cam);
     for (int depth = 0; bc > 0 && depth < traceDepth; ++depth) {
+        struct pathray *prs = pathrays[which];
+        struct pathray *prd = pathrays[which ^ 1];
         // Compute one ray along each path
-        pathray_step<<<bc, TPB>>>(pathrays, pathraycount, time, depth,
+        pathray_step<<<bc, TPB>>>(prs, pathraycount, time, depth,
             cudageoms, numberOfGeoms,
             cudalights, numberOfLights,
             cudamats, numberOfMaterials);
         // Merge all of the dead paths into the image
-        merge_dead_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
+        merge_dead_pathrays<<<bc, TPB>>>(prs, pathraycount, time, cudaimage);
         // Stream compact all of the dead paths away
         //   (this is required; otherwise dead paths keep getting merged!)
-        pathraycount = thrust::remove_if(thrust::device,
-                pathrays, pathrays + pathraycount, pathray_is_dead()) - pathrays;
+        pathraycount = thrust::copy_if(thrust::device,
+                prs, prs + pathraycount, prd, pathray_is_alive()) - prd;
         bc = (pathraycount + TPB - 1) / TPB;
+        which = which ^ 1;
     }
     // And finally handle all of the paths that haven't died yet
     if (bc > 0) {
-        merge_live_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
+        merge_live_pathrays<<<bc, TPB>>>(pathrays[which], pathraycount, time, cudaimage);
     }
 
     sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
@@ -342,11 +347,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
     // free up stuff, or else we'll leak memory like a madman
-    cudaFree(cudaimage);
-    cudaFree(cudageoms);
-    cudaFree(cudamats);
-    cudaFree(pathrays);
+    //cudaFree(cudaimage);
+    //cudaFree(cudageoms);
+    //cudaFree(cudamats);
+    //cudaFree(pathrays);
     delete[] geomList;
+    delete[] lightList;
 
     // make certain the kernel has completed
     //cudaThreadSynchronize();
