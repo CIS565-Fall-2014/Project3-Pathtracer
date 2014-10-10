@@ -41,9 +41,18 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 ///////////////////////////////
 // Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+  glm::vec3 alpha, beta, midPix, horizScale, vertScale, pixel;
+  alpha  = glm::cross(view,  up);
+  beta   = glm::cross(alpha, view);
+  midPix = eye + view;
+
+  vertScale  = glm::normalize(beta)  * glm::length(view) * tan(glm::radians(fov.y));
+  horizScale = glm::normalize(alpha) * glm::length(view) * tan(glm::radians(fov.x));
+  
+  pixel = midPix + horizScale * (float)((2.0 * x/resolution.x) - 1.0) + vertScale * (float)((2.0 * y/resolution.y) - 1.0);
   ray r;
-  r.origin = glm::vec3(0,0,0);
-  r.direction = glm::vec3(0,0,-1);
+  r.origin = eye;
+  r.direction = glm::normalize(pixel - eye);
   return r;
 }
 
@@ -107,9 +116,38 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
   int index = x + (y * resolution.x);
 
   if((x<=resolution.x && y<=resolution.y)){
-    //THIS IS WHERE THE RAY CAST HAPPENS
+    ray thisRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
     //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
-    colors[index] = glm::vec3(255,255,255);
+    
+    float dist = FLT_MAX;//infinite distance
+    glm::vec3 col, iPoint, iNorm, tmpIPoint, tmpINorm;
+
+    for(int i = 0; i < numberOfGeoms; i++){
+      if (geoms[i].type == SPHERE){
+        float tmp = sphereIntersectionTest(geoms[i], thisRay, tmpIPoint, tmpINorm);
+        if (tmp != -1 && tmp < dist){
+          dist = tmp;
+          iNorm = tmpINorm;
+          iPoint = tmpIPoint;
+        }
+      }
+      if (geoms[i].type == CUBE){
+        float tmp = boxIntersectionTest(geoms[i], thisRay, tmpIPoint, tmpINorm);
+        if (tmp != -1 && tmp < dist){
+          dist = tmp;
+          iNorm = tmpINorm;
+          iPoint = tmpIPoint;
+        }
+      }
+    }
+
+    if (dist != FLT_MAX){
+        col = iNorm;
+    }else{
+        col = glm::vec3(abs(thisRay.direction.x),abs(thisRay.direction.y), abs(thisRay.direction.z));
+    }
+    //col = glm::vec3(abs(thisRay.direction.x),abs(thisRay.direction.y), abs(thisRay.direction.z));
+    colors[index] = col;
    }
 }
 
