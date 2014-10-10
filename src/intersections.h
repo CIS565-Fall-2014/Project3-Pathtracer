@@ -76,49 +76,46 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r)
 }
 
 
-__host__ __device__ float squareIntersectionTest(ray r, int xyz, float dist, glm::vec3 &normal)
-{
-    if (glm::abs(r.direction[xyz]) < 0.00001f) {
-        return -1;
-    }
-
-    float t = (dist - r.origin[xyz]) / r.direction[xyz];
-    glm::vec3 ix = getPointOnRay(r, t);
-
-    normal = glm::vec3();
-    normal[xyz] = dist;
-
-    int yzx = (xyz + 1) % 3;
-    int zxy = (xyz + 2) % 3;
-    return (-0.5 <= ix[yzx] && ix[yzx] <= 0.5 && -0.5 <= ix[zxy] && ix[zxy] <= 0.5) ? t : -1;
-}
-
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
 {
-    ray r1;
-    r1.origin = multiplyMV(box.inverseTransform, glm::vec4(r.origin, 1.0f));
-    r1.direction = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
+    ray q;
+    q.origin    =                multiplyMV(box.inverseTransform, glm::vec4(r.origin   , 1.0f));
+    q.direction = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
 
-    const glm::vec3 vmin(-0.5, -0.5, -0.5);
-    const glm::vec3 vmax(+0.5, +0.5, +0.5);
-    float norfact = (glm::all(glm::lessThan(vmin, r1.origin))
-                     && glm::all(glm::lessThan(r1.origin, vmax))) ? -1 : 1;
-    float tmin = 1e38f;
+    float tmin = -1e38f;
+    float tmax = 1e38f;
+    glm::vec3 tmin_n;
+    glm::vec3 tmax_n;
     for (int xyz = 0; xyz < 3; ++xyz) {
-        for (float dist = -0.5; dist < 0.75f; dist += 1) {
-            glm::vec3 nor;
-            float t = squareIntersectionTest(r1, xyz, dist, nor);
-            if (t > 0 && t < tmin) {
-                tmin = t;
-                normal = nor;
+        if (glm::abs(q.direction[xyz]) > 0.0001f) {
+            float t1 = (-0.5f - q.origin[xyz]) / q.direction[xyz];
+            float t2 = (+0.5f - q.origin[xyz]) / q.direction[xyz];
+            float ta = glm::min(t1, t2);
+            float tb = glm::max(t1, t2);
+            glm::vec3 n;
+            n[xyz] = t2 < t1 ? +1 : -1;
+            if (ta > 0 && ta > tmin) {
+                tmin = ta;
+                tmin_n = n;
+            }
+            if (tb < tmax) {
+                tmax = tb;
+                tmax_n = n;
             }
         }
     }
-    normal *= norfact;
-    normal = glm::normalize(multiplyMV(box.transform, glm::vec4(normal, 0.0f)));
-    intersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(r1, tmin), 1.0f));
-    return tmin < 1e37f ? tmin : -1;
+
+    if (tmax >= tmin && tmax > 0) {
+        if (tmin <= 0) {
+            tmin = tmax;
+            tmin_n = tmax_n;
+        }
+        intersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(q, tmin), 1.0f));
+        normal = glm::normalize(multiplyMV(box.transform, glm::vec4(tmin_n, 0.0f)));
+        return glm::length(r.origin - intersectionPoint);
+    }
+    return -1;
 }
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
