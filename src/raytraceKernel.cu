@@ -235,21 +235,19 @@ __global__ void pathray_step(struct pathray *pathrays, int pathraycount, float t
     // Calculate the ray of the next bounce
     thrust::default_random_engine rng(hash(index * time) ^ hash(depth));
     thrust::uniform_real_distribution<float> u01(0, 1);
-    float branchcount = 2.f;
+    float branchcount = 1.f + mat.hasReflective;
     float raytype = u01(rng) * branchcount;
     glm::vec3 c(branchcount);
     if (raytype < 1) {
         // Next bounce is diffuse
         c *= mat.color;
-        pr.r.direction = calculateRandomDirectionInHemisphere(
-                tmin_nor, u01(rng), u01(rng));
-        pr.r.origin = tmin_pos + pr.r.direction * 0.001f;
+        pr.r.direction = calculateRandomDirectionInHemisphere(tmin_nor, u01(rng), u01(rng));
     } else if (raytype < 2) {
-        // Next bounce is specular... or reflective? Something.
-        c *= mat.specularColor * mat.hasReflective;
+        // Next bounce is specular
+        c *= mat.specularColor;
         pr.r.direction = calculateReflectionDirection(tmin_nor, r.direction);
-        pr.r.origin = tmin_pos + pr.r.direction * 0.001f;
     }
+    pr.r.origin = tmin_pos + pr.r.direction * 0.001f;
     pr.color *= c;
     pathrays[index] = pr;
 }
@@ -319,7 +317,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     int bc = (pathraycount + TPB - 1) / TPB;
     float time = iterations;
     init_pathrays<<<fullBlocksPerGrid, threadsPerBlock>>>(pathrays, time, cam);
-    for (int depth = 0; depth < traceDepth; ++depth) {
+    for (int depth = 0; bc > 0 && depth < traceDepth; ++depth) {
         // Compute one ray along each path
         pathray_step<<<bc, TPB>>>(pathrays, pathraycount, time, depth,
             cudageoms, numberOfGeoms,
@@ -334,7 +332,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
         bc = (pathraycount + TPB - 1) / TPB;
     }
     // And finally handle all of the paths that haven't died yet
-    merge_live_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
+    if (bc > 0) {
+        merge_live_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
+    }
 
     sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
@@ -349,7 +349,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     delete[] geomList;
 
     // make certain the kernel has completed
-    cudaThreadSynchronize();
+    //cudaThreadSynchronize();
 
     checkCUDAError("Kernel failed!");
 }

@@ -139,10 +139,10 @@ void runCuda(){
       outputImage.saveImageRGB(filename);
       cout << "Saved frame " << s << " to " << filename << endl;
       finishedRender = true;
-      if (singleFrameMode==true) {
+      //if (singleFrameMode==true) {
         cudaDeviceReset(); 
         exit(0);
-      }
+      //}
     }
     if (targetFrame < renderCam->frames-1) {
 
