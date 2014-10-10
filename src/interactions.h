@@ -132,27 +132,35 @@ __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 inciden
 
 __host__ __device__ glm::vec3  calculateCosWeightedRandomDirInHemisphere( glm::vec3 n, float Xi1, float Xi2)
 {
+
+	/*const float r = Sqrt(u1);
+    const float theta = 2 * kPi * u2;
+ 
+    const float x = r * Cos(theta);
+    const float y = r * Sin(theta);
+ 
+    return Vector3(x, y, Sqrt(Max(0.0f, 1 - u1)));*/
+
     float  theta = acos(sqrt(1.0-Xi1));
-    float  phi = 2.0 * 3.1415926535897932384626433832795 * Xi2;
+    float  phi = 2.0f * PI * Xi2;
 
     float xs = sinf(theta) * cosf(phi);
     float ys = cosf(theta);
     float zs = sinf(theta) * sinf(phi);
 
-    glm::vec3 y(n.x, n.y, n.z);
-    glm::vec3 h = y;
-    if (fabs(h.x)<=fabs(h.y) && fabs(h.x)<=fabs(h.z))
-        h.x= 1.0;
-    else if (fabs(h.y)<=fabs(h.x) && fabs(h.y)<=fabs(h.z))
-        h.y= 1.0;
+    glm::vec3 y = n;
+    glm::vec3 h = n;
+    if (fabs(h.x) <= fabs(h.y) && fabs(h.x) <= fabs(h.z))
+        h.x = 1.0;  //h.x is smallest
+    else if (fabs(h.y) <= fabs(h.x) && fabs(h.y) <= fabs(h.z))
+        h.y = 1.0;
     else
-        h.z= 1.0;
-
+        h.z = 1.0;
 
 	glm::vec3 x = glm::normalize( glm::cross( h, y ) );
-	glm::vec3 z = glm::normalize( glm::cross(x, y) );
+	glm::vec3 z = glm::normalize( glm::cross( x, y ) );
 
-   glm::vec3 direction = glm::normalize(xs * x + ys * y + zs * z);
+	glm::vec3 direction = glm::normalize(xs * x + ys * y + zs * z);
     return direction;
 }
 

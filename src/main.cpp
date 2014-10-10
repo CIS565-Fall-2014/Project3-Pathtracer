@@ -8,6 +8,16 @@
 #include "main.h"
 #define GLEW_STATIC
 
+
+
+__host__ __device__ glm::vec3 multiplyMVMain(cudaMat4 m, glm::vec4 v){
+  glm::vec3 r(1,1,1);
+  r.x = (m.x.x*v.x)+(m.x.y*v.y)+(m.x.z*v.z)+(m.x.w*v.w);
+  r.y = (m.y.x*v.x)+(m.y.y*v.y)+(m.y.z*v.z)+(m.y.w*v.w);
+  r.z = (m.z.x*v.x)+(m.z.y*v.y)+(m.z.z*v.z)+(m.z.w*v.w);
+  return r;
+}
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -318,8 +328,105 @@ void errorCallback(int error, const char* description){
     fputs(description, stderr);
 }
 
+
+void cameraReset()
+{
+	iterations = 0;
+	//preColors = new glm::vec3[width * height];		
+	for(int i = 0; i < width * height; i++)
+		renderCam->image[i] = glm::vec3(0,0,0);		
+}
+
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
+	renderCam = &renderScene->renderCam;
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+	else if( key ==GLFW_KEY_A ){   //left
+		//glm::vec3 right = glm::cross(renderCam->views[0], renderCam->ups[0]);
+		//renderCam->positions[0] += - (float)STEP_SIZE * right;
+		renderCam->positions[0].x -= (float)STEP_SIZE;
+		cameraReset();
+	}
+	else if( key ==GLFW_KEY_D ){   //right
+		//glm::vec3 right = glm::cross(renderCam->views[0], renderCam->ups[0]);
+		//renderCam->positions[0] += (float)STEP_SIZE * right;
+		renderCam->positions[0].x += (float)STEP_SIZE;
+		cameraReset();
+	}
+	else if( key ==GLFW_KEY_W ){   //up
+		renderCam->positions[0] += (float)STEP_SIZE * (renderCam->ups[0]);
+		cameraReset();
+	}
+	else if( key ==GLFW_KEY_S ){   //down
+		renderCam->positions[0] += - (float)STEP_SIZE * (renderCam->ups[0]);
+		cameraReset();
+	}
+	else if ( key ==GLFW_KEY_Q ){  //forward
+		renderCam->positions[0] += (float)STEP_SIZE * (renderCam->views[0]);
+		cameraReset();
+	}
+	else if ( key == GLFW_KEY_E ){  //backward
+		renderCam->positions[0] += - (float)STEP_SIZE * (renderCam->views[0]);
+		cameraReset();
+	}
+	else{
+		glm::vec3 translation = *renderCam->positions;
+		glm::vec3 scale(1,1,1);
+		glm::vec3 rotationV(0,0,0);   //view rotation
+		glm::vec3 rotationU(0,0,0);   //up rotation
+		if ( key == GLFW_KEY_UP){  //rotate up
+			rotationV = glm::vec3((float)STEP_SIZE,0,0);   //x-axis rotation
+			/*glm::vec3 translation = *renderCam->positions;
+			glm::vec3 rotation((float)STEP_SIZE,0,0);   //x-axis rotation
+			glm::vec3 scale(1,1,1);
+			glm::mat4 transform = utilityCore::buildTransformationMatrix(translation, rotation, scale);
+			cudaMat4	transformMy = utilityCore::glmMat4ToCudaMat4(transform);
+			glm::vec3 right = glm::cross(renderCam->views[0], renderCam->ups[0]);
+			glm::vec3 newView = multiplyMVMain(transformMy, glm::vec4(*renderCam->views,0.0f));
+			glm::vec3 newUp = glm::cross(right, newView);
+			renderCam->views[0] = newView;
+			renderCam->ups[0] = newUp;
+			cameraReset();*/
+		}
+		else if ( key == GLFW_KEY_DOWN ){  //rotate down
+			rotationV = glm::vec3(-(float)STEP_SIZE,0,0);   //x-axis rotation
+		}
+		else if(key == GLFW_KEY_LEFT){   //rotate to left
+			rotationV = glm::vec3(0,-(float)STEP_SIZE,0);   //y-axis rotation
+		}
+		else if(key == GLFW_KEY_RIGHT){   //rotate to left
+			rotationV = glm::vec3(0,(float)STEP_SIZE,0);   //y-axis rotation
+		}
+		else if(key == GLFW_KEY_COMMA){   //rotate CCW
+			rotationU = glm::vec3(0,0,-(float)STEP_SIZE);   //z-axis rotation
+		}
+		else if(key == GLFW_KEY_PERIOD){   //rotate CW
+			rotationU = glm::vec3(0,0,(float)STEP_SIZE);   //z-axis rotation
+		}
+		glm::mat4 transform;
+		cudaMat4	transformMy;
+		glm::vec3 right, newView, newUp;
+		if(glm::length(rotationV) > 0){
+			transform = utilityCore::buildTransformationMatrix(translation, rotationV, scale);
+			transformMy = utilityCore::glmMat4ToCudaMat4(transform);
+			right = glm::cross(renderCam->views[0], renderCam->ups[0]);
+			newView = multiplyMVMain(transformMy, glm::vec4(renderCam->views[0],0.0f));
+			newUp = glm::cross(right, newView);
+			
+		}
+		else if(glm::length(rotationU) > 0){
+			transform = utilityCore::buildTransformationMatrix(translation, rotationU, scale);
+			transformMy = utilityCore::glmMat4ToCudaMat4(transform);
+			right = glm::cross(renderCam->views[0], renderCam->ups[0]);
+			newUp = multiplyMVMain(transformMy, glm::vec4(renderCam->ups[0],0.0f));
+			newView = glm::cross(newUp, right);
+		}
+		renderCam->views[0] = newView;
+		renderCam->ups[0] = newUp;
+		cameraReset();
+	}
 }
+
+
+

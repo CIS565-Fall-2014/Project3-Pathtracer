@@ -181,14 +181,11 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 	
 }
 
-
- //calculates the direct lighting for a certain hit point and modify color of that hit
-__device__ __host__ void directLighting(int seed, glm::vec3& theColor, glm::vec3& theIntersect, glm::vec3& theNormal, int geoID, 
-	int* lights, int numOfLights, material* cudamats, staticGeom* geoms, int numOfGeoms){
-
-	material curMat = cudamats[geoms[geoID].materialid];  //material of the hit goemetry
-
-	// ******************  choose light first ******************************** //
+ // get shaw ray to a random chosen light, modify the shadowray, return ID of chosen light
+ __device__ __host__ int getRandomShadowRayDirection(float seed, glm::vec3& theIntersect, int* lights, int numOfLights, 
+	 staticGeom* geoms, ray& shadowRay, float& rayLength, glm::vec3 lightNormal, float lightArea){
+	
+	 // ******************  choose light first ******************************** //
 	int chosenLight = lights[0];   //only one light
 	if( numOfLights > 1){   //more than 1 light
 		thrust::default_random_engine rng(hash(seed));
@@ -205,19 +202,31 @@ __device__ __host__ void directLighting(int seed, glm::vec3& theColor, glm::vec3
 		Plight = getRandomPointOnCube( geoms[chosenLight], seed, Lnormal, Larea);
 	}
 	else if( geoms[chosenLight].type == SPHERE ){
+		Plight = getRandomPointOnSphere( geoms[chosenLight], seed, Lnormal, Larea);
 	}
 	
-	// ******************  shadow ray test ******************************** //
-	ray shadowRay;   //shadow ray
-	float rayLength = glm::length(Plight - theIntersect);
+	// ******************  shadow ray test ******************************** // 
 	shadowRay.direction = glm::normalize(Plight - theIntersect);   //from intersect to light
 	shadowRay.origin = theIntersect + (float)EPSILON * shadowRay.direction;
-	
+	rayLength = glm::length(Plight - theIntersect);
+	return chosenLight;
+ }
+
+ //calculates the direct lighting for a certain hit point and modify color of that hit
+__device__ __host__ void directLighting(float seed, glm::vec3& theColor, glm::vec3& theIntersect, glm::vec3& theNormal, int geoID, 
+	int* lights, int numOfLights, material* cudamats, staticGeom* geoms, int numOfGeoms){
+	ray shadowRay;
+	float rayLen,lightArea;
+	glm::vec3 lightNormal;
+	int lightID = getRandomShadowRayDirection(seed, theIntersect, lights, numOfLights, geoms, shadowRay, rayLen, lightNormal, lightArea);
+
+	// ****************** shading if direct illumination ****************** //
+	material curMat = cudamats[geoms[geoID].materialid];  //material of the hit goemetry
 	if(ShadowRayTest(shadowRay, geoms, numOfGeoms, cudamats)  ){
 		float cosTerm = glm::clamp( glm::dot( theNormal, shadowRay.direction ), 0.0f, 1.0f);  //proportion of facing light
-		float cosTerm2 = glm::clamp( glm::dot( Lnormal, -shadowRay.direction ), 0.0f, 1.0f);  //proportion of incoming light
-		float areaSampling =  Larea / (float) pow( rayLength, 2.0f) ;   // dA/r^2
-     	theColor += cudamats[chosenLight].emittance * curMat.color * cosTerm * cosTerm2 * areaSampling ;
+		float cosTerm2 = glm::clamp( glm::dot( lightNormal, -shadowRay.direction ), 0.0f, 1.0f);  //proportion of incoming light
+		float areaSampling =  lightArea / (float) pow( rayLen, 2.0f) ;   // dA/r^2
+     	theColor += cudamats[lightID].emittance * curMat.color * cosTerm * cosTerm2 * areaSampling ;
 	}
 
 	//don't kill any ray in direct lighting calculation
@@ -228,7 +237,7 @@ __device__ __host__ void directLighting(int seed, glm::vec3& theColor, glm::vec3
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
 __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* cudamats, int* lights, int numOfLights){
+                            staticGeom* geoms, int numberOfGeoms, material* cudamats, int* lights, int numOfLights, cameraData cam){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -255,7 +264,6 @@ __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, 
 				r.isDead = true;
 			}
 			else{
-			//float specularTerm = pow(diffuseTerm, curMat.specularExponent);
 
 			//int mode = calculateBSDF(r, Pintersect, Pnormal, color, uncolor, cudamats[matID], hash(index*time));
 				float seed = (float)index * (float)time * ( (float)rayDepth + 1.0f );
@@ -276,7 +284,7 @@ __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, 
 					}
 					//--------------------------------------------------------------------------------------------------------//
 
-					//
+					//----------------------- choosing between reflection or refraction or both -------------------------------//
 					if( curMat.hasRefractive  > 0 && curMat.hasReflective > 0){
 						thrust::default_random_engine rng( hash( seed ) );
 						thrust::uniform_real_distribution<float> u01(0,1);
@@ -314,23 +322,38 @@ __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, 
 							r.color *= curMat.color ;
 					}
 				}
+				//--------------------------------------------------------------------------------------------------------//
 				else if (curMat.hasScatter>0){
-
+					
 				}
 				else{    //diffuse rays
-				
 					thrust::default_random_engine rng( hash( seed ) );
 					thrust::uniform_real_distribution<float> u01(0,1);
 					if((float) u01(rng) < 0.01f ){  //proportion to calculate direct lighting
 						directLighting(seed,r.color,Pintersect,Pnormal,hitGeoID,lights,numOfLights, cudamats,geoms, numberOfGeoms);
 					}
 					else{   //proportion to calculate indirect lighting
-						//r.direction = calculateRandomDirectionInHemisphere( Pnormal, (float) u01(rng), (float) u01(rng));
+						//cos weighted importance sampling
 						r.direction = calculateCosWeightedRandomDirInHemisphere(Pnormal, (float) u01(rng), (float) u01(rng));
-						r.origin = Pintersect + r.direction * 0.001f;
+						r.origin = Pintersect + (float)EPSILON * r.direction ;
 						float diffuseTerm = glm::clamp( glm::dot( Pnormal,r.direction ), 0.0f, 1.0f);
 						r.color *=  diffuseTerm * curMat.color;	
 					}
+				}
+
+				//----------------------------------------- Other Effects ----------------------------------------------//
+				if(curMat.specularExponent > 0){   //specularity  & glossiness
+					thrust::default_random_engine rng( hash( seed ) );
+					thrust::uniform_real_distribution<float> u01(0,1);
+					ray shadowRay;
+					float rayLen,lightArea;
+					glm::vec3 lightNormal;
+					int lightID = getRandomShadowRayDirection(seed, Pintersect, lights, numOfLights, geoms, shadowRay, rayLen, lightNormal, lightArea);
+					glm::vec3 viewDir = glm::normalize( cam.position - Pintersect );
+					glm::vec3 halfVector = glm::normalize(shadowRay.direction + viewDir);  //H=(L+V)/length(L+V)
+					float D = glm::clamp( glm::dot( Pnormal,halfVector), 0.0f, 1.0f);  
+					float specularTerm = pow(D, curMat.specularExponent);   //perfect specular means normal vector = half vector
+					r.color *= specularTerm * curMat.color;
 				}
 			
 			}
@@ -356,16 +379,28 @@ __global__ void initialRayPool(ray * rayPool, cameraData cam, float iterations,g
 	ray r = rayPool[index];
 
 	if( x<= cam.resolution.x && y <= cam.resolution.y ){
-		glm::vec2 jittering = generateRandomNumberAntiAliasing((float)index * iterations, x, y, 0.5f);
+		glm::vec2 jittering = generateRandomNumberAntiAliasing((float)index * iterations, x, y, 0.5f);  //anti-alizsing
 		r = raycastFromCameraKernel( cam.resolution, iterations, jittering.x, jittering.y, cam.position, cam.view, cam.up, cam.fov );
 		r.pixel = index;  //mark ray with pixel indexing, after compaction, (r.pixel) will represent correct pixel location
+
+		if(DEPTH_OF_FIELD){
+			glm::vec3 focalPoint = r.origin + r.direction * cam.focalLength / glm::dot(cam.view, r.direction);   //L = f/cos(theta)
+			thrust::default_random_engine rng(hash((float)index*iterations));
+			thrust::uniform_real_distribution<float> u01(0,1);
+			float theta = 2.0f * PI * u01(rng);
+			float radius = u01(rng) * cam.aperture;
+			glm::vec3 eyeOffset(cos(theta)*radius, sin(theta)*radius, 0);
+			glm::vec3 newEyePoint = cam.position + eyeOffset;  //offseted cam eye location
+			r.origin = newEyePoint;
+			r.direction = glm::normalize(focalPoint - newEyePoint);
+		}
 
 		glm::vec3 Pintersect(0.0f);
 		glm::vec3 Pnormal(0.0f);
 		int geoID = findHitGeo(r, Pintersect, Pnormal, geoms, numberOfGeoms);
 		if( geoID > -1){
 				// cast shadow ray towards lights and calculate direct lighting
-				directLighting(index*iterations, colors[index], Pintersect, Pnormal,geoID, lightIDs, numberOfLights, cudamats, geoms, numberOfGeoms);
+				directLighting((float)index*iterations, colors[index], Pintersect, Pnormal,geoID, lightIDs, numberOfLights, cudamats, geoms, numberOfGeoms);
 
 		}
 		rayPool[index] = r;
@@ -408,6 +443,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.view = renderCam->views[frame];
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
+  cam.aperture = renderCam->aperture;
+  cam.focalLength = renderCam->focalLength;
 
   // material setup
   material* cudamats = NULL;
@@ -459,7 +496,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		int yBlocks = (int) ceil( sqrt((float)numOfRays)/(float)(tileSize) );
 		dim3 newBlocksPerGrid(xBlocks,yBlocks);
 		
-		raytraceRay<<<newBlocksPerGrid, threadsPerBlock>>>(cudarays, (float)iterations, k, (int)numOfRays, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightIDs, numberOfLights);
+		raytraceRay<<<newBlocksPerGrid, threadsPerBlock>>>(cudarays, (float)iterations, k, (int)numOfRays, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightIDs, numberOfLights, cam);
 
 	}
 

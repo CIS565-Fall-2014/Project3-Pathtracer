@@ -24,11 +24,13 @@
 #include "sceneStructs.h"
 #include "image.h"
 #include "raytraceKernel.h"
+#include "cudaMat4.h"
 #include "utilities.h"
+
 #include "scene.h"
 
 using namespace std;
-
+#define STEP_SIZE 0.3
 //-------------------------------
 //----------PATHTRACER-----------
 //-------------------------------
