@@ -115,8 +115,10 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 
+enum pathray_status { ALIVE, DEAD, CULLED };
+
 struct pathray {
-    bool alive;
+    enum pathray_status status;
     int index;
     glm::vec3 color;
     ray r;
@@ -124,7 +126,7 @@ struct pathray {
 
 struct pathray_is_alive {
     __host__ __device__ bool operator()(const struct pathray pr) {
-        return pr.alive;
+        return pr.status == ALIVE;
     }
 };
 
@@ -136,7 +138,7 @@ __global__ void init_pathrays(struct pathray *pathrays, float time, cameraData c
 
     if (x < cam.resolution.x && y < cam.resolution.y) {
         struct pathray pr ={
-            true, index, glm::vec3(1, 1, 1),
+            ALIVE, index, glm::vec3(1, 1, 1),
             raycastFromCameraKernel(cam.resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov),
         };
         pathrays[index] = pr;
@@ -156,7 +158,7 @@ __global__ void merge_dead_pathrays(struct pathray *pathrays, int pathraycount, 
     }
 
     struct pathray pr = pathrays[index];
-    if (!pr.alive && pr.index != -1) {
+    if (pr.status == DEAD) {
         merge_pathray(pr, time, colors);
     }
 }
@@ -169,10 +171,9 @@ __global__ void merge_live_pathrays(struct pathray *pathrays, int pathraycount, 
     }
 
     struct pathray pr = pathrays[index];
-    if (pr.alive && pr.index != -1) {
+    if (pr.status == ALIVE) {
         // If the path never hit a light, assume it's 0 for now.
         // TODO: take a direct path to the light sources?
-        pr.color = glm::vec3();
         merge_pathray(pr, time, colors);
     }
 }
@@ -215,9 +216,7 @@ __global__ void pathray_step(struct pathray *pathrays, int pathraycount, float t
 
     if (tmin > 9e37) {
         // Empty space; abort ray
-        pr.alive = false;
-        // TODO: add some here instead of treating as black?
-        pr.color = glm::vec3();
+        pr.status = CULLED;
         pathrays[index] = pr;
         return;
     }
@@ -226,7 +225,7 @@ __global__ void pathray_step(struct pathray *pathrays, int pathraycount, float t
 
     if (mat.emittance) {
         // Hit a light; abort ray
-        pr.alive = false;
+        pr.status = DEAD;
         pr.color *= mat.emittance * mat.color;
         pathrays[index] = pr;
         return;
@@ -337,9 +336,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
         which = which ^ 1;
     }
     // And finally handle all of the paths that haven't died yet
-    if (bc > 0) {
-        merge_live_pathrays<<<bc, TPB>>>(pathrays[which], pathraycount, time, cudaimage);
-    }
+    // (Disabled until I figure out what to actually do with the colors paths)
+    //if (bc > 0) {
+    //    merge_live_pathrays<<<bc, TPB>>>(pathrays[which], pathraycount, time, cudaimage);
+    //}
 
     sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
