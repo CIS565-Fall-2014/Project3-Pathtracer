@@ -130,7 +130,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * resolution.x);
 
-    thrust::default_random_engine rng(hash(time));
+    thrust::default_random_engine rng(hash(index * time));
     thrust::uniform_real_distribution<float> u01(0, 1);
 
     if (x <= resolution.x && y <= resolution.y) {
@@ -180,7 +180,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
             if (mat.emittance) {
                 // Hit a light; abort ray
-                pr.color = mat.emittance * mat.color;
+                pr.color *= mat.emittance * mat.color;
                 pr.index = -1;
                 continue;
             }
@@ -199,6 +199,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
             }
         }
         if (pr.index != -1) {
+            // If the path never hit a light, assume it's 0 for now.
+            // TODO: take a direct path to the light sources?
             pr.color = glm::vec3();
         }
         colors[index] = (colors[index] * time + pr.color) / (time + 1);
@@ -210,7 +212,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
 
-    int traceDepth = 2; //determines how many bounces the raytracer traces
+    int traceDepth = 4; //determines how many bounces the raytracer traces
 
     // set up crucial magic
     int tileSize = 8;
