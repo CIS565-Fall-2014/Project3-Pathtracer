@@ -269,5 +269,13 @@ above.  Remember:
 * if you have a fast GPU renderer, it is good to show case this with a video to
   show interactivity.  If you do so, please include a link.
 
+Things to keep in mind for "performance analysis":
+(just copy this list over for future projects)
+1. See how changing block/tile size affects performance (Project-1)
+2. Change input parameters to see how rendering time, etc is affected. Plot
+   some graphs to provide visual aids (Project-2)
+3. Throw out some ideas as to how things could be optimized further (Project-2)
+4. Provide extra feature analysis as specified (**Project-3**)
+
 Be sure to open a pull request and to send Harmony your grade and why you
 believe this is the grade you should get.
