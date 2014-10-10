@@ -46,7 +46,7 @@ __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, g
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
   //nothing fancy here
-  return glm::vec3(0,0,0);
+  return glm::reflect(incident, normal);
 }
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION

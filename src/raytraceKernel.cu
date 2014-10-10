@@ -186,17 +186,22 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
             }
 
             // Calculate the ray of the next bounce
-            float raytype = u01(rng) * 1;
+            float branchcount = 2.f;
+            float raytype = u01(rng) * branchcount;
+            glm::vec3 c(branchcount);
             if (raytype < 1) {
                 // Next bounce is diffuse
-                pr.color *= mat.color;
+                c *= mat.color;
                 pr.r.direction = calculateRandomDirectionInHemisphere(
                         tmin_nor, u01(rng), u01(rng));
                 pr.r.origin = tmin_pos + pr.r.direction * 0.001f;
-            } else {
-                pr.index = -1;
-                continue;
+            } else if (raytype < 2) {
+                // Next bounce is specular... or reflective? Something.
+                c *= mat.specularColor * mat.hasReflective;
+                pr.r.direction = calculateReflectionDirection(tmin_nor, r.direction);
+                pr.r.origin = tmin_pos + pr.r.direction * 0.001f;
             }
+            pr.color *= c;
         }
         if (pr.index != -1) {
             // If the path never hit a light, assume it's 0 for now.
