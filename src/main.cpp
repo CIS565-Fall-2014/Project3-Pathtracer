@@ -27,6 +27,7 @@ int main(int argc, char** argv){
     istringstream liness(argv[i]);
     getline(liness, header, '='); getline(liness, data, '=');
     if(strcmp(header.c_str(), "scene")==0){
+		std::cout << "scene::scene is about to be called" << std::endl;
       renderScene = new scene(data);
       loadedScene = true;
     }else if(strcmp(header.c_str(), "frame")==0){
@@ -91,6 +92,7 @@ void runCuda(){
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
   
   if(iterations < renderCam->iterations){
+
     uchar4 *dptr=NULL;
     iterations++;
     cudaGLMapBufferObject((void**)&dptr, pbo);
@@ -105,7 +107,7 @@ void runCuda(){
     for (int i=0; i < renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
-  
+
     // execute the kernel
     cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
     
@@ -114,6 +116,7 @@ void runCuda(){
   } else {
 
     if (!finishedRender) {
+
       // output image file
       image outputImage(renderCam->resolution.x, renderCam->resolution.y);
 

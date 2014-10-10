@@ -13,7 +13,9 @@ scene::scene(string filename){
 	cout << " " << endl;
 	char* fname = (char*)filename.c_str();
 	fp_in.open(fname);
+	//cout << "YES will show up if is_open()" << endl;
 	if(fp_in.is_open()){
+		//cout << "YES!" << endl;
 		while(fp_in.good()){
 			string line;
             utilityCore::safeGetline(fp_in,line);

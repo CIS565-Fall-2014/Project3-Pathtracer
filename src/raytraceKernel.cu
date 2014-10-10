@@ -5,6 +5,8 @@
 //       Peter Kutz and Yining Karl Li's GPU Pathtracer: http://gpupathtracer.blogspot.com/
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
+// SEE HANDWRITTEN NOTES TO UNDERSTAND WHAT TO DO!
+
 #include <stdio.h>
 #include <cuda.h>
 #include <cmath>
@@ -37,6 +39,9 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Function that does the initial raycast from the camera
+
+// HINT: look at the first homework from CIS560! Start at line 250 and go down through the for loop at 328: all
+//       the mathematics I need is already there! (Dunno what "time" is supposed to be though. Will ignore until motion blur or whatever I guess)
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
   ray r;
   r.origin = glm::vec3(0,0,0);
@@ -90,6 +95,10 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
+
+// NOTE: I believe I need to ADD an argument or so for materials/lights (lights are just materials with emittance)
+
+// NOTE: this kernel represents "tracing ONE bounce" 
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms){
 
@@ -98,13 +107,19 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
   int index = x + (y * resolution.x);
 
   if((x<=resolution.x && y<=resolution.y)){
-
-    colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
-   }
+	  //colors[index] += glm::vec3(0, .2, .7);
+	  colors[index] += generateRandomNumberFromThread(resolution, time, x, y);
+	  //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+  }
 }
 
-// TODO: FINISH THIS FUNCTION
+// TODO: FINISH THIS FUNCTION ("Support passing materials and lights to CUDA")
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
+
+// So I'm supposed to increase traceDepth right?
+// Well, maybe not. I will NOT increase traceDepth; and I'll implement pooled rays & stream compaction opt IN THIS FUNCTION.
+// there will be a for loop wrapping the kernel call.
+// raycastFrom
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
   int traceDepth = 1; //determines how many bounces the raytracer traces
@@ -145,10 +160,16 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
 
+  std::cout << "\nKernel launches about to start\n" << std::endl;
+  std::cout << "iterations is: " << iterations << std::endl;
   // kernel launches
   raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms);
 
+  std::cout << "\nraytraceRay call is done\n" << std::endl;
+
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
+
+  std::cout << "\nKernel calls are done\n" << std::endl;
 
   // retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
