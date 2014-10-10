@@ -112,112 +112,157 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
     }
 }
 
+
 struct pathray {
+    bool alive;
     int index;
+    int depth;
     glm::vec3 color;
     ray r;
 };
 
-// TODO: IMPLEMENT THIS FUNCTION
-// Core raytracer kernel
-__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
+struct pathray_is_dead {
+    __host__ __device__ bool operator()(const struct pathray pr) {
+        return !pr.alive;
+    }
+};
+
+__global__ void init_pathrays(struct pathray *pathrays, float time, cameraData cam)
+{
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int x = index % (int) cam.resolution.x;
+    int y = index / (int) cam.resolution.x;
+
+    if (x < cam.resolution.x && y < cam.resolution.y) {
+        struct pathray pr ={
+            true, index, 0, glm::vec3(1, 1, 1),
+            raycastFromCameraKernel(cam.resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov),
+        };
+        pathrays[index] = pr;
+    }
+}
+
+__device__ void merge_pathray(const struct pathray &pr, float time, glm::vec3 *colors)
+{
+    colors[pr.index] = (colors[pr.index] * time + pr.color) / (time + 1);
+}
+
+__global__ void merge_dead_pathrays(struct pathray *pathrays, int pathraycount, float time, glm::vec3 *colors)
+{
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if (index >= pathraycount) {
+        return;
+    }
+
+    struct pathray pr = pathrays[index];
+    if (!pr.alive) {
+        merge_pathray(pr, time, colors);
+    }
+    pathrays[index] = pr;
+}
+
+__global__ void merge_live_pathrays(struct pathray *pathrays, int pathraycount, float time, glm::vec3 *colors)
+{
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if (index >= pathraycount) {
+        return;
+    }
+
+    struct pathray pr = pathrays[index];
+    if (pr.alive) {
+        // If the path never hit a light, assume it's 0 for now.
+        // TODO: take a direct path to the light sources?
+        pr.color = glm::vec3();
+        merge_pathray(pr, time, colors);
+    }
+}
+
+__global__ void pathray_step(struct pathray *pathrays, int pathraycount, float time,
                             staticGeom* geoms, int numberOfGeoms,
                             staticGeom* lights, int numberOfLights,
                             material *mats, int numberOfMaterials)
 {
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if (index >= pathraycount) {
+        return;
+    }
 
-    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-    int index = x + (y * resolution.x);
+    struct pathray pr = pathrays[index];
+    if (!pr.alive) {
+        return;
+    }
 
+    ray r = pr.r;
+    staticGeom tmin_geom;
+    glm::vec3 tmin_pos;
+    glm::vec3 tmin_nor;
+    float tmin = 1e38f;
+    for (int i = 0; i < numberOfGeoms; ++i) {
+        glm::vec3 p;
+        glm::vec3 n;
+        float t = 2e38f;
+        staticGeom g = geoms[i];
+        if (g.type == SPHERE) {
+            t = sphereIntersectionTest(g, r, p, n);
+        } else if (g.type == CUBE) {
+            t = boxIntersectionTest(g, r, p, n);
+        } else if (g.type == MESH) {
+        }
+        if (t > 0 && t < tmin) {
+            tmin = t;
+            tmin_geom = g;
+            tmin_pos = p;
+            tmin_nor = n;
+        }
+    }
+
+    if (tmin > 9e37) {
+        // Empty space; abort ray
+        pr.alive = false;
+        // TODO: add some here instead of treating as black?
+        pr.color = glm::vec3();
+        pathrays[index] = pr;
+        return;
+    }
+
+    material mat = mats[tmin_geom.materialid];
+
+    if (mat.emittance) {
+        // Hit a light; abort ray
+        pr.alive = false;
+        pr.color *= mat.emittance * mat.color;
+        pathrays[index] = pr;
+        return;
+    }
+
+    // Calculate the ray of the next bounce
     thrust::default_random_engine rng(hash(index * time));
     thrust::uniform_real_distribution<float> u01(0, 1);
-
-    if (x <= resolution.x && y <= resolution.y) {
-        struct pathray pr = {
-            index, glm::vec3(1, 1, 1),
-            raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov),
-        };
-        for (int depth = 0; depth < rayDepth; ++depth) {
-            if (pr.index == -1) {
-                // This path was terminated
-                continue;
-            }
-
-            ray r = pr.r;
-            staticGeom tmin_geom;
-            glm::vec3 tmin_pos;
-            glm::vec3 tmin_nor;
-            float tmin = 1e38f;
-            for (int i = 0; i < numberOfGeoms; ++i) {
-                glm::vec3 p;
-                glm::vec3 n;
-                float t = 2e38f;
-                staticGeom g = geoms[i];
-                if (g.type == SPHERE) {
-                    t = sphereIntersectionTest(g, r, p, n);
-                } else if (g.type == CUBE) {
-                    t = boxIntersectionTest(g, r, p, n);
-                } else if (g.type == MESH) {
-                }
-                if (t > 0 && t < tmin) {
-                    tmin = t;
-                    tmin_geom = g;
-                    tmin_pos = p;
-                    tmin_nor = n;
-                }
-            }
-
-            if (tmin > 9e37) {
-                // Empty space; abort ray
-                // TODO: add some here instead of treating as black?
-                pr.index = -1;
-                pr.color = glm::vec3();
-                continue;
-            }
-
-            material mat = mats[tmin_geom.materialid];
-
-            if (mat.emittance) {
-                // Hit a light; abort ray
-                pr.color *= mat.emittance * mat.color;
-                pr.index = -1;
-                continue;
-            }
-
-            // Calculate the ray of the next bounce
-            float branchcount = 2.f;
-            float raytype = u01(rng) * branchcount;
-            glm::vec3 c(branchcount);
-            if (raytype < 1) {
-                // Next bounce is diffuse
-                c *= mat.color;
-                pr.r.direction = calculateRandomDirectionInHemisphere(
-                        tmin_nor, u01(rng), u01(rng));
-                pr.r.origin = tmin_pos + pr.r.direction * 0.001f;
-            } else if (raytype < 2) {
-                // Next bounce is specular... or reflective? Something.
-                c *= mat.specularColor * mat.hasReflective;
-                pr.r.direction = calculateReflectionDirection(tmin_nor, r.direction);
-                pr.r.origin = tmin_pos + pr.r.direction * 0.001f;
-            }
-            pr.color *= c;
-        }
-        if (pr.index != -1) {
-            // If the path never hit a light, assume it's 0 for now.
-            // TODO: take a direct path to the light sources?
-            pr.color = glm::vec3();
-        }
-        colors[index] = (colors[index] * time + pr.color) / (time + 1);
+    float branchcount = 2.f;
+    float raytype = u01(rng) * branchcount;
+    glm::vec3 c(branchcount);
+    if (raytype < 1) {
+        // Next bounce is diffuse
+        c *= mat.color;
+        pr.r.direction = calculateRandomDirectionInHemisphere(
+                tmin_nor, u01(rng), u01(rng));
+        pr.r.origin = tmin_pos + pr.r.direction * 0.001f;
+    } else if (raytype < 2) {
+        // Next bounce is specular... or reflective? Something.
+        c *= mat.specularColor * mat.hasReflective;
+        pr.r.direction = calculateReflectionDirection(tmin_nor, r.direction);
+        pr.r.origin = tmin_pos + pr.r.direction * 0.001f;
     }
+    pr.color *= c;
+    pathrays[index] = pr;
 }
 
 // TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
-
-    int traceDepth = 4; //determines how many bounces the raytracer traces
+    const int traceDepth = 4; //determines how many bounces the raytracer traces
+    const int pixelcount = ((int) renderCam->resolution.x) * ((int) renderCam->resolution.y);
 
     // set up crucial magic
     int tileSize = 8;
@@ -260,6 +305,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cudaMalloc((void**)&cudamats, numberOfMaterials * sizeof(material));
     cudaMemcpy(cudamats, materials, numberOfMaterials * sizeof(material), cudaMemcpyHostToDevice);
 
+    struct pathray *pathrays = NULL;
+    cudaMalloc((void **) &pathrays, pixelcount * sizeof(struct pathray));
+
     // package camera
     cameraData cam;
     cam.resolution = renderCam->resolution;
@@ -269,11 +317,27 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cam.fov = renderCam->fov;
 
     // kernel launches
-    raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(
-            renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage,
+    const int TPB = 256;
+    int pathraycount = pixelcount;
+    int bc = (pathraycount + TPB - 1) / TPB;
+    float time = iterations;
+    init_pathrays<<<bc, TPB>>>(pathrays, time, cam);
+    for (int depth = 0; depth < traceDepth; ++depth) {
+        // Compute one ray along each path
+        pathray_step<<<bc, TPB>>>(pathrays, pathraycount, time,
             cudageoms, numberOfGeoms,
             cudalights, numberOfLights,
             cudamats, numberOfMaterials);
+        // Merge all of the dead paths into the image
+        merge_dead_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
+        // Stream compact all of the dead paths away
+        // TODO: enable this later
+        //pathraycount = thrust::remove_if(thrust::device,
+        //        pathrays, pathrays + pathraycount, pathray_is_dead());
+        bc = (pathraycount + TPB - 1) / TPB;
+    }
+    // And finally handle all of the paths that haven't died yet
+    merge_live_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
 
     sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
@@ -284,6 +348,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cudaFree(cudaimage);
     cudaFree(cudageoms);
     cudaFree(cudamats);
+    cudaFree(pathrays);
     delete[] geomList;
 
     // make certain the kernel has completed
