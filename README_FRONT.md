@@ -11,7 +11,9 @@ Text overview, some pictures.
 
 ### Details on what I implemented
 
-Functions, issues I ran into
+##### getRandomPointOnSphere()
+
+Used: http://mathworld.wolfram.com/SpherePointPicking.html
 
 
 
