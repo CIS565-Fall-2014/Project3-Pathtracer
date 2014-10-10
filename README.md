@@ -38,7 +38,7 @@ Both clear glass or colored glass can be handled here. Wondering doing some fros
 * Interactive camera
 Interactive Camera is implemented to provide flexible in rendering angles, including pan, tilt, zoom, everything. 
 Play with camera like a camera man! :) Rendering will start fresh every time camera is changed.
-W - move up
+**W - move up
 Q - move down
 S - move left
 D - move right
