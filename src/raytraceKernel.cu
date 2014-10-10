@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <cuda.h>
 #include <cmath>
+#include <thrust/execution_policy.h>
+#include <thrust/remove.h>
 
 #include "sceneStructs.h"
 #include "glm/glm.hpp"
@@ -129,9 +131,9 @@ struct pathray_is_dead {
 
 __global__ void init_pathrays(struct pathray *pathrays, float time, cameraData cam)
 {
-    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-    int x = index % (int) cam.resolution.x;
-    int y = index / (int) cam.resolution.x;
+    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+    int index = x + (y * cam.resolution.x);
 
     if (x < cam.resolution.x && y < cam.resolution.y) {
         struct pathray pr ={
@@ -155,10 +157,9 @@ __global__ void merge_dead_pathrays(struct pathray *pathrays, int pathraycount, 
     }
 
     struct pathray pr = pathrays[index];
-    if (!pr.alive) {
+    if (!pr.alive && pr.index != -1) {
         merge_pathray(pr, time, colors);
     }
-    pathrays[index] = pr;
 }
 
 __global__ void merge_live_pathrays(struct pathray *pathrays, int pathraycount, float time, glm::vec3 *colors)
@@ -188,9 +189,6 @@ __global__ void pathray_step(struct pathray *pathrays, int pathraycount, float t
     }
 
     struct pathray pr = pathrays[index];
-    if (!pr.alive) {
-        return;
-    }
 
     ray r = pr.r;
     staticGeom tmin_geom;
@@ -321,20 +319,22 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     int pathraycount = pixelcount;
     int bc = (pathraycount + TPB - 1) / TPB;
     float time = iterations;
-    init_pathrays<<<bc, TPB>>>(pathrays, time, cam);
+    init_pathrays<<<fullBlocksPerGrid, threadsPerBlock>>>(pathrays, time, cam);
     for (int depth = 0; depth < traceDepth; ++depth) {
         // Compute one ray along each path
         pathray_step<<<bc, TPB>>>(pathrays, pathraycount, time,
             cudageoms, numberOfGeoms,
             cudalights, numberOfLights,
             cudamats, numberOfMaterials);
-        // Merge all of the dead paths into the image
-        merge_dead_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
-        // Stream compact all of the dead paths away
-        // TODO: enable this later
-        //pathraycount = thrust::remove_if(thrust::device,
-        //        pathrays, pathrays + pathraycount, pathray_is_dead());
-        bc = (pathraycount + TPB - 1) / TPB;
+        if (depth != traceDepth - 1) {
+            // Merge all of the dead paths into the image
+            merge_dead_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
+            // Stream compact all of the dead paths away
+            //   (this is required; otherwise dead paths keep getting merged!)
+            pathraycount = thrust::remove_if(thrust::device,
+                    pathrays, pathrays + pathraycount, pathray_is_dead()) - pathrays;
+            bc = (pathraycount + TPB - 1) / TPB;
+        }
     }
     // And finally handle all of the paths that haven't died yet
     merge_live_pathrays<<<bc, TPB>>>(pathrays, pathraycount, time, cudaimage);
