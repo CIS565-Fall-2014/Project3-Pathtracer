@@ -383,7 +383,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		iterations = 0;
 	}
 
-		//rotate around up
+		//rotate around wing
 	if((key == GLFW_KEY_T || key == GLFW_KEY_B) && action == GLFW_PRESS){
 		glm::vec3 view = glm::vec3(renderCam->views->x, renderCam->views->y, renderCam->views->z);
 		glm::vec3 up = glm::vec3(renderCam->ups->x, renderCam->ups->y, renderCam->ups->z);
@@ -427,6 +427,19 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	}
 	if((key == GLFW_KEY_I ) && action == GLFW_PRESS){
 		renderCam->focalLength -= 0.2;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if((key == GLFW_KEY_K ) && action == GLFW_PRESS){
+		renderCam->aperture += 0.05;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if((key == GLFW_KEY_L ) && action == GLFW_PRESS){
+		renderCam->aperture -= 0.05;
+		if(renderCam->aperture < 0)
+			renderCam->aperture = 0;
+
 		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
 		iterations = 0;
 	}

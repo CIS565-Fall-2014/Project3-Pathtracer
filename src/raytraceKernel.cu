@@ -370,7 +370,7 @@ __global__ void raytraceRay(ray* rayLast, int numberOfThreadX, glm::vec2 resolut
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool isDOF){
   
-	int traceDepth = 3; //determines how many bounces the raytracer traces
+	int traceDepth = 5; //determines how many bounces the raytracer traces
 	int numberOfPixels = (int)renderCam->resolution.x*(int)renderCam->resolution.y;
 
 
