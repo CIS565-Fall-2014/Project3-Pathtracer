@@ -34,6 +34,52 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 
   return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
 }
+
+__host__ __device__ glm::vec3 rayTraceDepth(ray thisRay, int depth, int maxDepth, staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
+  if(depth > maxDepth){
+    return glm::vec3(0,0,0);
+  }
+  //intersection checks:
+  float distToIntersect = FLT_MAX;//infinite distance
+  float tmpDist;
+  glm::vec3 tmpIntersectPoint, tmpIntersectNormal, intersectPoint, intersectNormal;
+  material mat;
+  
+  for(int i = 0; i < numberOfGeoms; i++){
+    if (geoms[i].type == SPHERE){
+      tmpDist = sphereIntersectionTest(geoms[i], thisRay, tmpIntersectPoint, tmpIntersectNormal);
+    }else if (geoms[i].type == CUBE){
+      tmpDist = boxIntersectionTest(   geoms[i], thisRay, tmpIntersectPoint, tmpIntersectNormal);
+    }//insert triangles here for meshes
+    if (tmpDist != -1 && tmpDist < distToIntersect){ //hit is new closest
+      distToIntersect = tmpDist;
+      intersectNormal = tmpIntersectNormal;
+      intersectPoint  = tmpIntersectPoint;
+      mat = materials[geoms[i].materialid];
+    }
+  }
+  //Post Intersection work
+  if(distToIntersect == FLT_MAX){ // if miss
+    return glm::vec3(0,0,0);//return black
+  }
+  glm::vec3 emittance = mat.emittance * mat.color; //optionally short circuit here
+  
+  //pick new direction
+  ray newRay;
+  newRay.origin = intersectPoint;
+  // get two random numbers generate random direction, compare with normal and flip if necessary
+  //newRay.direction = 
+  newRay.direction = glm::reflect(thisRay.direction, intersectNormal); //perfect reflection
+  
+  //Calculate BRDF
+  float BRDF = .5;
+  
+  glm::vec3 reflected = rayTraceDepth(newRay, depth + 1, maxDepth, geoms, numberOfGeoms, materials, numberOfMaterials);
+  
+  return emittance + (BRDF * reflected);
+  
+}
+
 ///////////////////////////////////
 //////////////////////////////////
 // TODO: IMPLEMENT THIS FUNCTION/
@@ -117,67 +163,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
   if((x<=resolution.x && y<=resolution.y)){
     ray thisRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+    glm::vec3 col = rayTraceDepth(thisRay, 0, rayDepth, geoms, numberOfGeoms, materials, numberOfMaterials);
     
-    float dist = FLT_MAX;//infinite distance
-    glm::vec3 col, iPoint, iNorm, tmpIPoint, tmpINorm;
-    material mat;
-    float weight = 1;
-    float tmp;
-
-    //intersection tests
-    for (int j = 0; j < rayDepth; j++){ //eventually move this out of method and use string compaction.
-      dist = FLT_MAX;
-      
-      for(int i = 0; i < numberOfGeoms; i++){
-        if (geoms[i].type == SPHERE){
-          tmp = sphereIntersectionTest(geoms[i], thisRay, tmpIPoint, tmpINorm);
-        }else if (geoms[i].type == CUBE){
-          tmp = boxIntersectionTest(   geoms[i], thisRay, tmpIPoint, tmpINorm);
-        }
-        if (tmp != -1 && tmp < dist){//hit
-          dist = tmp;
-          iNorm = tmpINorm;
-          iPoint = tmpIPoint;
-          mat = materials[geoms[i].materialid];
-          col = mat.color;
-        }
-      }
-      //after each depth:
-      if(dist == FLT_MAX){ //miss
-        col = glm::vec3(0,0,0);
-        break;
-      }else{
-        //Is this a light?
-        if (mat.emittance > 0){
-          //Calculate color and exit
-          
-        }
-        
-        //update ray and colors
-        if (mat.hasReflective > 0.0){
-          //update ray
-          thisRay.origin = getPointOnRay(thisRay, dist);
-          thisRay.direction = glm::reflect(thisRay.direction, iNorm);
-        }else{
-          //perfect diffuse
-          //update ray
-          thisRay.origin = getPointOnRay(thisRay, dist);
-          glm::vec3 newDirection = calculateRandomDirectionInHemisphere(iNorm, 0.5f, 0.5f);
-          if(glm::dot(newDirection, iNorm) < 0){
-            //flip direction to other hemisphere
-            newDirection.x = 0.0f - newDirection.x;
-            newDirection.y = 0.0f - newDirection.y;
-            newDirection.z = 0.0f - newDirection.z;
-          }
-          thisRay.direction = newDirection;
-        }
-        
-      }
-    }
-
-    if (dist == FLT_MAX){
-        col = glm::vec3(abs(thisRay.direction.x),abs(thisRay.direction.y), abs(thisRay.direction.z));
-    }
     //colors[index] = col;
     colors[index] = (colors[index] * (time - 1.0f)/time) + (col * 1.0f/time);
   }
