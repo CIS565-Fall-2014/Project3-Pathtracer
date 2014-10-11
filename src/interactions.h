@@ -96,7 +96,19 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
 // I guess xi1 and xi2 are random numbers given to me. Based on personal testing of calculateRandomDirectionInHemisphere,
 // I expect these random numbers to be between 0 and 1.
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
-  return glm::vec3(0,0,0);
+
+	// theta, phi
+	float theta = 2. * PI * xi1;
+	float phi = acos(2. * xi2 - 1.);
+
+	// calculate cartesian coords
+	float x = sin(phi) * cos(theta);
+	float y = sin(phi) * sin(theta);
+	float z = cos(phi);
+
+	glm::vec3 point(x,y,z);
+
+	return point;
 }
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION

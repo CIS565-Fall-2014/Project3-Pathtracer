@@ -131,7 +131,7 @@ reference are marked with the comment LOOK.
 
 * interactions.h contains functions for ray-object interactions that define how
   rays behave upon hitting materials and objects. You will need to complete:
-    * *[IN PROGRESS]* getRandomDirectionInSphere(), which generates a random direction in a
+    * **[DONE]** getRandomDirectionInSphere(), which generates a random direction in a
       sphere with a uniform probability. This function works in a fashion
       similar to that of calculateRandomDirectionInHemisphere(), which generates a
       random cosine-weighted direction in a hemisphere.

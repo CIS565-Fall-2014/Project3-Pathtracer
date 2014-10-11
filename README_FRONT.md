@@ -50,6 +50,31 @@ same thing as getRandomPointOnSphere().
 Since the 3 incomplete functions I need to finish up are dependent on each other,
 I'll be working on them at the same time.  
 
+I decided to proceed in a series of checkpoints to make debugging easier.
+
+Checkpoint 1: Fix static so that the colors[] array now ACCUMULATES the value
+it gets on each iteration, and make sure the right stuff is sent to the PBO and
+the .bmp output.
+
+**[COMPLETED]**
+
+This causes the screen to display an ever-more featureless gray as the iteration
+count increases, as expected. (Over time, a bunch of random colors averages out
+to 50% gray.)
+
+![checkpoint 1-1](images/chkpt1-1.png)
+![checkpoint 1-2](images/chkpt1-2.png)
+![checkpoint 1-3](images/chkpt1-3.png)
+
+The output .bmp file exactly matches the last screenshot above.
+
+
+
+
+
+
+
+
 
 ### Extra feature analysis
 
