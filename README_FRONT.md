@@ -3,6 +3,8 @@ CIS 565 Project 3: CUDA Pathtracer
 
 #### Michael Li
 
+### _Overview_
+
 [Text overview, some pictures.]
 
 
@@ -10,7 +12,7 @@ CIS 565 Project 3: CUDA Pathtracer
 
 
 
-### Details on what I implemented
+### _Details on what I implemented_
 
 ##### getRandomPointOnSphere()
 
@@ -76,7 +78,7 @@ The output .bmp file exactly matches the last screenshot above.
 
 
 
-### Extra feature analysis
+### _Extra feature analysis_
 
 ["extra features", performance analysis]
 
@@ -86,6 +88,6 @@ The output .bmp file exactly matches the last screenshot above.
 
 
 
-### Overall comments
+### _Overall comments_
 
 [Potential ideas for better optimization]
