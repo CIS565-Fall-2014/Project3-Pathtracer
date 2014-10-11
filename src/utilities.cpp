@@ -4,14 +4,10 @@
 //  File: utilities.cpp
 //  A collection/kitchen sink of generally useful functions
 
-#define GLM_FORCE_RADIANS
-
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/matrix_inverse.hpp>
 #include <iostream>
-#include <cstdio>
-
 #include "utilities.h"
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/matrix_inverse.hpp"
 
 float utilityCore::clamp(float f, float min, float max){
     if(f<min){

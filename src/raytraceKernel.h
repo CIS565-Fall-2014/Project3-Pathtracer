@@ -6,14 +6,35 @@
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
 #ifndef RAYTRACEKERNEL_H
-#define RAYTRACEKERNEL_H
+#define PATHTRACEKERNEL_H
 
 #include <stdio.h>
 #include <thrust/random.h>
 #include <cuda.h>
 #include <cmath>
 #include "sceneStructs.h"
+#include "glm/gtc/matrix_transform.hpp"
+#include <time.h>
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+#if CUDA_VERSION >= 5000
+    #include <helper_math.h>
+#else
+    #include <cutil_math.h>
+#endif
+
+void cudaRaytraceCoreStream(uchar4* pos, camera* renderCam, int frame, int iterations, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms,
+	                  int numberOfGeoms);
+
+void testStream(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms,
+	                  int numberOfGeoms);
+
+void cudaInit(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms,
+	                  int numberOfGeoms);
+
+void cudaFreeCPU();
+
+// void cudaFree();
 
 #endif

@@ -1,273 +1,80 @@
-CIS 565 Project3 : CUDA Pathtracer
-===================
+Vulcan
+============
 
-Fall 2014
+Vulcan is a GPU accelerated, physically-based path tracer written in CUDA and C++.  You can look [here] for a more complete breakdown and development blog. 
 
-Due Wed, 10/8 (submit without penalty until Sun, 10/12)
+Features
+--------
 
-## INTRODUCTION
-In this project, you will implement a CUDA based pathtracer capable of
-generating pathtraced rendered images extremely quickly. Building a pathtracer can be viewed as a generalization of building a raytracer, so for those of you who have taken 460/560, the basic concept should not be very new to you. For those of you that have not taken
-CIS460/560, raytracing is a technique for generating images by tracing rays of
-light through pixels in an image plane out into a scene and following the way
-the rays of light bounce and interact with objects in the scene. More
-information can be found here:
-http://en.wikipedia.org/wiki/Ray_tracing_(graphics). Pathtracing is a generalization of this technique by considering more than just the contribution of direct lighting to a surface.
+Here's a quick down break down of the features:
+  - Supports triangle soup meshes, as well as cube and sphere primitives.
+  - Supports a variety of simple BRDFs - Lambertian diffuse, Blinn-Phong specularity, Fresnel reflection / refraction, Oren-Nayar rough diffuse, Cook-Torrance rough specular
+  - Supports a few super sampling techniques - motion blur, depth of field, and anti-aliasing.
 
-Since in this class we are concerned with working in generating actual images
-and less so with mundane tasks like file I/O, this project includes basecode
-for loading a scene description file format, described below, and various other
-things that generally make up the render "harness" that takes care of
-everything up to the rendering itself. The core renderer is left for you to
-implement.  Finally, note that while this basecode is meant to serve as a
-strong starting point for a CUDA pathtracer, you are not required to use this
-basecode if you wish, and you may also change any part of the basecode
-specification as you please, so long as the final rendered result is correct.
+![Base PT Image][base pt image]
 
-## CONTENTS
-The Project3 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio
-  solution and the OSX and Linux makefiles reference this folder for all 
-  source; the base source code compiles on Linux, OSX and Windows without 
-  modification.  If you are building on OSX, be sure to uncomment lines 4 & 5 of
-  the CMakeLists.txt in order to make sure CMake builds against clang.
-* data/scenes/ contains an example scene description file.
-* renders/ contains an example render of the given example scene file. 
-* windows/ contains a Windows Visual Studio 2010 project and all dependencies
-  needed for building and running on Windows 7. If you would like to create a
-  Visual Studio 2012 or 2013 projects, there are static libraries that you can
-  use for GLFW that are in external/bin/GLFW (Visual Studio 2012 uses msvc110, 
-  and Visual Studio 2013 uses msvc120)
-* external/ contains all the header, static libraries and built binaries for
-  3rd party libraries (i.e. glm, GLEW, GLFW) that we use for windowing and OpenGL
-  extensions
+This image shows 3 spheres floating in a Cornell box.  All 3 have simple diffuse BRDFs.  The red sphere is exhibiting slight motion blur.
 
-## RUNNING THE CODE
-The main function requires a scene description file (that is provided in data/scenes). 
-The main function reads in the scene file by an argument as such :
-'scene=[sceneFileName]'
 
-If you are using Visual Studio, you can set this in the Debugging > Command Arguments section
-in the Project properties.
+![Base PT Image][ct fres]
 
-## REQUIREMENTS
-In this project, you are given code for:
+This scene has the same geometry, but the spheres now have more interesting BRDFs. The red sphere now exhibits Cook-Torrance specularity, which gives a rougher appearance than the more common Blinn-Phong model.  The other 2 spheres are exhibiting Fresnel reflection/refraction.
 
-* Loading, reading, and storing the scene scene description format
-* Example functions that can run on both the CPU and GPU for generating random
-  numbers, spherical intersection testing, and surface point sampling on cubes
-* A class for handling image operations and saving images
-* Working code for CUDA-GL interop
+![Base PT Image][fres]
 
-You will need to implement the following features:
+This image is a visual explanation of Fresnel reflection/refraction.  The left sphere is pure refraction, while the right sphere is pure reflection.  The center sphere combines the two.  The combination is somewhat mathematical, but it involves analysing the incoming and outgoing ray direction.
 
-* Raycasting from a camera into a scene through a pixel grid
-* Diffuse surfaces
-* Perfect specular reflective surfaces
-* Cube intersection testing
-* Sphere surface point sampling
-* Stream compaction optimization
+![Base PT Image][obj]
 
-You are also required to implement at least 2 of the following features:
+Here's an image to show triangular meshes being rendered in the system.  The white spheres are lights.
 
-* Texture mapping 
-* Bump mapping
-* Depth of field
-* Refraction, i.e. glass
-* OBJ Mesh loading and rendering
-* Interactive camera
-* Motion blur
-* Subsurface scattering
+Overall, the functionality of the renderer is quite limited, but I think it's a good start for further study, and I learned a lot about GPU programming through working on this project.
 
-The 'extra features' list is not comprehensive.  If you have a particular feature
-you would like to implement (e.g. acceleration structures, etc.) please contact us 
-first!
+##Performance
 
-For each 'extra feature' you must provide the following analysis :
-* overview write up of the feature
-* performance impact of the feature
-* if you did something to accelerate the feature, why did you do what you did
-* compare your GPU version to a CPU version of this feature (you do NOT need to 
-  implement a CPU version)
-* how can this feature be further optimized (again, not necessary to implement it, but
-  should give a roadmap of how to further optimize and why you believe this is the next
-  step)
+Now, I'm going to talk a bit about the performance of the renderer, as well as the impact of some of the features on that performance.
 
-## BASE CODE TOUR
-You will be working in three files: raytraceKernel.cu, intersections.h, and
-interactions.h. Within these files, areas that you need to complete are marked
-with a TODO comment. Areas that are useful to and serve as hints for optional
-features are marked with TODO (Optional). Functions that are useful for
-reference are marked with the comment LOOK.
+###Stream Compaction
 
-* raytraceKernel.cu contains the core raytracing CUDA kernel. You will need to
-  complete:
-    * cudaRaytraceCore() handles kernel launches and memory management; this
-      function already contains example code for launching kernels,
-      transferring geometry and cameras from the host to the device, and transferring
-      image buffers from the host to the device and back. You will have to complete
-      this function to support passing materials and lights to CUDA.
-    * raycastFromCameraKernel() is a function that you need to implement. This
-      function once correctly implemented should handle camera raycasting. 
-    * raytraceRay() is the core raytracing CUDA kernel; all of your pathtracing
-      logic should be implemented in this CUDA kernel. raytraceRay() should
-      take in a camera, image buffer, geometry, materials, and lights, and should
-      trace a ray through the scene and write the resultant color to a pixel in the
-      image buffer.
+I used a technique called stream compaction to speed up the renderer.  Without going into unnecessary detail, stream compaction involves thinking about data in a slightly different way.  If you're not familiar with how a GPU works, you'll need to know that a GPU has a large number of lightweight threads.  That means that you can do a lot of (simple) operations at the same time.  That's why things that run on the GPU have the reputation of being very fast.
 
-* intersections.h contains functions for geometry intersection testing and
-  point generation. You will need to complete:
-    * boxIntersectionTest(), which takes in a box and a ray and performs an
-      intersection test. This function should work in the same way as
-      sphereIntersectionTest().
-    * getRandomPointOnSphere(), which takes in a sphere and returns a random
-      point on the surface of the sphere with an even probability distribution.
-      This function should work in the same way as getRandomPointOnCube(). You can
-      (although do not necessarily have to) use this to generate points on a sphere
-      to use a point lights, or can use this for area lighting.
+An easy way to think about rendering on the GPU is to think of each pixel as a single thread.  That works pretty well, because at the end of the day, each pixel can be rendered individually, without any information from other pixels.  That's good, because inter-thread communication can be slow.  There is one problem with this methodology, however.  Imagine 2 threads running, and 1 doesn't hit anything, while the other gets trapped between 2 mirrors.  The first thread has finished its work, while the second will have to do a lot of work before finishing.  This is not an efficient use of your resources!  A smart thing to do would be to recognize that the first thread is done, and put it to work helping the second.  But how do you do that?  One way is to use a stream compaction!
 
-* interactions.h contains functions for ray-object interactions that define how
-  rays behave upon hitting materials and objects. You will need to complete:
-    * getRandomDirectionInSphere(), which generates a random direction in a
-      sphere with a uniform probability. This function works in a fashion
-      similar to that of calculateRandomDirectionInHemisphere(), which generates a
-      random cosine-weighted direction in a hemisphere.
-    * calculateBSDF(), which takes in an incoming ray, normal, material, and
-      other information, and returns an outgoing ray. You can either implement
-      this function for ray-surface interactions, or you can replace it with your own
-      function(s).
+A better way is to think of each thread as a single bounce of a ray through the scene.  That way, when you run into the case described above, you can use your resources in a more complete way.
 
-You will also want to familiarize yourself with:
+#### Stream compaction performace impact : 5.5x speedup!
 
-* sceneStructs.h, which contains definitions for how geometry, materials,
-  lights, cameras, and animation frames are stored in the renderer. 
-* utilities.h, which serves as a kitchen-sink of useful functions
+That's great, but I could still push the performance of this technique further.  There are better stream compaction algorithm out there, and I also imagine that there are implementations that are much faster than mine.
 
-## NOTES ON GLM
-This project uses GLM, the GL Math library, for linear algebra. You need to
-know two important points on how GLM is used in this project:
+---------
 
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed
-  via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is
-  used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but
-  pre-Fermi cards do not play nice with GLM matrices. As such, in this project,
-  GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found
-  in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is
-  provided as multiplyMV() in intersections.h.
+###Super Sampling (DOF, Anti-Aliasing, Motion Blur)
 
-## SCENE FORMAT
-This project uses a custom scene description format.
-Scene files are flat text files that describe all geometry, materials,
-lights, cameras, render settings, and animation frames inside of the scene.
-Items in the format are delimited by new lines, and comments can be added at
-the end of each line preceded with a double-slash.
+Depth of Field, Anti-Aliasing, and Motion Blur can be accomplished in a similar fashion.  Instead of taking a single sample per frame, you take multiple samples!  For DOF, you sample the camera's position.  This attempts to simulate how a real camera would achieve depth of field (although it is a rather crude attempt).  For anti-aliasing, you sample the pixel position.  And for motion blur, you sample an object position in space.  You may be asking, won't all those extra samples be really expensive?  Luckily for us, we're already taking multiple samples every frame!  To eliminate the noise inherent to naive path tracers, we have to run the algorithm many times per frame!
 
-Materials are defined in the following fashion:
+#### Super Sampling performace impact : Free!
 
-* MATERIAL (material ID)								//material header
-* RGB (float r) (float g) (float b)					//diffuse color
-* SPECX (float specx)									//specular exponent
-* SPECRGB (float r) (float g) (float b)				//specular color
-* REFL (bool refl)									//reflectivity flag, 0 for
-  no, 1 for yes
-* REFR (bool refr)									//refractivity flag, 0 for
-  no, 1 for yes
-* REFRIOR (float ior)									//index of refraction
-  for Fresnel effects
-* SCATTER (float scatter)								//scatter flag, 0 for
-  no, 1 for yes
-* ABSCOEFF (float r) (float b) (float g)				//absorption
-  coefficient for scattering
-* RSCTCOEFF (float rsctcoeff)							//reduced scattering
-  coefficient
-* EMITTANCE (float emittance)							//the emittance of the
-  material. Anything >0 makes the material a light source.
+That's great!  You get these things for free!  These would also be free in a CPU implementation.
 
-Cameras are defined in the following fashion:
+###Triangle Mesh Primitives
 
-* CAMERA 												//camera header
-* RES (float x) (float y)								//resolution
-* FOVY (float fovy)										//vertical field of
-  view half-angle. the horizonal angle is calculated from this and the
-  reslution
-* ITERATIONS (float interations)							//how many
-  iterations to refine the image, only relevant for supersampled antialiasing,
-  depth of field, area lights, and other distributed raytracing applications
-* FILE (string filename)									//file to output
-  render to upon completion
-* frame (frame number)									//start of a frame
-* EYE (float x) (float y) (float z)						//camera's position in
-  worldspace
-* VIEW (float x) (float y) (float z)						//camera's view
-  direction
-* UP (float x) (float y) (float z)						//camera's up vector
+The nice thing about triangle meshes is that you can render more interesting objects than cubes and spheres!  However, that interest comes with a price.  Each triangle intersection test takes about as long as a test for a sphere or cube.  And your meshes will usually have many triangles!  That means that your renderer has a lot more work to do.  One simple speed up to try to combat this problem is to use boudning boxes, which prevent your renderer from testing against all of those triangle when it doesn't have to.
 
-Objects are defined in the following fashion:
-* OBJECT (object ID)										//object header
-* (cube OR sphere OR mesh)								//type of object, can
-  be either "cube", "sphere", or "mesh". Note that cubes and spheres are unit
-  sized and centered at the origin.
-* material (material ID)									//material to
-  assign this object
-* frame (frame number)									//start of a frame
-* TRANS (float transx) (float transy) (float transz)		//translation
-* ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
-* SCALE (float scalex) (float scaley) (float scalez)		//scale
+#### Triangle Mesh Primitives performace impact : Depends, scene complexity is generally much higher.
 
-An example scene file setting up two frames inside of a Cornell Box can be
-found in the scenes/ directory.
+One glaring shortcoming of this renderer is the lack of a sophisticated acceleration structure, like a KD-Tree of BVH.  On the CPU, you run into the exact same problem of scene complexity.
 
-For meshes, note that the base code will only read in .obj files. For more 
-information on the .obj specification see http://en.wikipedia.org/wiki/Wavefront_.obj_file.
+###Cook-Torrance, Oren-Nayar, Fresnel
 
-An example of a mesh object is as follows:
+The first 2 BRDFs are fancier progressions of the more common Lambertian diffuse and Blinn-Phong specular.  Fresnel is a combination of reflection and refractino.  All 3 are a bit slower, as they are more complicated to compute.  However, given the other major bottlenecks present, the minor slowdowns presented by these are not a major concern.
 
-OBJECT 0
-mesh tetra.obj
-material 0
-frame 0
-TRANS       0 5 -5
-ROTAT       0 90 0
-SCALE       .01 10 10 
 
-Check the Google group for some sample .obj files of varying complexity.
+#### Cook-Torrance, Oren-Nayar, Fresnel performace impact : Slight slowdown.
 
-## THIRD PARTY CODE POLICY
-* Use of any third-party code must be approved by asking on our Google Group.  
-  If it is approved, all students are welcome to use it.  Generally, we approve 
-  use of third-party code that is not a core part of the project.  For example, 
-  for the ray tracer, we would approve using a third-party library for loading 
-  models, but would not approve copying and pasting a CUDA function for doing 
-  refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another
-  student's code, is an academic integrity violation, and will result in you
-  receiving an F for the semester.
+These BRDFs would be slightly faster on the CPU, as they all have branches that would benefit from the CPUs branch predictors.
 
-## SELF-GRADING
-* On the submission date, email your grade, on a scale of 0 to 100, to Harmony,
-  harmoli+cis565@seas.upenn.com, with a one paragraph explanation.  Be concise and
-  realistic.  Recall that we reserve 30 points as a sanity check to adjust your
-  grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We
-  hope to only use this in extreme cases when your grade does not realistically
-  reflect your work - it is either too high or too low.  In most cases, we plan
-  to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as
-  the path tracer.  We will determine the weighting at the end of the semester
-  based on the size of each project.
-
-## SUBMISSION
-Please change the README to reflect the answers to the questions we have posed
-above.  Remember:
-* this is a renderer, so include images that you've made!
-* be sure to back your claims for optimization with numbers and comparisons
-* if you reference any other material, please provide a link to it
-* you wil not e graded on how fast your path tracer runs, but getting close to
-  real-time is always nice
-* if you have a fast GPU renderer, it is good to show case this with a video to
-  show interactivity.  If you do so, please include a link.
-
-Be sure to open a pull request and to send Harmony your grade and why you
-believe this is the grade you should get.
+[base pt image]:http://3.bp.blogspot.com/-WENKFpXCcew/Uj4BJwYMTFI/AAAAAAAABeM/6RbhNzNDNfI/s320/pt.bmp
+[ct fres]:http://4.bp.blogspot.com/-spe4bKN8_Og/Uj38S9UgVeI/AAAAAAAABdw/P3HqOcest9s/s400/pathTrace.bmp
+[fres]:http://1.bp.blogspot.com/-4llLdG19UOQ/Uj4BJzeYdfI/AAAAAAAABeI/DSnifT4AbhQ/s400/comp.bmp
+[obj]:http://3.bp.blogspot.com/-sN4J1YlqzBk/UlnmSjjTEbI/AAAAAAAABjw/DrQV4XTGyNs/s640/a_raw.1.bmp
+[here]:http://blog.jeremynewlin.info/search/label/vulcan

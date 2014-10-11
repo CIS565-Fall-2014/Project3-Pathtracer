@@ -6,20 +6,30 @@
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
 #include "main.h"
-#include <cstring>
-#define GLEW_STATIC
 
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
 
 int main(int argc, char** argv){
+
+  #ifdef __APPLE__
+	  // Needed in OSX to force use of OpenGL3.2 
+	  glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, 3);
+	  glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 2);
+	  glfwOpenWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+	  glfwOpenWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  #endif
+
   // Set up pathtracer stuff
   bool loadedScene = false;
   finishedRender = false;
 
   targetFrame = 0;
   singleFrameMode = false;
+
+  srand(time(NULL));
+  total_time = 0;
 
   // Load scene file
   for(int i=1; i<argc; i++){
@@ -46,39 +56,47 @@ int main(int argc, char** argv){
   width = renderCam->resolution[0];
   height = renderCam->resolution[1];
 
-  if(targetFrame >= renderCam->frames){
+  if(targetFrame>=renderCam->frames){
     cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
     targetFrame = 0;
   }
 
-  // Initialize CUDA and GL components
-  if (init(argc, argv)) {
-    // GLFW main loop
-    mainLoop();
-  }
+  // Launch CUDA/GL
 
+  #ifdef __APPLE__
+	init();
+  #else
+	init(argc, argv);
+  #endif
+
+  initCuda();
+
+  initVAO();
+  initTextures();
+
+  GLuint passthroughProgram;
+  passthroughProgram = initShader("shaders/passthroughVS.glsl", "shaders/passthroughFS.glsl");
+
+  glUseProgram(passthroughProgram);
+  glActiveTexture(GL_TEXTURE0);
+
+  #ifdef __APPLE__
+	  // send into GLFW main loop
+	  while(1){
+		display();
+		if (glfwGetKey(GLFW_KEY_ESC) == GLFW_PRESS || !glfwGetWindowParam( GLFW_OPENED )){
+				shut_down(0);
+		}
+	  }
+
+	  glfwTerminate();
+  #else
+	  glutDisplayFunc(display);
+	  glutKeyboardFunc(keyboard);
+
+	  glutMainLoop();
+  #endif
   return 0;
-}
-
-void mainLoop() {
-  while(!glfwWindowShouldClose(window)){
-    glfwPollEvents();
-    runCuda();
-
-    string title = "CIS565 Render | " + utilityCore::convertIntToString(iterations) + " Iterations";
-		glfwSetWindowTitle(window, title.c_str());
-    
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-    glBindTexture(GL_TEXTURE_2D, displayImage);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glClear(GL_COLOR_BUFFER_BIT);   
-
-    // VAO, shader program, and texture already bound
-    glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
-    glfwSwapBuffers(window);
-  }
-  glfwDestroyWindow(window);
-  glfwTerminate();
 }
 
 //-------------------------------
@@ -89,45 +107,73 @@ void runCuda(){
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
-  if(iterations < renderCam->iterations){
+
+  if(iterations<renderCam->iterations){
+
     uchar4 *dptr=NULL;
     iterations++;
     cudaGLMapBufferObject((void**)&dptr, pbo);
   
-    // pack geom and material arrays
+    //pack geom and material arrays
     geom* geoms = new geom[renderScene->objects.size()];
     material* materials = new material[renderScene->materials.size()];
-    
-    for (int i=0; i < renderScene->objects.size(); i++) {
+    mesh meshTest;
+
+    for(int i=0; i<renderScene->objects.size(); i++){
       geoms[i] = renderScene->objects[i];
+      if (geoms[i].type==MESH){
+        meshTest = geoms[i].obj;
+      }
     }
-    for (int i=0; i < renderScene->materials.size(); i++) {
+    for(int i=0; i<renderScene->materials.size(); i++){
       materials[i] = renderScene->materials[i];
     }
-  
+
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    if (iterations==1){
+      cout<<endl<<"FRAME "<<targetFrame<<endl;
+      if (targetFrame>0){
+        cudaFreeCPU();
+      }
+        cudaInit(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size());
+    }
+    clock_t timer;
+    timer = clock();
+    // testStream(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size());
+    cudaRaytraceCoreStream(dptr, renderCam, targetFrame, iterations, renderScene->materials.size(), geoms, renderScene->objects.size());
+    // cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size());
+    timer = clock()-timer;
     
+    total_time = total_time + float(timer)/CLOCKS_PER_SEC;
+
+    // cout<<float(timer)/CLOCKS_PER_SEC<<endl;
+    
+    delete [] geoms;
+    delete [] materials;
+
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
-  } else {
 
-    if (!finishedRender) {
-      // output image file
+  }else{
+
+    if(!finishedRender){
+      //output image file
       image outputImage(renderCam->resolution.x, renderCam->resolution.y);
 
-      for (int x=0; x < renderCam->resolution.x; x++) {
-        for (int y=0; y < renderCam->resolution.y; y++) {
+      for(int x=0; x<renderCam->resolution.x; x++){
+        for(int y=0; y<renderCam->resolution.y; y++){
           int index = x + (y * renderCam->resolution.x);
           outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
         }
       }
-      
+
+      cout<<"total time ("<<renderCam->iterations<<" iterations): "<<total_time<<endl;
+      cout<<"average time per iteration: "<<total_time/renderCam->iterations<<endl;
+
       gammaSettings gamma;
       gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; 
+      gamma.gamma = 1.0/2.2;
+      gamma.divisor = renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -138,99 +184,172 @@ void runCuda(){
       utilityCore::replaceString(filename, ".png", "."+s+".png");
       outputImage.saveImageRGB(filename);
       cout << "Saved frame " << s << " to " << filename << endl;
+
+      gamma.gamma = 1.0/1.0;
+      outputImage.setGammaSettings(gamma);
+      filename = renderCam->imageName;
+      utilityCore::replaceString(filename, ".bmp", "_raw."+s+".bmp");
+      utilityCore::replaceString(filename, ".png", "_raw."+s+".png");
+      outputImage.saveImageRGB(filename);
+      cout << "Saved frame " << s << " to " << filename << endl;
+
       finishedRender = true;
-      if (singleFrameMode==true) {
+      if(singleFrameMode==true){
         cudaDeviceReset(); 
         exit(0);
       }
     }
-    if (targetFrame < renderCam->frames-1) {
-
-      // clear image buffer and move onto next frame
+    if(targetFrame<renderCam->frames-1){
+      //clear image buffer and move onto next frame
       targetFrame++;
       iterations = 0;
       for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
         renderCam->image[i] = glm::vec3(0,0,0);
       }
-      cudaDeviceReset(); 
+      // cudaDeviceReset(); 
       finishedRender = false;
     }
   }
+  
 }
+
+#ifdef __APPLE__
+
+	void display(){
+		runCuda();
+
+		string title = "CIS565 Render | " + utilityCore::convertIntToString(iterations) + " Iterations";
+		glfwSetWindowTitle(title.c_str());
+
+		glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
+		glBindTexture(GL_TEXTURE_2D, displayImage);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, 
+			  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+		glClear(GL_COLOR_BUFFER_BIT);   
+
+		// VAO, shader program, and texture already bound
+		glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
+
+		glfwSwapBuffers();
+	}
+
+#else
+
+	void display(){
+		runCuda();
+
+		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
+		glutSetWindowTitle(title.c_str());
+
+		glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
+		glBindTexture(GL_TEXTURE_2D, displayImage);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, 
+			  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+		glClear(GL_COLOR_BUFFER_BIT);   
+
+		// VAO, shader program, and texture already bound
+		glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
+
+		glutPostRedisplay();
+		glutSwapBuffers();
+	}
+
+	void keyboard(unsigned char key, int x, int y)
+	{
+		std::cout << key << std::endl;
+		switch (key) 
+		{
+		   case(27):
+			   exit(1);
+			   break;
+		}
+	}
+
+#endif
+
+
+
 
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
 
-bool init(int argc, char* argv[]) {
-  glfwSetErrorCallback(errorCallback);
+#ifdef __APPLE__
+	void init(){
 
-  if (!glfwInit()) {
-      return false;
-  }
+		if (glfwInit() != GL_TRUE){
+			shut_down(1);      
+		}
 
-  width = 800;
-  height = 800;
-  window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
-  if (!window){
-      glfwTerminate();
-      return false;
-  }
-  glfwMakeContextCurrent(window);
-  glfwSetKeyCallback(window, keyCallback);
+		// 16 bit color, no depth, alpha or stencil buffers, windowed
+		if (glfwOpenWindow(width, height, 5, 6, 5, 0, 0, 0, GLFW_WINDOW) != GL_TRUE){
+			shut_down(1);
+		}
 
-  // Set up GL context
-  glewExperimental = GL_TRUE;
-  if(glewInit()!=GLEW_OK){
-    return false;
-  }
+		// Set up vertex array object, texture stuff
+		initVAO();
+		initTextures();
+	}
+#else
+	void init(int argc, char* argv[]){
+		glutInit(&argc, argv);
+		glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
+		glutInitWindowSize(width, height);
+		glutCreateWindow("565Raytracer");
 
-  // Initialize other stuff
-  initVAO();
-  initTextures();
-  initCuda();
-  initPBO();
-  
-  GLuint passthroughProgram;
-  passthroughProgram = initShader();
+		// Init GLEW
+		glewInit();
+		GLenum err = glewInit();
+		if (GLEW_OK != err)
+		{
+			/* Problem: glewInit failed, something is seriously wrong. */
+			std::cout << "glewInit failed, aborting." << std::endl;
+			exit (1);
+		}
 
-  glUseProgram(passthroughProgram);
-  glActiveTexture(GL_TEXTURE0);
+		initVAO();
+		initTextures();
+	}
+#endif
 
-  return true;
-}
-
-void initPBO(){
-  // set up vertex data parameter
-  int num_texels = width*height;
-  int num_values = num_texels * 4;
-  int size_tex_data = sizeof(GLubyte) * num_values;
+void initPBO(GLuint* pbo){
+  if (pbo) {
+    // set up vertex data parameter
+    int num_texels = width*height;
+    int num_values = num_texels * 4;
+    int size_tex_data = sizeof(GLubyte) * num_values;
     
-  // Generate a buffer ID called a PBO (Pixel Buffer Object)
-  glGenBuffers(1, &pbo);
-
-  // Make this the current UNPACK buffer (OpenGL is state-based)
-  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-
-  // Allocate data for the buffer. 4-channel 8-bit image
-  glBufferData(GL_PIXEL_UNPACK_BUFFER, size_tex_data, NULL, GL_DYNAMIC_COPY);
-  cudaGLRegisterBufferObject(pbo);
-
+    // Generate a buffer ID called a PBO (Pixel Buffer Object)
+    glGenBuffers(1,pbo);
+    // Make this the current UNPACK buffer (OpenGL is state-based)
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, *pbo);
+    // Allocate data for the buffer. 4-channel 8-bit image
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, size_tex_data, NULL, GL_DYNAMIC_COPY);
+    cudaGLRegisterBufferObject( *pbo );
+  }
 }
 
 void initCuda(){
-  cudaGLSetGLDevice(0);
+  // Use device with highest Gflops/s
+  cudaGLSetGLDevice( compat_getMaxGflopsDeviceId() );
+
+  initPBO(&pbo);
 
   // Clean up on program exit
   atexit(cleanupCuda);
+
+  runCuda();
 }
 
 void initTextures(){
-    glGenTextures(1, &displayImage);
+    glGenTextures(1,&displayImage);
     glBindTexture(GL_TEXTURE_2D, displayImage);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA,
+        GL_UNSIGNED_BYTE, NULL);
 }
 
 void initVAO(void){
@@ -269,18 +388,18 @@ void initVAO(void){
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 }
 
-GLuint initShader() {
-  const char *attribLocations[] = { "Position", "Texcoords" };
-  GLuint program = glslUtility::createDefaultProgram(attribLocations, 2);
-  GLint location;
-  
-  //glUseProgram(program);
-  if ((location = glGetUniformLocation(program, "u_image")) != -1)
-  {
-    glUniform1i(location, 0);
-  }
+GLuint initShader(const char *vertexShaderPath, const char *fragmentShaderPath){
+    GLuint program = glslUtility::createProgram(vertexShaderPath, fragmentShaderPath, attributeLocations, 2);
+    GLint location;
 
-  return program;
+    glUseProgram(program);
+    
+    if ((location = glGetUniformLocation(program, "u_image")) != -1)
+    {
+        glUniform1i(location, 0);
+    }
+
+    return program;
 }
 
 //-------------------------------
@@ -308,17 +427,17 @@ void deleteTexture(GLuint* tex){
     glDeleteTextures(1, tex);
     *tex = (GLuint)NULL;
 }
-
-//------------------------------
-//-------GLFW CALLBACKS---------
-//------------------------------
-
-void errorCallback(int error, const char* description){
-    fputs(description, stderr);
-}
-
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
-    if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
-        glfwSetWindowShouldClose(window, GL_TRUE);
+ 
+void shut_down(int return_code){
+  #ifdef __APPLE__
+	glfwTerminate();
+  #endif
+  for (int i=0; i<renderScene->objects.size(); i++){
+    if (renderScene->objects[i].type == MESH){
+      delete [] renderScene->objects[i].obj.tris;
+      delete [] renderScene->objects[i].obj.verts;
     }
+  }
+  cudaFreeCPU();
+  exit(return_code);
 }

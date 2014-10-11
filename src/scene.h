@@ -22,6 +22,7 @@ private:
     int loadMaterial(string materialid);
     int loadObject(string objectid);
     int loadCamera();
+    mesh loadMesh(string fileName);
 public:
     scene(string filename);
     ~scene();
