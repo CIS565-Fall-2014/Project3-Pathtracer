@@ -21,8 +21,8 @@
 
 #define ANTI_ALIAS 1
 #define MAX_DEPTH 8
-#define THRESHOLD .000000001
-#define DOFLENGTH	11
+
+#define DOFLENGTH	8
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
   if( cudaSuccess != err) {
@@ -140,10 +140,10 @@ __global__ void generateRay(cameraData cam, float time, ray* raypool) {
 }
 __host__ __device__ glm::vec3 getReflectedRay(glm::vec3 d, glm::vec3 n) {
 	glm::vec3 VR; // reflected ray direction
-	if (glm::length(-d - n) < THRESHOLD) {
+	if (glm::length(-d - n) < EPSILON) {
 		VR = n;
 	}
-	else if (abs(glm::dot(-d, n)) < THRESHOLD) {
+	else if (abs(glm::dot(-d, n)) < EPSILON) {
 		VR = d;
 	}
 	else {
@@ -216,7 +216,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 			if(matIdx != -1){
 				material mat1 = materials[matIdx];
-				if(mat1.emittance > THRESHOLD){
+				if(mat1.emittance > EPSILON){
 					glm::vec3 color = rays[rayIdx].color * mat1.color * mat1.emittance;
 					colors[pixelIdx] += color;
 					rays[rayIdx].active = false;
@@ -225,40 +225,39 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				else{
 					
 					
-					if(mat1.hasReflective > THRESHOLD || mat1.hasRefractive > THRESHOLD){
-						//if (notDiffuseRay(seed, mat1.hasReflective)) {
-							float IOR = mat1.indexOfRefraction;//Index of Refraction
-							if (glm::dot(rays[rayIdx].direction, normal) > 0) { // reverse normal and index of refraction if ray inside the object
-								normal *= -1;
-								IOR = 1/(IOR + THRESHOLD);
-							}
-							if (mat1.hasRefractive > THRESHOLD) { // if the surface has refraction
-								glm::vec3 dir = getRefractedRay(rays[rayIdx].direction, normal, IOR);
-								if (glm::length(dir) > THRESHOLD && (mat1.hasReflective < THRESHOLD|| isRefractedRay(seed, IOR, rays[rayIdx].direction, normal, dir))) {
-									rays[rayIdx].direction = dir;
-									rays[rayIdx].origin = interPoint + dir * (float)THRESHOLD;
-									rays[rayIdx].color *= mat1.color;
-									return;
-								}
-							}
-							// if the surface only has reflection
-							glm::vec3 dir2 = getReflectedRay(rays[rayIdx].direction, normal);
-							rays[rayIdx].origin = interPoint + dir2 * (float)THRESHOLD;
-							rays[rayIdx].direction = dir2;
-							rays[rayIdx].color *= mat1.color;
-							return;
-						 //}
-					}
-					//if (glm::dot(rays[rayIdx].direction, normal) > 0) { // reverse normal if we are inside the object
-					//	normal *= -1;
+					//if(mat1.hasReflective > EPSILON || mat1.hasRefractive > EPSILON){
+					//	//if (notDiffuseRay(seed, mat1.hasReflective)) {
+					//		float IOR = mat1.indexOfRefraction;//Index of Refraction
+					//		if (glm::dot(rays[rayIdx].direction, normal) > 0) { // reverse normal and index of refraction if ray inside the object
+					//			normal *= -1;
+					//			IOR = 1/(IOR + EPSILON);
+					//		}
+					//		if (mat1.hasRefractive > EPSILON) { // if the surface has refraction
+					//			glm::vec3 dir = getRefractedRay(rays[rayIdx].direction, normal, IOR);
+					//			if (glm::length(dir) > EPSILON && (mat1.hasReflective < EPSILON|| isRefractedRay(seed, IOR, rays[rayIdx].direction, normal, dir))) {
+					//				rays[rayIdx].direction = dir;
+					//				rays[rayIdx].origin = interPoint + dir * (float)EPSILON;
+					//				rays[rayIdx].color *= mat1.color;
+					//				return;
+					//			}
+					//		}
+					//		// if the surface only has reflection
+					//		glm::vec3 dir2 = getReflectedRay(rays[rayIdx].direction, normal);
+					//		rays[rayIdx].origin = interPoint + dir2 * (float)EPSILON;
+					//		rays[rayIdx].direction = dir2;
+					//		rays[rayIdx].color *= mat1.color;
+					//		return;
+					//	 //}
 					//}
-					//colors[pixelIdx] = normal;
-					
+					if (glm::dot(rays[rayIdx].direction, normal) > 0) { // reverse normal if we are inside the object
+						normal *= -1;
+					}
+					//diffuse
 					thrust::default_random_engine rng(hash(seed));
 					thrust::uniform_real_distribution<float> u01(0, 1);
 
 					rays[rayIdx].direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng)));
-					rays[rayIdx].origin = interPoint + rays[rayIdx].direction * (float)THRESHOLD;
+					rays[rayIdx].origin = interPoint + rays[rayIdx].direction * (float)EPSILON;
 					rays[rayIdx].color = rays[rayIdx].color * mat1.color;
 					
 				}
@@ -286,16 +285,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
   
 	int numberOfRays = (int)renderCam->resolution.x*(int)renderCam->resolution.y;
-	ray *raypool1;// *raypool2;
-	//int *scanArray, *sumArray1, *sumArray2;
+	ray *raypool1;
 	cudaMalloc((void**)&raypool1, numberOfRays * sizeof(ray));
-	/*cudaMalloc((void**)&raypool2, numberOfRays * sizeof(ray));
-	cudaMalloc((void**)&scanArray, numberOfRays * sizeof(int));
-	cudaMalloc((void**)&sumArray1, ceil((float)numberOfRays/(float)64) * sizeof(int));
-	cudaMalloc((void**)&sumArray2, ceil((float)numberOfRays/(float)64) * sizeof(int));*/
 	
-	
-	//cudaMemcpy(raypool2, raypool1, numberOfRays * sizeof(ray), cudaMemcpyDeviceToDevice);
     // send image to GPU
 	glm::vec3* cudaimage = NULL;
 	cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));

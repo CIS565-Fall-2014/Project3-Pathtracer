@@ -13,7 +13,7 @@
 #include "cudaMat4.h"
 #include "utilities.h"
 
-#define THRESHOLD 0.0001
+#define EPSILON 0.0001
 // Some forward declarations
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
@@ -79,7 +79,7 @@ __host__ __device__ void IntersectionTest(staticGeom *geoms, ray r, glm::vec3& i
 
 	for (int i=0; i<numberOfGeoms; ++i) {
 		dist = geomIntersectionTest(geoms[i], r, intersection, minNormal);
-		if (dist > THRESHOLD && dist < minDist) {
+		if (dist > EPSILON && dist < minDist) {
 			matId = geoms[i].materialid;
 			intersectionPoint = intersection;
 			normal = minNormal;
@@ -112,7 +112,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	float tfar = FLT_MAX;
 	float t1, t2;
 	// left and right faces
-	if (abs(rd[0]) > THRESHOLD) {
+	if (abs(rd[0]) > EPSILON) {
 		t1 = (-0.5 - ro[0]) / rd[0];
 		t2 = (0.5 - ro[0]) / rd[0];
 		if (t1 > t2) {
@@ -131,7 +131,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 		intersect = false;
 	}
 	// top and bottom faces
-	if (abs(rd[1]) > THRESHOLD) {
+	if (abs(rd[1]) > EPSILON) {
 		t1 = (-0.5 - ro[1]) / rd[1];
 		t2 = (0.5 - ro[1]) / rd[1];
 		if (t1 > t2) {
@@ -150,7 +150,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 		intersect = false;
 	}
 	// front and rear faces
-	if (abs(rd[2]) > THRESHOLD) {
+	if (abs(rd[2]) > EPSILON) {
 		t1 = (-0.5 - ro[2]) / rd[2];
 		t2 = (0.5 - ro[2]) / rd[2];
 		if (t1 > t2) {
@@ -168,25 +168,25 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	else if (ro[2] <= -0.5 || ro[2] >= 0.5) {
 		intersect = false;
 	}
-	if (!intersect || tnear > tfar + THRESHOLD || tnear < THRESHOLD) {
+	if (!intersect || tnear > tfar + EPSILON || tnear < EPSILON) {
 		return -1;
 	}
 	else {
 		glm::vec3 p = ro + rd * tnear;
 		glm::vec3 n;
-		if (abs(p[0]+0.5) < THRESHOLD) {
+		if (abs(p[0]+0.5) < EPSILON) {
 			n = glm::vec3(-1, 0, 0);
 		}
-		else if (abs(p[0]-0.5) < THRESHOLD) {
+		else if (abs(p[0]-0.5) < EPSILON) {
 			n = glm::vec3(1, 0, 0);
 		}
-		else if (abs(p[1]+0.5) < THRESHOLD) {
+		else if (abs(p[1]+0.5) < EPSILON) {
 			n = glm::vec3(0, -1, 0);
 		}
-		else if (abs(p[1]-0.5) < THRESHOLD) {
+		else if (abs(p[1]-0.5) < EPSILON) {
 			n = glm::vec3(0, 1, 0);
 		}
-		else if (abs(p[2]+0.5) < THRESHOLD) {
+		else if (abs(p[2]+0.5) < EPSILON) {
 			n = glm::vec3(0, 0, -1);
 		}
 		else {
@@ -302,15 +302,7 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
 
-  thrust::default_random_engine rng(thrusthash(randomSeed));
-	thrust::uniform_real_distribution<float> u01(0, PI*2);
-	thrust::uniform_real_distribution<float> u02(0, PI);
-
-	float phi = u01(rng);
-	float theta = u02(rng);
-	float r = sphere.scale.x; // assume the sphere is uniformly scaled
-
-	return glm::vec3(r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta));
+  return glm::vec3(0,0,0);
 }
 
 #endif
