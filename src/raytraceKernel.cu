@@ -56,8 +56,11 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	glm::vec3 vecA = glm::normalize(glm::cross(view, up));// center to right
 	glm::vec3 vecB = glm::normalize(glm::cross(vecA, view));// center to up
 
-	glm::vec3 vecV = vecB * glm::length(view) * (float)tan(fov.y/ 180.0f * PI) * (1.0f - (1.0f + y * 2.0f) /resolution.y);
-	glm::vec3 vecH = vecA * glm::length(view) * (float)tan(fov.x/ 180.0f * PI) * (1.0f - (1.0f + x * 2.0f) /resolution.x);
+	thrust::default_random_engine rng(hash((y * resolution.x + x) *time));
+	thrust::uniform_real_distribution<float> u01(-1,1);
+
+	glm::vec3 vecV = vecB * glm::length(view) * (float)tan(fov.y/ 180.0f * PI) * (1.0f - (1.0f + (y + (float) u01(rng)) * 2.0f) /resolution.y);
+	glm::vec3 vecH = vecA * glm::length(view) * (float)tan(fov.x/ 180.0f * PI) * (1.0f - (1.0f + (x + (float) u01(rng)) * 2.0f) /resolution.x);
 
 	glm::vec3 rayDir = glm::normalize(view + vecV + vecH);
 
@@ -324,9 +327,11 @@ __global__ void raytraceRay(ray* rayLast, int numberOfThreadX, glm::vec2 resolut
 				//Compute indirect ray
 				if(currentDepth < totalDepth){
 					thrust::default_random_engine rng(hash(index*time));
+					thrust::default_random_engine rng2(hash(index*(time+1)));
 					thrust::uniform_real_distribution<float> u01(0,1);
+					thrust::uniform_real_distribution<float> u02(0,1);
 					int restDepth = totalDepth - currentDepth;
-					int type = calculateSelfBSDF(r, geoms[hitObjectIndex], newEyePositionIn, newEyePositionOut, intersectionNormal, mate, u01(rng), u01(rng), restDepth); 
+					int type = calculateSelfBSDF(r, geoms[hitObjectIndex], newEyePositionIn, newEyePositionOut, intersectionNormal, mate, u01(rng), u02(rng2), restDepth); 
 					if(restDepth == 0)
 						terminateFlag[preIndex] = -1;
 					else{
@@ -365,7 +370,7 @@ __global__ void raytraceRay(ray* rayLast, int numberOfThreadX, glm::vec2 resolut
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool isDOF){
   
-	int traceDepth = 10; //determines how many bounces the raytracer traces
+	int traceDepth = 5; //determines how many bounces the raytracer traces
 	int numberOfPixels = (int)renderCam->resolution.x*(int)renderCam->resolution.y;
 
 
@@ -395,10 +400,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 
 		//int move;
-		//if(iterations < 31)
-		//	move = iterations / 5;
+		//if(iterations < 850)
+		//	move = iterations / 50;
 		//else
-		//	move = 6;
+		//	move = 16;
 
 
 
@@ -406,7 +411,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		newStaticGeom.rotation = geoms[i].rotations[frame];
 		newStaticGeom.scale = geoms[i].scales[frame];
 		//if(i == 7){
-		//  newStaticGeom.translation = geoms[i].translations[frame]+ glm::vec3(move*0.2, 0, 0);
+		//  newStaticGeom.translation = geoms[i].translations[frame]+ glm::vec3(0.1*move + 0.5 * 0.02 * move*move, 0.1*move + 0.5 * 0.02 * move*move, 0.1*move + 0.5 * 0.02 * move*move);
 		//	glm::mat4 transform = utilityCore::buildTransformationMatrix(newStaticGeom.translation, geoms[i].rotations[frame], geoms[i].scales[frame]);
 		//	newStaticGeom.transform = utilityCore::glmMat4ToCudaMat4(transform);
 		//	newStaticGeom.inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
@@ -456,33 +461,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	}
 
 
-	//int totalNumberOfLights = numberOfLights;
-	//int accumulateIndex = 0;
-	//bool boolCeil = false;
-	//int objIndex = 0; 
-	//while(totalNumberOfLights > 0 && objIndex < numberOfGeoms){
-	//	if(materials[objIndex].emittance == 0){
-	//		++objIndex;
-	//		continue;
-	//	}
 
-	//	int numberOfLightPerSource;
-	//	if(boolCeil)
-	//		numberOfLightPerSource = (int)ceil((float) totalNumberOfLights / numberOfLightSource);
-	//	else
-	//		numberOfLightPerSource = (int)floor((float) totalNumberOfLights / numberOfLightSource);
-	//	for(int i = 0; i < numberOfLightPerSource; ++i){
-
-	//		lightSource[accumulateIndex + i] = getRandomPointOnCube(geomList[objIndex], (float)iterations * numberOfLights+ i );
-	//		lightColor[accumulateIndex + i] = materials[objIndex].color / 15.0f * materials[objIndex].emittance; 
-	//	}
-
-	//	accumulateIndex += numberOfLightPerSource;
-	//	--numberOfLightSource;
-	//	totalNumberOfLights -= numberOfLightPerSource;
-	//	boolCeil = !boolCeil;
-	//	++objIndex;
-	//}
 
 
 	glm::vec3* cudaLightPos = NULL;

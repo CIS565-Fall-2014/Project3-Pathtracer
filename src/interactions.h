@@ -73,8 +73,10 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
     
     glm::vec3 directionNotNormal;
     if (abs(normal.x) < SQRT_OF_ONE_THIRD) {
+	//if (abs(normal.x) <= abs(normal.y) && abs(normal.x) <= abs(normal.z)){
       directionNotNormal = glm::vec3(1, 0, 0);
     } else if (abs(normal.y) < SQRT_OF_ONE_THIRD) {
+	//}else if (abs(normal.y)<=abs(normal.x) && abs(normal.y)<=abs(normal.z)){
       directionNotNormal = glm::vec3(0, 1, 0);
     } else {
       directionNotNormal = glm::vec3(0, 0, 1);
@@ -202,6 +204,7 @@ __host__ __device__ int calculateSelfBSDF(ray& r, staticGeom geom, glm::vec3 int
 				return 0;
 			}
 		}
+
 
 		 //1 /m.reducedScatterCoefficient1
 		r.origin = intersectOut;

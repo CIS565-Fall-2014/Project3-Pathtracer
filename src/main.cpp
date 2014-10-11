@@ -420,5 +420,14 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
 		iterations = 0;
 	}
-
+	if((key == GLFW_KEY_O ) && action == GLFW_PRESS){
+		renderCam->focalLength += 0.2;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if((key == GLFW_KEY_I ) && action == GLFW_PRESS){
+		renderCam->focalLength -= 0.2;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
 }
