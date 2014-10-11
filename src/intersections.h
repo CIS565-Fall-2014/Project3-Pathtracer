@@ -79,14 +79,16 @@ __host__ __device__ void swap(float &f1, float &f2)
 	f2 = f1;
 	f1 = temp;
 }
+
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+	
 	float radius = .5;
 
 	glm::vec3 ro = multiplyMV(box.inverseTransform, glm::vec4(r.origin, 1.0f));
 	glm::vec3 rd = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
 
 	ray rt; rt.origin = ro; rt.direction = rd;
-	float Tnear = -100000, Tfar = 100000;
+	float Tnear = FLT_MIN, Tfar = FLT_MAX;
 	//X plane
 	if (rd.x == 0)
 	{
@@ -142,30 +144,36 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	if (Tfar < 0)
 		return -1;
 	//************loop completed***********
-	glm::vec3 fakeIntersectionPoint = getPointOnRay(rt, Tnear);
-	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(fakeIntersectionPoint, 1.0));
+	glm::vec3 localPoint = getPointOnRay(rt, Tnear);
+	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(localPoint, 1.0));
 	glm::vec3 realOrigin = multiplyMV(box.transform, glm::vec4(0, 0, 0, 1));
 
 	intersectionPoint = realIntersectionPoint;
 	//calculate normal
-	glm::vec3 tempNormal;
-	if (fakeIntersectionPoint.x > 0.499 && fakeIntersectionPoint.x < 0.501)
-		tempNormal = glm::vec3(1, 0, 0);
-	if (fakeIntersectionPoint.x > -0.501 && fakeIntersectionPoint.x < -0.499)
-		tempNormal = glm::vec3(-1, 0, 0);
+	glm::vec3 localNormal;
+	float eps = 0.001f;
+	if (abs(localPoint.x - 0.5) < eps)
+		localNormal = glm::vec3(1, 0, 0);
+	else if (abs(localPoint.x + 0.5) < eps){
+		localNormal = glm::vec3(-1, 0, 0);
+	}
+	else if (abs(localPoint.y - 0.5) < eps){
+		localNormal = glm::vec3(0, 1, 0);
+	}
+	else if (abs(localPoint.y + 0.5) < eps){
+		localNormal = glm::vec3(0, -1, 0);
+	}
+	else if (abs(localPoint.z - 0.5) < eps){
+		localNormal = glm::vec3(0, 0, 1);
+	}
+	else if (abs(localPoint.z + 0.5) < eps){
+		localNormal = glm::vec3(0, 0, -1);
+	}
 
-	if (fakeIntersectionPoint.y > 0.499 && fakeIntersectionPoint.y < 0.501)
-		tempNormal = glm::vec3(0, 1, 0);
-	if (fakeIntersectionPoint.y > -0.501 && fakeIntersectionPoint.y < -0.499)
-		tempNormal = glm::vec3(0, -1, 0);
-
-	if (fakeIntersectionPoint.z > 0.499 && fakeIntersectionPoint.z < 0.501)
-		tempNormal = glm::vec3(0, 0, 1);
-	if (fakeIntersectionPoint.z > -0.501 && fakeIntersectionPoint.z < -0.499)
-		tempNormal = glm::vec3(0, 0, -1);
-	normal = multiplyMV(box.transform, glm::vec4(tempNormal,0.0));
-
-	return Tnear;
+	glm::vec3 realNormal = multiplyMV(box.transform, glm::vec4(localNormal, 1.0f));
+	normal = glm::normalize(realNormal - realOrigin);
+	return glm::length(r.origin - realIntersectionPoint);
+	
 }
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.

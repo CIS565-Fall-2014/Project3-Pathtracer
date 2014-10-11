@@ -97,7 +97,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   }
 }
 __device__ float intersectionTest(staticGeom *geoms, int numberOfGeoms, ray currentRay, staticGeom *&intersectionGeom, glm::vec3 &intersectionPoint, glm::vec3 &intersectionNormal){
-	float Tnear = 10000;
+	float Tnear = FLT_MAX;
 	for (size_t i = 0; i < numberOfGeoms; i++)
 	{
 		glm::vec3 tempPoint, tempNormal;
@@ -110,7 +110,7 @@ __device__ float intersectionTest(staticGeom *geoms, int numberOfGeoms, ray curr
 		{
 			distance = sphereIntersectionTest(geoms[i], currentRay, tempPoint, tempNormal);
 		}
-		if (distance < Tnear && distance > 0)
+		if (distance < Tnear && distance != -1.0f)
 		{
 			Tnear = distance;
 			intersectionPoint = tempPoint;
@@ -132,42 +132,38 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
   int arraySize = resolution.x *resolution.y;
   int bounceCount = 0;
   ray currentRay;
-  staticGeom *intersectionGeom = NULL;
-  glm::vec3 intersectionPoint(0), intersectionNormal(0);
-  glm::vec3  color(0);
+ //staticGeom *intersectionGeom = NULL;
+ // glm::vec3 intersectionPoint(0), intersectionNormal(0);
+  glm::vec3  color(1,1,1);
   currentRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 
   if((x<resolution.x && y<resolution.y))
   {
-	  intersectionTest(geoms, numberOfGeoms, currentRay, intersectionGeom, intersectionPoint, intersectionNormal);
+	/*  intersectionTest(geoms, numberOfGeoms, currentRay, intersectionGeom, intersectionPoint, intersectionNormal);
 	  if (intersectionGeom != NULL)
 	  {
-			color = materials[intersectionGeom->materialid].color;
+			color *= materials[intersectionGeom->materialid].color;
 	  }
-	  //got the nearest intersection distance Tnear and intersection points normals in the array;
-	  while (++bounceCount < rayDepth&& intersectionGeom != NULL)
+	  else
 	  {
-		  intersectionGeom = NULL;
-
-		  currentRay.origin = intersectionPoint;
-		  thrust::default_random_engine rng(hash(index*time));
-		  thrust::uniform_real_distribution<float> u01(0, 1);
-		  thrust::uniform_real_distribution<float> u02(0, 1);
-		  //currentRay.direction = calculateRandomDirectionInHemisphere(intersectionNormal,u01(rng), u02(rng));
-		  currentRay.direction = getRandomDirectionInSphere(index*time, index*time);
-		  //currentRay.direction = intersectionNormal;
-		  if (glm::dot(currentRay.direction, intersectionNormal) < 0 )
+		  color *= 0;
+		  return;
+	  }*/
+	  
+	  while (++bounceCount < rayDepth)
+	  {
+		  staticGeom *bounceGeom = NULL;
+		  glm::vec3 bouncePoint, bounceNormal;
+		  intersectionTest(geoms, numberOfGeoms, currentRay, bounceGeom, bouncePoint, bounceNormal);
+		  glm::vec3 rnd = generateRandomNumberFromThread(cam.resolution, time + (bounceCount + 1), x, y);
+		 
+		  if (bounceGeom != NULL)
 		  {
-			  currentRay.direction *= -1;
-		  }
-		  float distance = intersectionTest(geoms, numberOfGeoms, currentRay, intersectionGeom, intersectionPoint, intersectionNormal);
-		
-		  if (intersectionGeom != NULL)
-		  {
+			
 			  //calculate diffuse color
-			  if (materials[intersectionGeom->materialid].emittance > 0)	//light
+			  if (materials[bounceGeom->materialid].emittance > 0)	//light
 			  {
-				  color *= materials[intersectionGeom->materialid].emittance * materials[intersectionGeom->materialid].color;
+				  color *= materials[bounceGeom->materialid].emittance * materials[bounceGeom->materialid].color;
 				  break;
 			  }
 			  if (bounceCount == rayDepth -1)
@@ -175,7 +171,90 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				  color *= 0;
 				  break;
 			  }
-			  color *= materials[intersectionGeom->materialid].color;
+			  //glm::vec3 nextRayDir = getRandomDirectionInSphere(rnd.x, rnd.y);
+			  glm::vec3 nextRayDir = calculateRandomDirectionInHemisphere(bounceNormal,rnd.x,rnd.y);
+			 /* if (glm::dot(nextRayDir, bounceNormal) < 0)
+			  {
+				  nextRayDir *= -1;
+			  }*/
+			  glm::vec3 H = glm::normalize(nextRayDir - currentRay.direction);
+			  float NdotH = glm::dot(H, bounceNormal);
+			  if (materials[bounceGeom->materialid].hasRefractive <= 0)
+			  {
+				  //color *= materials[bounceGeom->materialid].color*.5f + materials[bounceGeom->materialid].specularColor * pow( NdotH ,materials[bounceGeom->materialid].specularExponent)*0.5f;
+				  color *= materials[bounceGeom->materialid].color;
+			  }
+			  	  //*************has reflection********************
+			  if (materials[bounceGeom->materialid].hasReflective && rnd.z < materials[bounceGeom->materialid].hasReflective)
+			  {
+				  Fresnel fresnel;
+				  glm::vec3 reflectionDir = calculateReflectionDirection(bounceNormal, currentRay.direction);
+				  float io = glm::dot(currentRay.direction, bounceNormal);
+				  currentRay.origin = bouncePoint + 0.001f * reflectionDir;
+				  currentRay.direction = reflectionDir;
+				  
+				  if (io < 0)
+				  {
+					  fresnel = calculateFresnel(bounceNormal, currentRay.direction,1.0f, materials[bounceGeom->materialid].indexOfRefraction, glm::vec3(0), glm::vec3(0));
+				  }
+				  else
+				  {
+					  fresnel = calculateFresnel(-bounceNormal, currentRay.direction, materials[bounceGeom->materialid].indexOfRefraction,1.0f,  glm::vec3(0), glm::vec3(0));
+				  }
+				 
+				  //color *= materials[bounceGeom->materialid].color;
+				  //color *= fresnel.reflectionCoefficient;
+				  continue;
+			  }
+			  //********************Refractive***********************
+			  else if (materials[bounceGeom->materialid].hasRefractive)
+			  {
+				  Fresnel fresnel;
+				  glm::vec3 refractionDir;
+				  float io = glm::dot(currentRay.direction, bounceNormal);
+				  if (io < 0)
+					  fresnel = calculateFresnel(bounceNormal, currentRay.direction,1.0f, materials[bounceGeom->materialid].indexOfRefraction, glm::vec3(0), glm::vec3(0));
+				  else
+					  fresnel = calculateFresnel(-bounceNormal, currentRay.direction, materials[bounceGeom->materialid].indexOfRefraction,1.0f, glm::vec3(0), glm::vec3(0));
+
+				  if (rnd.z < 0.9f)
+				  {
+					  if (io < 0)
+					  {
+						  refractionDir = calculateTransmissionDirection(bounceNormal, currentRay.direction, 1.0f, materials[bounceGeom->materialid].indexOfRefraction);
+					  }
+					  else
+					  {
+						  refractionDir = calculateTransmissionDirection(-bounceNormal, currentRay.direction, materials[bounceGeom->materialid].indexOfRefraction, 1.0);
+					  }
+					  currentRay.origin = bouncePoint + 0.001f * refractionDir;
+					  currentRay.direction = refractionDir;
+					  //color *= fresnel.transmissionCoefficient ;
+					  //color *= materials[bounceGeom->materialid].color;
+					  continue;
+				  }
+				  else
+				  {
+					  glm::vec3 reflectionDir = calculateReflectionDirection(bounceNormal, currentRay.direction);
+					  currentRay.direction = reflectionDir;
+					  currentRay.origin = bouncePoint + 0.001f * reflectionDir;
+					  //color *= fresnel.reflectionCoefficient ;
+					  //color *= materials[bounceGeom->materialid].color;
+					  continue;
+				  }
+			  }
+			  //**********************Diffuse*********************
+			  else
+			  {
+				  
+				
+				  //currentRay.direction = glm::normalize(calculateRandomDirectionInHemisphere(bouncePoint, rnd.x, rnd.y));
+				  currentRay.direction = nextRayDir;
+				  //currentRay.direction = intersectionNormal;
+				 
+				  currentRay.origin = bouncePoint + 0.001f * nextRayDir;
+			  }
+		
 		  }
 		  else
 		  {
@@ -183,7 +262,9 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 			  break;
 		  } 
 	  }
-	  colors[index] = colors[index] / (time + 1) * time + color / (time + 1);
+	 
+	  colors[index] = colors[index] / (time + 1)*time  + color / (time + 1);
+	 //colors[index] = color;
    }
 }
 

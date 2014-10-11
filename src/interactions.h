@@ -40,13 +40,22 @@ __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, Abs
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
-  return glm::vec3(0,0,0);
+	float n12 = incidentIOR / transmittedIOR;
+	float temp = 1 - n12* n12 * (1 - pow(glm::dot(normal, incident),2));
+
+	if (temp >= 0.0f){
+		return glm::normalize((-n12 * glm::dot(normal, incident) - sqrt(temp)) * normal + n12 * incident);
+	}
+	else
+	{
+		return calculateReflectionDirection(normal, incident);
+	}
 }
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
   //nothing fancy here
-  return glm::vec3(0,0,0);
+	return glm::normalize(incident - 2.0f * normal * (glm::dot(incident, normal)));
 }
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
@@ -55,6 +64,23 @@ __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 inciden
 
   fresnel.reflectionCoefficient = 1;
   fresnel.transmissionCoefficient = 0;
+  if (transmittedIOR == 0.0f)
+  {
+	  return fresnel;
+  }
+  float n12 = incidentIOR / transmittedIOR;
+  float cosI = glm::dot(incident, normal);
+  float sinT2 = (n12 * n12) * (1 - pow(cosI, 2));
+  if (1- sinT2 < 0.0f)
+  {
+	  return fresnel;
+  }
+  float cosT = sqrt(1.0f - sinT2);
+  float r1 = pow(((incidentIOR * cosI - transmittedIOR * cosT) / (incidentIOR * cosI + transmittedIOR * cosT)), 2);
+  float r2 = pow(((incidentIOR * cosT - transmittedIOR * cosI) / (incidentIOR * cosT + transmittedIOR * cosI)), 2);
+  fresnel.reflectionCoefficient = (r1 + r2) / 2.0f;
+  fresnel.transmissionCoefficient = 1.0f - fresnel.reflectionCoefficient;
+
   return fresnel;
 }
 
@@ -91,13 +117,11 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
 // non-cosine (uniform) weighted random direction generation.
 // This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
-	thrust::default_random_engine rng(hash(xi1));
-	thrust::uniform_real_distribution<float> u01(0, PI);
-	thrust::uniform_real_distribution<float> u02(0, 2 * PI);
-	float theta = acos(2 * (float)u01(rng) - 1);
-	float phi = (float)u02(rng);
-	glm::vec3 point(sin(theta)*cos(phi), sin(theta) * sin(phi), cos(theta));
-    return point;
+
+	float theta = 2 * TWO_PI * xi1;
+	float phi = acos(2 * xi2 - 1);
+	float x = cos(phi);
+	return glm::vec3(sqrt(1 - x*x) * cos(theta), sqrt(1 - x*x) * sin(theta), x);
 }
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
