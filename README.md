@@ -18,7 +18,8 @@
 ![ResultImage](AntiAliasing_depth_10_iteration_5000_Cut.bmp)
 
 ![ResultImage](iteration number comparision.bmp)
-Conclusion: The effect of increasing the iteration number is obvious. However, the difference of results of iteration number higher than 5000 are hard to distinguish by eyes.
+Conclusion:  
+The effect of increasing the iteration number is obvious. However, the difference of results of iteration number higher than 5000 are hard to distinguish by eyes.
 
 ##Compare the different depth:
 * Depth: 3
@@ -86,7 +87,8 @@ I could read a bmp format image and store all the pixel colors in a color buffer
 ![ResultImage](testure mapping_Cut.bmp)
 ![ResultImage](testure mapping2_Cut.bmp)
 
-
+##Change light color:
+![ResultImage](change color_depth_5_iteration_1000_Cut.bmp)
 
 Debug process
 ![ResultImage](normal vector_Cut.bmp)
