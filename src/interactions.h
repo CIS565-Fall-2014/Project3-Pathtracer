@@ -119,8 +119,16 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
                                        AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
                                        glm::vec3& color, glm::vec3& unabsorbedColor, material m){
+	// hasReflective of 0 means no reflection
+	if (m.hasReflective < EPSILON) {
 
-  return 1;
+		return 0;
+	}
+	// if hasReflective is anything else, 
+	else {
+
+		return 1;
+	}
 };
 
 #endif

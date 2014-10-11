@@ -47,10 +47,22 @@ calculateRandomDirectionInHemisphere() expects its 2 float inputs to be between
 same thing as getRandomPointOnSphere().
   
 
+##### calculateBSDF
+
+For simplicity, I only support scattering and reflection. Not too sure about some
+of the math either, so I guess I'm just making stuff up (research takes too
+much effort... XP)
+
+
 ##### raytraceKernel.cu work
 
-Since the 3 incomplete functions I need to finish up are dependent on each other,
-I'll be working on them at the same time.  
+Since 2 of the 3 incomplete functions I need to finish up are dependent on each other,
+I'll be working on them at the same time.
+
+The third function, **raycastFromCameraKernel()**, is very similar to previous work I did in CIS 560.
+See https://github.com/citizen-of-infinity/SCHOOL-CIS-560-Raytracer/blob/master/CIS560hw2/SceneGraph.cpp
+starting at line 655. In fact, the implementation here is simpler since fov-x
+and fov-y are both already available to me.
 
 I decided to proceed in a series of checkpoints to make debugging easier.
 

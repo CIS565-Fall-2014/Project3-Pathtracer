@@ -108,7 +108,7 @@ reference are marked with the comment LOOK.
       transferring geometry and cameras from the host to the device, and transferring
       image buffers from the host to the device and back. You will have to complete
       this function to support passing materials and lights to CUDA.
-    * raycastFromCameraKernel() is a function that you need to implement. This
+    * **[DONE]** raycastFromCameraKernel() is a function that you need to implement. This
       function once correctly implemented should handle camera raycasting. 
     * raytraceRay() is the core raytracing CUDA kernel; all of your pathtracing
       logic should be implemented in this CUDA kernel. raytraceRay() should

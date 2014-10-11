@@ -46,16 +46,35 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 //       These rays could easily be "saved" to provide further optimization (so they aren't recalculated with each iteration), but in case
 //       a DOF effect is implemented later on and "jittering" is required, I'll overlook this potential optimization.
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
-  ray r;
-  r.origin = glm::vec3(0,0,0);
-  r.direction = glm::vec3(0,0,-1);
 
+	// the HORIZONAL direction of the viewing plane, calculated with the "up" vector
+	glm::vec3 A = glm::cross(view, up);
+	// the VERTICAL direction of the viewing plane
+	glm::vec3 B = glm::cross(A, view);
 
+	// central point on the image plane that vectors from the eye are being drawn towards
+	glm::vec3 M = eye + view;
 
+	float phi = fov.y;
+	float theta = fov.x;
 
+	//rescaled HORIZONTAL
+	glm::vec3 H = A * glm::length(view) * tan(theta) / glm::length(A);
+	//rescaled VERTICAL
+	glm::vec3 V = B * glm::length(view) * tan(phi) / glm::length(B);
 
+	float sx = (float) x / (float) (resolution.x - 1);
+	float sy = (float) y / (float) (resolution.y - 1);
 
-  return r;
+	glm::vec3 screenPoint = M + (2*sx-1) * H + (2*sy-1) * V;
+
+	ray r;
+	r.direction = glm::normalize(screenPoint - eye);
+	r.origin = eye;
+	r.active = true;
+	r.sourceindex = x + (y * resolution.x);
+
+	return r;
 }
 
 //Kernel that blacks out a given image buffer
@@ -168,6 +187,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
   cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
   
+  // TODO: package materials/lights and send to CUDA
+
   // package camera
   cameraData cam;
   cam.resolution = renderCam->resolution;

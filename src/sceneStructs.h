@@ -16,6 +16,9 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	//additional stuff needed to make stream compaction optimization work
+	bool active;
+	int sourceindex; // of course, this DOES NOT CHANGE throughout the lifetime of a ray, even 
 };
 
 struct geom {
