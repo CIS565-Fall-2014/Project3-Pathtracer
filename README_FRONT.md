@@ -56,21 +56,28 @@ I decided to proceed in a series of checkpoints to make debugging easier.
 
 ###### Checkpoint 1:
 
-Fix static so that the colors[] array now ACCUMULATES the value
+Fix how cudaimage/colors and the PBO work so that the colors[] array now ACCUMULATES the value
 it gets on each iteration, and make sure the right stuff is sent to the PBO and
 the .bmp output.
 
 This causes the screen to display an ever-more featureless gray as the iteration
 count increases, as expected. (Over time, a bunch of random colors averages out
-to 50% gray.)
+to 50% gray.) The static is no longer completely "fresh" with each iteration.
 
 ![checkpoint 1-1](images/chkpt1-1.png)
 ![checkpoint 1-2](images/chkpt1-2.png)
 ![checkpoint 1-3](images/chkpt1-3.png)
 
-The output .bmp file exactly matches the last screenshot above.
+The output .bmp file exactly matches the last screenshot above (I capped
+ITERATIONS to 1000 to make things faster).
 
+###### Checkpoint 2:
 
+Deterministically initialize all rays from camera (use raycastFromCameraKernel())
+and have them return the color of the first thing they intersect.
+
+I already have some ideas as to what this should look like, based on posts from
+other students on the forums.
 
 
 
