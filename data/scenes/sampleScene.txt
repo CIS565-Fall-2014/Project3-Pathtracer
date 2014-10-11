@@ -183,7 +183,7 @@ SCALE       3 3 3
 
 OBJECT 8
 cube
-material 8
+material 7
 frame 0
 TRANS       0 10 0
 ROTAT       0 0 90

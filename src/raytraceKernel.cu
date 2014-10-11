@@ -202,9 +202,10 @@ __device__ float scene_intersect(ray r,
 
 __global__ void merge_live_pathrays(struct pathray *pathrays,
         int pathraycount, float time, glm::vec4 *colors,
-        staticGeom* geoms, int numberOfGeoms,
-        staticGeom* lights, int numberOfLights,
-        material *mats, int numberOfMaterials)
+        //staticGeom* geoms, int numberOfGeoms,
+        //staticGeom* lights, int numberOfLights,
+        //material *mats, int numberOfMaterials
+        )
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index >= pathraycount) {
@@ -213,23 +214,10 @@ __global__ void merge_live_pathrays(struct pathray *pathrays,
 
     struct pathray pr = pathrays[index];
     if (pr.status == ALIVE) {
-        // If the path never hit a light, go straight to the lights
-        glm::vec3 lightcolor;
-        for (int i = 0; i < numberOfLights; ++i) {
-            staticGeom l = lights[i];
-            ray r = pr.r;
-            glm::vec3 originaldir = r.direction;
-            r.direction = glm::normalize(l.translation - r.origin);
-            staticGeom tmin_geom;
-            glm::vec3 tmin_pos;
-            glm::vec3 tmin_nor;
-            float tmin = scene_intersect(r, geoms, numberOfGeoms, tmin_geom, tmin_pos, tmin_nor);
-            material mat = mats[tmin_geom.materialid];
-            if (mat.emittance) {
-                lightcolor += mat.emittance * mat.color * 0.01f * glm::dot(originaldir, r.direction) / glm::distance2(tmin_pos, l.translation);
-            }
-        }
-        pr.color *= lightcolor / (float) numberOfLights;
+        // If the path never hit a light, assume it was black
+        //   This causes the image to be darker at lower depths, but such is
+        //   life, I guess. I removed the direct lighting because it sucked.
+        pr.color = glm::vec3();
         merge_pathray(pr, colors);
     }
 }
@@ -378,9 +366,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     if (bc > 0) {
         merge_live_pathrays<<<bc, TPB>>>(pathrays[which],
                 pathraycount, time, cudaimage,
-                cudageoms, numberOfGeoms,
-                cudalights, numberOfLights,
-                cudamats, numberOfMaterials);
+                //cudageoms, numberOfGeoms,
+                //cudalights, numberOfLights,
+                //cudamats, numberOfMaterials
+                );
     }
 
     sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
