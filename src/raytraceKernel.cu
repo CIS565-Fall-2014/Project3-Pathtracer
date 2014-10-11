@@ -43,27 +43,33 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 }
 
 // Function that does the initial raycast from the camera
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
+__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int _x, int _y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
 {
+    float x = _x, y = _y;
     std::cout << fov.x << " " << fov.y << std::endl;
     fov *= PI / 180.f;
-    glm::vec2 ndc = glm::vec2(1 - x / resolution.x * 2, 1 - y / resolution.y * 2);
     glm::vec3 dir = glm::normalize(view);
     glm::vec3 norX = glm::normalize(glm::cross(dir , up )) * glm::tan(fov.x);
     glm::vec3 norY = glm::normalize(glm::cross(norX, dir)) * glm::tan(fov.y);
+
+    thrust::default_random_engine rng(hash((x + y * resolution.x) * time));
+    thrust::uniform_real_distribution<float> uhalf(-0.5, 0.5);
+
+    // Antialiasing: jitter the pixel by up to half a pixel
+    x += uhalf(rng);
+    y += uhalf(rng);
 
 #if 0
     // This is probably totally wrong but is mainly here for checking to make
     // sure that the time-averaging code results in convergence
     const float BLUR = 0.02f;
-    thrust::default_random_engine rng(hash((x + y * resolution.x) * time));
-    thrust::uniform_real_distribution<float> u(-BLUR, BLUR);
-    thrust::uniform_real_distribution<float> v(-BLUR, BLUR);
-    glm::vec3 lens = norX * u(rng) + norY * v(rng);
+    thrust::uniform_real_distribution<float> ublur(-BLUR, BLUR);
+    glm::vec3 lens = norX * ublur(rng) + norY * ublur(rng);
 #else
     glm::vec3 lens;
 #endif
 
+    glm::vec2 ndc = glm::vec2(1 - x / resolution.x * 2, 1 - y / resolution.y * 2);
     ray r;
     r.origin = eye + lens;
     r.direction = glm::normalize(dir + lens + norX * ndc.x + norY * ndc.y);
