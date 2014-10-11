@@ -42,7 +42,7 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 // Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
   glm::vec3 alpha, beta, midPix, horizScale, vertScale, pixel;
-  alpha  = glm::cross(view,  up);
+  alpha  = glm::cross(view, up);
   beta   = glm::cross(alpha, view);
   midPix = eye + view;
 
@@ -109,7 +109,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 ///////////////////////////////
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms){
+                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -117,38 +117,70 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
   if((x<=resolution.x && y<=resolution.y)){
     ray thisRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
-    //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
     
     float dist = FLT_MAX;//infinite distance
     glm::vec3 col, iPoint, iNorm, tmpIPoint, tmpINorm;
+    material mat;
+    float weight = 1;
+    float tmp;
 
-    for(int i = 0; i < numberOfGeoms; i++){
-      if (geoms[i].type == SPHERE){
-        float tmp = sphereIntersectionTest(geoms[i], thisRay, tmpIPoint, tmpINorm);
-        if (tmp != -1 && tmp < dist){
+    //intersection tests
+    for (int j = 0; j < rayDepth; j++){ //eventually move this out of method and use string compaction.
+      dist = FLT_MAX;
+      
+      for(int i = 0; i < numberOfGeoms; i++){
+        if (geoms[i].type == SPHERE){
+          tmp = sphereIntersectionTest(geoms[i], thisRay, tmpIPoint, tmpINorm);
+        }else if (geoms[i].type == CUBE){
+          tmp = boxIntersectionTest(   geoms[i], thisRay, tmpIPoint, tmpINorm);
+        }
+        if (tmp != -1 && tmp < dist){//hit
           dist = tmp;
           iNorm = tmpINorm;
           iPoint = tmpIPoint;
+          mat = materials[geoms[i].materialid];
+          col = mat.color;
         }
       }
-      if (geoms[i].type == CUBE){
-        float tmp = boxIntersectionTest(geoms[i], thisRay, tmpIPoint, tmpINorm);
-        if (tmp != -1 && tmp < dist){
-          dist = tmp;
-          iNorm = tmpINorm;
-          iPoint = tmpIPoint;
+      //after each depth:
+      if(dist == FLT_MAX){ //miss
+        col = glm::vec3(0,0,0);
+        break;
+      }else{
+        //Is this a light?
+        if (mat.emittance > 0){
+          //Calculate color and exit
+          
         }
+        
+        //update ray and colors
+        if (mat.hasReflective > 0.0){
+          //update ray
+          thisRay.origin = getPointOnRay(thisRay, dist);
+          thisRay.direction = glm::reflect(thisRay.direction, iNorm);
+        }else{
+          //perfect diffuse
+          //update ray
+          thisRay.origin = getPointOnRay(thisRay, dist);
+          glm::vec3 newDirection = calculateRandomDirectionInHemisphere(iNorm, 0.5f, 0.5f);
+          if(glm::dot(newDirection, iNorm) < 0){
+            //flip direction to other hemisphere
+            newDirection.x = 0.0f - newDirection.x;
+            newDirection.y = 0.0f - newDirection.y;
+            newDirection.z = 0.0f - newDirection.z;
+          }
+          thisRay.direction = newDirection;
+        }
+        
       }
     }
 
-    if (dist != FLT_MAX){
-        col = iNorm;
-    }else{
+    if (dist == FLT_MAX){
         col = glm::vec3(abs(thisRay.direction.x),abs(thisRay.direction.y), abs(thisRay.direction.z));
     }
-    //col = glm::vec3(abs(thisRay.direction.x),abs(thisRay.direction.y), abs(thisRay.direction.z));
-    colors[index] = col;
-   }
+    //colors[index] = col;
+    colors[index] = (colors[index] * (time - 1.0f)/time) + (col * 1.0f/time);
+  }
 }
 
 ///////////////////////////////////
@@ -159,7 +191,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
-  int traceDepth = 1; //determines how many bounces the raytracer traces
+  int traceDepth = 5; //determines how many bounces the raytracer traces
 
   // set up crucial magic
   int tileSize = 8;
@@ -196,9 +228,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.view = renderCam->views[frame];
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
+  
+  // package materials
+  material* materialList = NULL;
+  cudaMalloc((void**) &materialList,   numberOfMaterials * sizeof(material));
+  cudaMemcpy( materialList, materials, numberOfMaterials * sizeof(material), cudaMemcpyHostToDevice);
 
   // kernel launches
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms);
+  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, materialList, numberOfMaterials);
 
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
@@ -208,6 +245,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // free up stuff, or else we'll leak memory like a madman
   cudaFree( cudaimage );
   cudaFree( cudageoms );
+  cudaFree(materialList); //added
   delete geomList;
 
   // make certain the kernel has completed
