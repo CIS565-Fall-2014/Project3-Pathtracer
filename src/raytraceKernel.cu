@@ -53,26 +53,25 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
     glm::vec3 norY = glm::normalize(glm::cross(norX, dir)) * glm::tan(fov.y);
 
     thrust::default_random_engine rng(hash((x + y * resolution.x) * time));
+    thrust::uniform_real_distribution<float> u01(0, 1);
     thrust::uniform_real_distribution<float> uhalf(-0.5, 0.5);
 
     // Antialiasing: jitter the pixel by up to half a pixel
     x += uhalf(rng);
     y += uhalf(rng);
 
-#if 0
-    // This is probably totally wrong but is mainly here for checking to make
-    // sure that the time-averaging code results in convergence
-    const float BLUR = 0.02f;
-    thrust::uniform_real_distribution<float> ublur(-BLUR, BLUR);
-    glm::vec3 lens = norX * ublur(rng) + norY * ublur(rng);
-#else
-    glm::vec3 lens;
-#endif
+    // Depth of field: jitter the origin and angle appropriately
+    //   (TODO: move these constants out of here)
+    const float blur_aper_rad = 0.002f;
+    const float blur_foc_dist = 12.f;
+    float sqrtr = glm::sqrt(u01(rng) * blur_aper_rad);
+    float theta = u01(rng) * TWO_PI;
+    glm::vec3 lens = norX * sqrtr * glm::cos(theta) + norY * sqrtr * glm::sin(theta);
 
     glm::vec2 ndc = glm::vec2(1 - x / resolution.x * 2, 1 - y / resolution.y * 2);
     ray r;
-    r.origin = eye + lens;
-    r.direction = glm::normalize(dir + lens + norX * ndc.x + norY * ndc.y);
+    r.origin = eye + lens * blur_foc_dist;
+    r.direction = glm::normalize(dir - lens + norX * ndc.x + norY * ndc.y);
     return r;
 }
 
@@ -295,7 +294,7 @@ __global__ void pathray_step(struct pathray *pathrays,
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
-    const int traceDepth = 2; //determines how many bounces the raytracer traces
+    const int traceDepth = 4; //determines how many bounces the raytracer traces
     const int pixelcount = ((int) renderCam->resolution.x) * ((int) renderCam->resolution.y);
 
     // set up crucial magic
