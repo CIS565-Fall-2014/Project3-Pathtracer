@@ -243,7 +243,8 @@ __global__ void pathray_step(struct pathray *pathrays,
 
     if (tmin > 9e37) {
         // Empty space; abort ray
-        pr.status = CULLED;
+        pr.status = DEAD;
+        pr.color = glm::vec3();
         pathrays[index] = pr;
         return;
     }

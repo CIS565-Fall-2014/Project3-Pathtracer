@@ -104,7 +104,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   5
+EMITTANCE   15
 
 CAMERA
 RES         800 800
@@ -183,7 +183,7 @@ SCALE       3 3 3
 
 OBJECT 8
 cube
-material 7
+material 8
 frame 0
 TRANS       0 10 0
 ROTAT       0 0 90
