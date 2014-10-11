@@ -88,7 +88,7 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image)
 }
 
 //Kernel that writes the image to the OpenGL PBO directly.
-__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image)
+__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec4* image)
 {
 
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -96,11 +96,14 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
     int index = x + (y * resolution.x);
 
     if (x <= resolution.x && y <= resolution.y) {
+        glm::vec4 pix = image[index];
 
         glm::vec3 color;
-        color.x = image[index].x * 255.0;
-        color.y = image[index].y * 255.0;
-        color.z = image[index].z * 255.0;
+        if (pix.w > 0.5f) {
+            color.x = pix.x / pix.w * 255.0;
+            color.y = pix.y / pix.w * 255.0;
+            color.z = pix.z / pix.w * 255.0;
+        }
 
         if (color.x > 255) {
             color.x = 255;
@@ -153,12 +156,13 @@ __global__ void init_pathrays(struct pathray *pathrays, float time, cameraData c
     }
 }
 
-__device__ void merge_pathray(const struct pathray &pr, float time, glm::vec3 *colors)
+__device__ void merge_pathray(const struct pathray &pr, glm::vec4 *colors)
 {
-    colors[pr.index] = (colors[pr.index] * time + pr.color) / (time + 1);
+    glm::vec4 c = colors[pr.index];
+    colors[pr.index] = glm::vec4(glm::vec3(c) + pr.color, c.w + 1);
 }
 
-__global__ void merge_dead_pathrays(struct pathray *pathrays, int pathraycount, float time, glm::vec3 *colors)
+__global__ void merge_dead_pathrays(struct pathray *pathrays, int pathraycount, float time, glm::vec4 *colors)
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index >= pathraycount) {
@@ -167,7 +171,7 @@ __global__ void merge_dead_pathrays(struct pathray *pathrays, int pathraycount, 
 
     struct pathray pr = pathrays[index];
     if (pr.status == DEAD) {
-        merge_pathray(pr, time, colors);
+        merge_pathray(pr, colors);
     }
 }
 
@@ -198,7 +202,7 @@ __device__ float scene_intersect(ray r,
 }
 
 __global__ void merge_live_pathrays(struct pathray *pathrays,
-        int pathraycount, float time, glm::vec3 *colors,
+        int pathraycount, float time, glm::vec4 *colors,
         staticGeom* geoms, int numberOfGeoms,
         staticGeom* lights, int numberOfLights,
         material *mats, int numberOfMaterials)
@@ -227,7 +231,7 @@ __global__ void merge_live_pathrays(struct pathray *pathrays,
             }
         }
         pr.color *= lightcolor / (float) numberOfLights;
-        merge_pathray(pr, time, colors);
+        merge_pathray(pr, colors);
     }
 }
 
@@ -291,7 +295,7 @@ __global__ void pathray_step(struct pathray *pathrays,
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
-    const int traceDepth = 1; //determines how many bounces the raytracer traces
+    const int traceDepth = 2; //determines how many bounces the raytracer traces
     const int pixelcount = ((int) renderCam->resolution.x) * ((int) renderCam->resolution.y);
 
     // set up crucial magic
@@ -320,13 +324,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     }
 
     // send image to GPU
-    static glm::vec3* cudaimage = NULL;
+    static glm::vec4* cudaimage = NULL;
     static staticGeom* cudageoms = NULL;
     static staticGeom* cudalights = NULL;
     static material* cudamats = NULL;
     static struct pathray *pathrays[2];
     if (cudaimage == NULL) {
-        cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3));
+        cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec4));
         cudaMalloc((void**)&cudageoms, numberOfGeoms * sizeof(staticGeom));
         cudaMalloc((void**)&cudalights, numberOfLights * sizeof(staticGeom));
         cudaMalloc((void**)&cudamats, numberOfMaterials * sizeof(material));
@@ -334,7 +338,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
         cudaMalloc((void**)&pathrays[1], pixelcount * sizeof(struct pathray));
     }
 
-    cudaMemcpy(cudaimage, renderCam->image, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3), cudaMemcpyHostToDevice);
+    cudaMemcpy(cudaimage, renderCam->image, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec4), cudaMemcpyHostToDevice);
     cudaMemcpy(cudageoms, geomList, numberOfGeoms * sizeof(staticGeom), cudaMemcpyHostToDevice);
     cudaMemcpy(cudalights, lightList, numberOfLights * sizeof(staticGeom), cudaMemcpyHostToDevice);
     cudaMemcpy(cudamats, materials, numberOfMaterials * sizeof(material), cudaMemcpyHostToDevice);
@@ -383,7 +387,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
     // retrieve image from GPU
-    cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+    cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec4), cudaMemcpyDeviceToHost);
 
     // free up stuff, or else we'll leak memory like a madman
     //cudaFree(cudaimage);

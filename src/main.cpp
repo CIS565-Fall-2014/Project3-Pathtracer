@@ -120,7 +120,8 @@ void runCuda(){
       for (int x=0; x < renderCam->resolution.x; x++) {
         for (int y=0; y < renderCam->resolution.y; y++) {
           int index = x + (y * renderCam->resolution.x);
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
+          glm::vec4 pix = renderCam->image[index];
+          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,glm::vec3(pix) / pix.w);
         }
       }
       
@@ -150,7 +151,7 @@ void runCuda(){
       targetFrame++;
       iterations = 0;
       for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
-        renderCam->image[i] = glm::vec3(0,0,0);
+        renderCam->image[i] = glm::vec4(0,0,0,0);
       }
       cudaDeviceReset(); 
       finishedRender = false;
