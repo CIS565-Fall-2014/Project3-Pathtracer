@@ -18,25 +18,37 @@ struct ray {
 	glm::vec3 direction;
 };
 
+struct mesh{
+	int numTris, numVerts;
+	glm::vec3* tris;
+	glm::vec3* verts;
+	glm::vec3 bh, bl;
+};
+
 struct geom {
 	enum GEOMTYPE type;
 	int materialid;
 	int frames;
+	int meshid;
 	glm::vec3* translations;
 	glm::vec3* rotations;
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+	mesh obj;
+	// int meshid;
 };
 
 struct staticGeom {
 	enum GEOMTYPE type;
 	int materialid;
+	int meshid;
 	glm::vec3 translation;
 	glm::vec3 rotation;
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+	mesh obj;
 };
 
 struct cameraData {
@@ -45,6 +57,8 @@ struct cameraData {
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+	float focusDistance;
+	float dof;
 };
 
 struct camera {
@@ -58,6 +72,7 @@ struct camera {
 	glm::vec3* image;
 	ray* rayList;
 	std::string imageName;
+	float dof,focusDistance;
 };
 
 struct material{
@@ -71,6 +86,7 @@ struct material{
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
+	float roughness;
 };
 
 #endif //CUDASTRUCTS_H

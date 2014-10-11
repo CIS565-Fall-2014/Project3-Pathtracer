@@ -8,24 +8,32 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#ifdef __APPLE__
+	#include <GL/glfw.h>
+#else
+	#include <GL/glew.h>
+	#include <GL/glut.h>
+#endif
 
+#include <stdlib.h>
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
-#include <fstream>
-#include <glm/glm.hpp>
-#include <glslUtil/glslUtility.hpp>
+#include <string>
 #include <iostream>
 #include <sstream>
-#include <stdlib.h>
-#include <string>
-
+#include <fstream>
+#include "glslUtility.h"
 #include "sceneStructs.h"
+#include "glm/glm.hpp"
 #include "image.h"
 #include "raytraceKernel.h"
 #include "utilities.h"
 #include "scene.h"
+#include <time.h>
+
+ #include <cutil_inline.h>
+ #include <cutil_gl_inline.h>
+#define compat_getMaxGflopsDeviceId() cutGetMaxGflopsDeviceId()
 
 using namespace std;
 
@@ -39,6 +47,7 @@ int targetFrame;
 int iterations;
 bool finishedRender;
 bool singleFrameMode;
+float total_time;
 
 //-------------------------------
 //------------GL STUFF-----------
@@ -46,17 +55,15 @@ bool singleFrameMode;
 
 GLuint positionLocation = 0;
 GLuint texcoordsLocation = 1;
-GLuint pbo;
+const char *attributeLocations[] = { "Position", "Tex" };
+GLuint pbo = (GLuint)NULL;
 GLuint displayImage;
-
-GLFWwindow *window;
 
 //-------------------------------
 //----------CUDA STUFF-----------
 //-------------------------------
 
-int width; 
-int height;
+int width=800; int height=800;
 
 //-------------------------------
 //-------------MAIN--------------
@@ -80,12 +87,18 @@ void runCuda();
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
-bool init(int argc, char* argv[]);
-void initPBO();
+
+#ifdef __APPLE__
+	void init();
+#else
+	void init(int argc, char* argv[]);
+#endif
+
+void initPBO(GLuint* pbo);
 void initCuda();
 void initTextures();
 void initVAO();
-GLuint initShader();
+GLuint initShader(const char *vertexShaderPath, const char *fragmentShaderPath);
 
 //-------------------------------
 //---------CLEANUP STUFF---------
@@ -94,12 +107,6 @@ GLuint initShader();
 void cleanupCuda();
 void deletePBO(GLuint* pbo);
 void deleteTexture(GLuint* tex);
-
-//------------------------------
-//-------GLFW CALLBACKS---------
-//------------------------------
-void mainLoop();
-void errorCallback(int error, const char *description);
-void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+void shut_down(int return_code);
 
 #endif

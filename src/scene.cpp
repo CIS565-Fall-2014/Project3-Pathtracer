@@ -34,8 +34,74 @@ scene::scene(string filename){
 	}
 }
 
+mesh scene::loadMesh(string fileName){
+	ifstream ifile;
+	string line;
+	ifile.open(fileName.c_str());
+
+	cout<<fileName<<endl;
+
+	vector<glm::vec3> verts, faces;
+
+	while (utilityCore::safeGetline(ifile, line)) {
+		vector<string> tokens = utilityCore::tokenizeString(line);
+
+		if (tokens.size()>0 && strcmp(tokens[0].c_str(),"v")==0){
+			verts.push_back(glm::vec3(atof(tokens[1].c_str()),atof(tokens[2].c_str()),atof(tokens[3].c_str())));
+		}
+		else if (tokens.size()>0 && strcmp(tokens[0].c_str(),"f")==0){
+			char* findex1 = strtok (const_cast<char*>(tokens[1].c_str()),"/");
+			char* findex2 = strtok (const_cast<char*>(tokens[2].c_str()),"/");
+			char* findex3 = strtok (const_cast<char*>(tokens[3].c_str()),"/");
+			faces.push_back(glm::vec3(atof(findex1)-1,atof(findex2)-1,atof(findex3)-1));
+		}
+	}
+
+	glm::vec3* vertData = new glm::vec3[verts.size()];
+	glm::vec3* faceData = new glm::vec3[faces.size()];
+
+	glm::vec3 max = glm::vec3(-10000,-10000,-10000);
+	glm::vec3 min = glm::vec3( 10000, 10000, 10000);
+
+	for (int i=0; i<verts.size(); i++){
+		vertData[i] = verts[i];
+		if (verts[i].x<min.x){
+			min.x=verts[i].x;
+		}
+		if (verts[i].y<min.y){
+			min.y=verts[i].y;
+		}
+		if (verts[i].z<min.z){
+			min.z=verts[i].z;
+		}
+		if (verts[i].x>max.x){
+			max.x=verts[i].x;
+		}
+		if (verts[i].y>max.y){
+			max.y=verts[i].y;
+		}
+		if (verts[i].z>max.z){
+			max.z=verts[i].z;
+		}
+	}
+	for (int i=0; i<faces.size(); i++){
+		faceData[i] = faces[i];
+	}
+
+	mesh m;
+
+	m.numTris = faces.size();
+	m.numVerts = verts.size();
+	m.tris = faceData;
+	m.verts = vertData;
+	m.bh = max;
+	m.bl = min;
+	return m;
+}
+
 int scene::loadObject(string objectid){
     int id = atoi(objectid.c_str());
+	int number = 0;
     if(id!=objects.size()){
         cout << "ERROR: OBJECT ID does not match expected number of objects" << endl;
         return -1;
@@ -64,6 +130,7 @@ int scene::loadObject(string objectid){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
 		    		newObject.type = MESH;
+		    		newObject.obj = loadMesh(line);
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
@@ -118,6 +185,7 @@ int scene::loadObject(string objectid){
 	newObject.scales = new glm::vec3[frameCount];
 	newObject.transforms = new cudaMat4[frameCount];
 	newObject.inverseTransforms = new cudaMat4[frameCount];
+	newObject.meshid = -1;
 	for(int i=0; i<frameCount; i++){
 		newObject.translations[i] = translations[i];
 		newObject.rotations[i] = rotations[i];
@@ -138,7 +206,8 @@ int scene::loadCamera(){
 	cout << "Loading Camera ..." << endl;
         camera newCamera;
 	float fovy;
-	
+	newCamera.dof=0;
+	newCamera.focusDistance=1;
 	//load static properties
 	for(int i=0; i<4; i++){
 		string line;
@@ -172,7 +241,7 @@ int scene::loadCamera(){
         }
 	    
 	    //load camera properties
-	    for(int i=0; i<3; i++){
+	    for(int i=0; i<5; i++){
             //glm::vec3 translation; glm::vec3 rotation; glm::vec3 scale;
             utilityCore::safeGetline(fp_in,line);
             tokens = utilityCore::tokenizeString(line);
@@ -182,7 +251,14 @@ int scene::loadCamera(){
                 views.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }else if(strcmp(tokens[0].c_str(), "UP")==0){
                 ups.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
-            }
+            }else if(strcmp(tokens[0].c_str(),"DOF")==0){
+			newCamera.dof = atof(tokens[1].c_str());
+			}else if(strcmp(tokens[0].c_str(),"FOCUSDIST")==0){
+				newCamera.focusDistance = atof(tokens[1].c_str());
+				if (newCamera.focusDistance<0.0001f){
+					cout<<"Focus distance must be greater than 0"<<endl;
+				}
+			}
 	    }
 	    
 	    frameCount++;
@@ -194,7 +270,7 @@ int scene::loadCamera(){
 	newCamera.positions = new glm::vec3[frameCount];
 	newCamera.views = new glm::vec3[frameCount];
 	newCamera.ups = new glm::vec3[frameCount];
-	for(int i = 0; i < frameCount; i++){
+	for(int i=0; i<frameCount; i++){
 		newCamera.positions[i] = positions[i];
 		newCamera.views[i] = views[i];
 		newCamera.ups[i] = ups[i];
@@ -229,13 +305,15 @@ int scene::loadMaterial(string materialid){
 		material newMaterial;
 	
 		//load static properties
-		for(int i=0; i<10; i++){
+		for(int i=0; i<11; i++){
 			string line;
             utilityCore::safeGetline(fp_in,line);
 			vector<string> tokens = utilityCore::tokenizeString(line);
 			if(strcmp(tokens[0].c_str(), "RGB")==0){
 				glm::vec3 color( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
 				newMaterial.color = color;
+			}else if(strcmp(tokens[0].c_str(), "ROUGH")==0){
+				newMaterial.roughness = atof(tokens[1].c_str());	
 			}else if(strcmp(tokens[0].c_str(), "SPECEX")==0){
 				newMaterial.specularExponent = atof(tokens[1].c_str());				  
 			}else if(strcmp(tokens[0].c_str(), "SPECRGB")==0){

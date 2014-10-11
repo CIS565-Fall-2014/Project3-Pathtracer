@@ -4,9 +4,8 @@
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
 #include <iostream>
-#include <stb_image/stb_image_write.h>
-
 #include "image.h"
+#include "stb_image/stb_image_write.h"
 #include "utilities.h"
 
 image::image(int x, int y){
@@ -39,7 +38,7 @@ image::~image(){
 //------------------------
 
 float image::applyGamma(float f){
-    //apply gamma correction, use simple power law gamma for now.
+    //apply gamma correction, use simple power law gamma for now. TODO: sRGB
     return pow(f/float(gamma.divisor), gamma.gamma);
 }
 

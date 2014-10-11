@@ -6,14 +6,13 @@
 #ifndef INTERSECTIONS_H
 #define INTERSECTIONS_H
 
-#include <glm/glm.hpp>
-#include <thrust/random.h>
-
 #include "sceneStructs.h"
 #include "cudaMat4.h"
+#include "glm/glm.hpp"
 #include "utilities.h"
+#include <thrust/random.h>
 
-// Some forward declarations
+//Some forward declarations
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
@@ -22,7 +21,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
 
-// Handy dandy little hashing function that provides seeds for random number generation
+//Handy dandy little hashing function that provides seeds for random number generation
 __host__ __device__ unsigned int hash(unsigned int a){
     a = (a+0x7ed55d16) + (a<<12);
     a = (a^0xc761c23c) ^ (a>>19);
@@ -33,23 +32,23 @@ __host__ __device__ unsigned int hash(unsigned int a){
     return a;
 }
 
-// Quick and dirty epsilon check
+//Quick and dirty epsilon check
 __host__ __device__ bool epsilonCheck(float a, float b){
-    if(fabs(fabs(a)-fabs(b)) < EPSILON){
+    if(fabs(fabs(a)-fabs(b))<EPSILON){
         return true;
     }else{
         return false;
     }
 }
 
-// Self explanatory
+//Self explanatory
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t){
-  return r.origin + float(t - .0001f) * glm::normalize(r.direction);
+  return r.origin + float(t-.0001)*glm::normalize(r.direction);
 }
 
-// LOOK: This is a custom function for multiplying cudaMat4 4x4 matrixes with vectors.
-// This is a workaround for GLM matrix multiplication not working properly on pre-Fermi NVIDIA GPUs.
-// Multiplies a cudaMat4 matrix and a vec4 and returns a vec3 clipped from the vec4
+//LOOK: This is a custom function for multiplying cudaMat4 4x4 matrixes with vectors.
+//This is a workaround for GLM matrix multiplication not working properly on pre-Fermi NVIDIA GPUs.
+//Multiplies a cudaMat4 matrix and a vec4 and returns a vec3 clipped from the vec4
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
   glm::vec3 r(1,1,1);
   r.x = (m.x.x*v.x)+(m.x.y*v.y)+(m.x.z*v.z)+(m.x.w*v.w);
@@ -58,27 +57,116 @@ __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
   return r;
 }
 
-// Gets 1/direction for a ray
+//Gets 1/direction for a ray
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r){
   return glm::vec3(1.0/r.direction.x, 1.0/r.direction.y, 1.0/r.direction.z);
 }
 
-// Gets sign of each component of a ray's inverse direction
+//Gets sign of each component of a ray's inverse direction
 __host__ __device__ glm::vec3 getSignOfRay(ray r){
   glm::vec3 inv_direction = getInverseDirectionOfRay(r);
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
-// Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
-__host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+__host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal,
+                                              bool& inside){
+	ray objectSpaceR;
+	objectSpaceR.origin = multiplyMV(box.inverseTransform, glm::vec4(r.origin,1.0f));
+	objectSpaceR.direction = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction,0.0f)));
+	
+	glm::vec3 lll = -glm::vec3(.5,.5,.5);
+	glm::vec3 hhh =  glm::vec3(.5,.5,.5);
+	
+	glm::vec4 l = glm::vec4(lll,0.0f);
+	glm::vec4 h = glm::vec4(hhh,0.0f);
 
-    return -1;
+	float t1,t2;
+	float tNear=-10000000;
+	float tFar = 10000000;
+	float temp;
+
+  if ((objectSpaceR.direction.x)==0){
+    if (objectSpaceR.origin.x<l.x || objectSpaceR.origin.x>h.x){
+      return -1;
+    }
+  }
+
+  t1 = (l.x-objectSpaceR.origin.x)/objectSpaceR.direction.x;
+  t2 = (h.x-objectSpaceR.origin.x)/objectSpaceR.direction.x;
+
+  if (t1>t2){
+   temp=t1; t1=t2; t2=temp;
+  }
+  if (t1>tNear) tNear=t1;
+  if (t2<tFar) tFar=t2;
+  if (tNear>tFar || tFar<0) return -1;
+
+//////////////////////////////////////////////////////////////////////////
+
+  if ((objectSpaceR.direction.y)==0){
+    if (objectSpaceR.origin.y<l.y || objectSpaceR.origin.y>h.y){
+      return -1;
+    }
+  }
+
+  t1 = (l.y-objectSpaceR.origin.y)/objectSpaceR.direction.y;
+  t2 = (h.y-objectSpaceR.origin.y)/objectSpaceR.direction.y;
+
+  if (t1>t2){
+   temp=t1; t1=t2; t2=temp;
+  }
+  if (t1>tNear) tNear=t1;
+  if (t2<tFar) tFar=t2;
+  if (tNear>tFar || tFar<0) return -1;
+
+//////////////////////////////////////////////////////////////////////////
+
+  if ((objectSpaceR.direction.z)==0){
+    if (objectSpaceR.origin.z<l.z || objectSpaceR.origin.z>h.z){
+      return -1;
+    }
+  }
+
+  t1 = (l.z-objectSpaceR.origin.z)/objectSpaceR.direction.z;
+  t2 = (h.z-objectSpaceR.origin.z)/objectSpaceR.direction.z;
+
+  if (t1>t2){
+   temp=t1; t1=t2; t2=temp;
+  }
+  if (t1>tNear) tNear=t1;
+  if (t2<tFar) tFar=t2;
+  if (tNear>tFar || tFar<0) return -1;
+
+	intersectionPoint = objectSpaceR.origin + tNear*objectSpaceR.direction;
+
+  // inside = abs(intersectionPoint.x)<=0.5001f &&abs(intersectionPoint.y)<=0.5001f &&abs(intersectionPoint.z)<=0.5001f;
+  inside = tNear<0 || tFar<0;
+
+	float EPS = 0.01;
+
+	if(abs(intersectionPoint.x - l.x) < EPS) 
+		   normal = glm::vec3(-1,0,0);
+	else if(abs(intersectionPoint.x - h.x) < EPS) 
+		  normal = glm::vec3(1,0,0);
+	else if(abs(intersectionPoint.y - l.y) < EPS) 
+		  normal = glm::vec3(0,-1,0);
+	else if(abs(intersectionPoint.y - h.y) < EPS) 
+		  normal = glm::vec3(0,1,0);
+	else if(abs(intersectionPoint.z - l.z) < EPS) 
+		  normal = glm::vec3(0,0,1);
+	else if(abs(intersectionPoint.z - h.z) < EPS) 
+		  normal = glm::vec3(0,0,-1);
+
+	intersectionPoint = multiplyMV(box.transform, glm::vec4(intersectionPoint,1));
+	normal = glm::normalize(multiplyMV(box.transform, glm::vec4(normal,0)));
+	
+	return glm::length(intersectionPoint-r.origin);
 }
 
-// LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
-// Sphere intersection test, return -1 if no intersection, otherwise, distance to intersection
-__host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+//LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
+//Sphere intersection test, return -1 if no intersection, otherwise, distance to intersection
+__host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal,
+                                                 bool& inside){
   
   float radius = .5;
         
@@ -107,6 +195,8 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
       t = max(t1, t2);
   }
 
+  inside = t1<0 || t2<0;
+
   glm::vec3 realIntersectionPoint = multiplyMV(sphere.transform, glm::vec4(getPointOnRay(rt, t), 1.0));
   glm::vec3 realOrigin = multiplyMV(sphere.transform, glm::vec4(0,0,0,1));
 
@@ -116,7 +206,85 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   return glm::length(r.origin - realIntersectionPoint);
 }
 
-// Returns x,y,z half-dimensions of tightest bounding box
+__host__ __device__ float meshIntersectionTest(const staticGeom& mesh, glm::vec3* meshTris, glm::vec3* meshVerts, ray r, glm::vec3& intersectionPoint, glm::vec3& normal,
+                                                 bool& inside){
+ 
+  float minDist = 1000000;
+  float result = -1;
+
+  glm::vec3 ro = multiplyMV(mesh.inverseTransform, glm::vec4(r.origin,1.0f));
+  glm::vec3 rd = glm::normalize(multiplyMV(mesh.inverseTransform, glm::vec4(r.direction,0.0f)));
+
+  ray rt; rt.origin = ro; rt.direction = rd;
+
+  glm::vec3 l = mesh.obj.bl;
+  glm::vec3 h = mesh.obj.bh;
+  float t1,t2;
+  float tNear=-10000000;
+  float tFar = 10000000;
+  float temp;
+
+  if ((rt.direction.x)==0){
+    if (rt.origin.x<l.x || rt.origin.x>h.x){
+      return -1;
+    }
+  }
+
+  t1 = (l.x-rt.origin.x)/rt.direction.x;
+  t2 = (h.x-rt.origin.x)/rt.direction.x;
+
+  if (t1>t2){
+   temp=t1; t1=t2; t2=temp;
+  }
+  if (t1>tNear) tNear=t1;
+  if (t2<tFar) tFar=t2;
+  if (tNear>tFar || tFar<0) return -1;
+
+ for (int i=0; i<mesh.obj.numTris; i++){
+    glm::vec3 face = meshTris[i];
+    int v0I = face.x;
+    int v1I = face.y;
+    int v2I = face.z;
+
+    glm::vec3 v0 = meshVerts[int(v0I)];
+    glm::vec3 v1 = meshVerts[int(v1I)];
+    glm::vec3 v2 = meshVerts[int(v2I)];
+
+    glm::vec3 u = glm::normalize(v1 - v0);
+    glm::vec3 v = glm::normalize(v2 - v0);
+
+    glm::vec3 n = glm::normalize(glm::cross(u,v));
+    if (abs(glm::length(n))<0.0001){
+      continue;
+    }
+
+    float t = -glm::dot(rt.origin-v1, n)/glm::dot(rt.direction,n);
+    glm::vec3 x = rt.origin + t*rt.direction;
+
+    bool test1 = glm::dot(glm::cross((v1-v0),(x-v0)),n) >= 0;
+    if (!test1) continue;
+    bool test2 = glm::dot(glm::cross((v2-v1),(x-v1)),n) >= 0;
+    if (!test2) continue;
+    bool test3 = glm::dot(glm::cross((v0-v2),(x-v2)),n) >= 0;
+    if (!test3) continue;
+
+    if (t<minDist && t>0){
+      minDist = t;
+
+      glm::vec3 realIntersectionPoint = multiplyMV(mesh.transform, glm::vec4(getPointOnRay(rt, t), 1.0));
+      intersectionPoint = realIntersectionPoint;
+
+      normal = multiplyMV(mesh.transform, glm::vec4(n,0));
+ 
+      result = glm::length(intersectionPoint - r.origin);
+
+      inside = glm::dot(rt.origin, intersectionPoint)>0.0f;
+    }
+  }
+  return result;
+}
+
+//returns x,y,z half-dimensions of tightest bounding box
 __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
     glm::vec3 origin = multiplyMV(geom.transform, glm::vec4(0,0,0,1));
     glm::vec3 xmax = multiplyMV(geom.transform, glm::vec4(.5,0,0,1));
@@ -128,43 +296,43 @@ __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
     return glm::vec3(xradius, yradius, zradius);
 }
 
-// LOOK: Example for generating a random point on an object using thrust.
-// Generates a random point on a given cube
+//LOOK: Example for generating a random point on an object using thrust.
+//Generates a random point on a given cube
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed){
 
     thrust::default_random_engine rng(hash(randomSeed));
     thrust::uniform_real_distribution<float> u01(0,1);
     thrust::uniform_real_distribution<float> u02(-0.5,0.5);
 
-    // Get surface areas of sides
+    //get surface areas of sides
     glm::vec3 radii = getRadiuses(cube);
     float side1 = radii.x * radii.y * 4.0f; //x-y face
     float side2 = radii.z * radii.y * 4.0f; //y-z face
     float side3 = radii.x * radii.z* 4.0f; //x-z face
     float totalarea = 2.0f * (side1+side2+side3);
     
-    // Pick random face, weighted by surface area
+    //pick random face, weighted by surface area
     float russianRoulette = (float)u01(rng);
     
     glm::vec3 point = glm::vec3(.5,.5,.5);
     
     if(russianRoulette<(side1/totalarea)){
-        // x-y face
+        //x-y face
         point = glm::vec3((float)u02(rng), (float)u02(rng), .5);
     }else if(russianRoulette<((side1*2)/totalarea)){
-        // x-y-back face
+        //x-y-back face
         point = glm::vec3((float)u02(rng), (float)u02(rng), -.5);
     }else if(russianRoulette<(((side1*2)+(side2))/totalarea)){
-        // y-z face
+        //y-z face
         point = glm::vec3(.5, (float)u02(rng), (float)u02(rng));
     }else if(russianRoulette<(((side1*2)+(side2*2))/totalarea)){
-        // y-z-back face
+        //y-z-back face
         point = glm::vec3(-.5, (float)u02(rng), (float)u02(rng));
     }else if(russianRoulette<(((side1*2)+(side2*2)+(side3))/totalarea)){
-        // x-z face
+        //x-z face
         point = glm::vec3((float)u02(rng), .5, (float)u02(rng));
     }else{
-        // x-z-back face
+        //x-z-back face
         point = glm::vec3((float)u02(rng), -.5, (float)u02(rng));
     }
     
@@ -172,13 +340,6 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 
     return randPoint;
        
-}
-
-// TODO: IMPLEMENT THIS FUNCTION
-// Generates a random point on a given sphere
-__host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
-
-  return glm::vec3(0,0,0);
 }
 
 #endif
