@@ -38,14 +38,16 @@ __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, Abs
   return false;
 }
 
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
-  return glm::vec3(0,0,0);
+    glm::vec3 refr = glm::refract(incident, normal, transmittedIOR / incidentIOR);
+    if (glm::length2(refr) < 0.1f) {
+        // Total internal reflection
+        return calculateReflectionDirection(normal, incident);
+    }
+    return refr;
 }
 
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
-  //nothing fancy here
   return glm::reflect(incident, normal);
 }
 
