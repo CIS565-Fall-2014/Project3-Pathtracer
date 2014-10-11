@@ -67,7 +67,8 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
     float over = sqrt(1 - up * up); // sin(theta)
     float around = xi2 * TWO_PI;
     
-    // Find a direction that is not the normal based off of whether or not the normal's components are all equal to sqrt(1/3) or whether or not at least one component is less than sqrt(1/3). Learned this trick from Peter Kutz.
+    // Find a direction that is not the normal based off of whether or not the normal's components are all equal to sqrt(1/3) or whether or not at least one component is less than sqrt(1/3). 
+	//Learned this trick from Peter Kutz.
     
     glm::vec3 directionNotNormal;
     if (abs(normal.x) < SQRT_OF_ONE_THIRD) {
@@ -91,7 +92,12 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
 // non-cosine (uniform) weighted random direction generation.
 // This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
-  return glm::vec3(0,0,0);
+	float alpha,beta;
+	alpha=xi1*2.0f*PI;
+	beta=xi2*2.0f*PI;
+	glm::vec3 D;
+	D=glm::vec3(cos(beta)*cos(alpha),cos(beta)*sin(alpha),sin(beta));
+	return D;
 }
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION

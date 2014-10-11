@@ -107,21 +107,16 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
   int index = x + (y * resolution.x);                                                                                       
 
   if((x<=resolution.x && y<=resolution.y)){
-    colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+	//test for direction
+	//ray newRay = raycastFromCameraKernel(resolution,time,x,y,cam.position,cam.view,cam.up,cam.fov);
+	//colors[index]=255.0f*newRay.direction;
+	colors[index]=glm::vec3(100.0f,100.0f,100.0f);
    }
 }
 
 // TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
-  
-  int traceDepth = 1; //determines how many bounces the raytracer traces
-
-  // set up crucial magic
-  int tileSize = 8;
-  dim3 threadsPerBlock(tileSize, tileSize);
-  dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
-  
   // send image to GPU
   glm::vec3* cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
@@ -140,11 +135,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
     geomList[i] = newStaticGeom;
   }
-  
+  //send geometry
   staticGeom* cudageoms = NULL;
   cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
   cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
-  
+  //send materials
+  material* cudamaterials=NULL;
+  cudaMalloc((void**)&cudamaterials,numberOfMaterials*sizeof(material));
+  cudaMemcpy(cudamaterials,materials,numberOfMaterials*sizeof(material),cudaMemcpyHostToDevice);
+
   // package camera
   cameraData cam;
   cam.resolution = renderCam->resolution;
@@ -152,6 +151,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.view = renderCam->views[frame];
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  int traceDepth = 1; //determines how many bounces the raytracer traces
+  // set up crucial magic
+  int tileSize = 8;
+  dim3 threadsPerBlock(tileSize, tileSize);
+  dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
+  
 
   // kernel launches
   raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms);

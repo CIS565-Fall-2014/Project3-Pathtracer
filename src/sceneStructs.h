@@ -16,6 +16,9 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	glm::vec3 color;
+	bool is_Active;
+	int index;
 };
 
 struct geom {
