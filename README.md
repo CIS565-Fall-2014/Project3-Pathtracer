@@ -16,6 +16,8 @@
 
 * Iteration number: 5000
 ![ResultImage](AntiAliasing_depth_10_iteration_5000_Cut.bmp)
+
+![ResultImage](iteration number comparision.bmp)
 Conclusion: The effect of increasing the iteration number is obvious. However, the difference of results of iteration number higher than 5000 are hard to distinguish by eyes.
 
 ##Compare the different depth:
@@ -27,7 +29,9 @@ Conclusion: The effect of increasing the iteration number is obvious. However, t
 
 * Depth: 10
 ![ResultImage](AntiAliasing_depth_10_iteration_5000_Cut.bmp)
-Conclusion: The difference between depth 3 and depth 5 is distinguishable, but the difference between depth 5 and depth 10 is almost nondistinctive. Since I provide a indirect influence coefficient 0.5 to do my path tracer. And this coefficient represents the influence rate from the indirect radiance to the direct radiance.
+![ResultImage](depth comparision.bmp)
+Conclusion: 
+The difference between depth 3 and depth 5 is distinguishable, but the difference between depth 5 and depth 10 is almost nondistinctive. Since I provide a indirect influence coefficient 0.5 to do my path tracer. And this coefficient represents the influence rate from the indirect radiance to the direct radiance.
 Besides, our color RGB value is from 0~255, that means even the 5th depth has dramatical color change, it would only influence 4 of 256 color change in our result. 
 
 
@@ -67,14 +71,14 @@ Motion blur effect is easy to implement. We could move the object every certain 
 
 ##Change view direction and camera interaction:
 In my program, user could easily control the camera with keyboard.
-Use "A", "D" to move camera position along X axis.
-Use "W", "S" to move camera position along Y axis.
-Use "Z", "C" to move camera position along Z axis.
-Use "Q", "E" to rotate camera angle along up axis.
-Use "T", "B" to rotate camera angle along lateral axis.
-Use "P" to toggle the depth of field effect.
-Use "I", "O" to adjust the camera the focal length.
-Use "L", "K" to adjust the camera the apperture radius.
+* Use "A", "D" to move camera position along X axis.
+* Use "W", "S" to move camera position along Y axis.
+* Use "Z", "C" to move camera position along Z axis.
+* Use "Q", "E" to rotate camera angle along up axis.
+* Use "T", "B" to rotate camera angle along lateral axis.
+* Use "P" to toggle the depth of field effect.
+* Use "I", "O" to adjust the camera the focal length.
+* Use "L", "K" to adjust the camera the apperture radius.
 ![ResultImage](change view direction_depth_5_iteration_1000_Cut.bmp)
 
 ##Texture mapping effect:
