@@ -72,8 +72,83 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
 // TODO: IMPLEMENT THIS FUNCTION
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+	glm::vec3 ro = multiplyMV(box.inverseTransform,  glm::vec4(r.origin,1.0f));
+	glm::vec3 rd=glm::normalize(multiplyMV(box.inverseTransform,glm::vec4(r.direction,0.0f)));
+	ray rt;
+	rt.origin=ro;
+	rt.direction=rd;
 
-    return -1;
+	float Tnear=-999999.0;
+	float Tfar=999999.0;
+	float t1,t2;
+	//check for x-slab
+	if(rd.x==0.0f)
+	{
+		if(ro.x<-0.5 ||ro.x>0.5)
+			return -1;
+	}
+	t1=(-0.5-ro.x)/rd.x;
+	t2=(0.5-ro.x)/rd.x;
+	if(min(t1,t2)>Tnear)
+		Tnear=min(t1,t2);
+	if(max(t1,t2)<Tfar)
+		Tfar=max(t1,t2);
+	if(Tnear>Tfar||Tfar<0)
+		return -1;	
+	//check for y-slab
+	if(rd.y==0.0f)
+	{
+		if(ro.y<-0.5 ||ro.y>0.5)
+			return -1;
+	}
+	t1=(-0.5-ro.y)/rd.y;
+	t2=(0.5-ro.y)/rd.y;
+	if(min(t1,t2)>Tnear)
+		Tnear=min(t1,t2);
+	if(max(t1,t2)<Tfar)
+		Tfar=max(t1,t2);
+	if(Tnear>Tfar||Tfar<0)
+		return -1;	
+	//check for z-slab
+	if(rd.z==0.0f)
+	{
+		if(ro.z<-0.5 ||ro.z>0.5)
+			return -1;
+	}
+	t1=(-0.5-ro.z)/rd.z;
+	t2=(0.5-ro.z)/rd.z;
+	if(min(t1,t2)>Tnear)
+		Tnear=min(t1,t2);
+	if(max(t1,t2)<Tfar)
+		Tfar=max(t1,t2);
+	if(Tnear>Tfar||Tfar<0)
+		return -1;
+
+	if(Tnear<0.001)
+		Tnear=Tfar;
+	//return intersection point, normal vector and distance
+	glm::vec3 IPoint;
+	glm::vec3 INorm;
+	IPoint=getPointOnRay(rt,Tnear);
+	if(abs(IPoint.x-0.5)<0.01)
+		INorm=glm::vec3(1.0,0.0,0.0);
+	else if(abs(IPoint.x+0.5)<0.01)
+		INorm=glm::vec3(-1.0,0.0,0.0);
+	else if(abs(IPoint.y-0.5)<0.01)
+		INorm=glm::vec3(0.0,1.0,0.0);
+	else if(abs(IPoint.y+0.5)<0.01)
+		INorm=glm::vec3(0.0,-1.0,0.0);
+	else if(abs(IPoint.z-0.5)<0.01)
+		INorm=glm::vec3(0.0,0.0,1.0);
+	else if(abs(IPoint.z+0.5)<0.01)
+		INorm=glm::vec3(0.0,0.0,-1.0);
+
+	glm::vec3 realItersectionPoint=multiplyMV(box.transform,glm::vec4(IPoint,1.0));
+	intersectionPoint=realItersectionPoint;
+	normal=glm::normalize(multiplyMV(box.transform,glm::vec4(INorm,0.0)));
+	//return Tnear;
+	return glm::length(intersectionPoint-r.origin);
+
 }
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
