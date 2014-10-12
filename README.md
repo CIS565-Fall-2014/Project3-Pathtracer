@@ -81,7 +81,7 @@ advantage when the scene is more sparse, i.e. lots of camera rays do not hit any
 
 ###Debug Images
 Debug Intersection of objects and material association.
-![](intersecetion.bmp)
+![](intersection.bmp)
 
 Debug surface normals of objects
 ![](debugNormal.bmp)
