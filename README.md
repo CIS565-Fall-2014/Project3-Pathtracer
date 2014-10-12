@@ -44,12 +44,13 @@ However, while we are doing the path tracer, we have to sample a pixel multiple 
 ![ResultImage](antialiasing description.bmp)
 ![ResultImage](antialiasing comparision.bmp)
 
-
-##Change the object material
+##Fraction effect
 * Change different refraction rate 2.6
 ![ResultImage](AntiAliasing_depth_5_iteration_1000_Refraction_2.6_Cut.bmp)
+* Compare with CPU version:  
+There is no difference to implement this feature in CPU or GPU.
 
-* Change specular exponential:
+##Change specular exponential:
 ![ResultImage](Material Comparision.bmp)
 
 ##Depth of field effect:
@@ -66,12 +67,17 @@ Then, use the focal length to compute the focal point start from camera center a
 
 * Focal length:14  Aperture radius: 0.2
 ![ResultImage](focallength_14_aperture_0.2_depth_10_iteration_1000_Cut.bmp)
+* Compare with CPU version:  
+It is not reasonable to use the same method to create the depth of field effect in CPU version. I think it is still doable, but the required rendering time might be hundred times greater than the original rendering.  
 * Further improvement:  
 Add more lens effects such as Fisheye lens or Wide-angle lens might be an interesting next step. 
 
 ##Motion blur effect:
 Motion blur effect is easy to implement. We could move the object every certain frames and do our general path tracer. Then we could get the motion blur effect for free.
 ![ResultImage](MotionBlur2_depth_5_iteration_1000_Cut.bmp)
+* Compare with CPU version:  
+Similar to the analysis of depth of field effect, the motion blur effect is doable in CPU but not reasonable to implement.
+
 * Further improvement:  
 I will try not only move the normal object but also move the light source to create a trace of light effect.
 
@@ -86,11 +92,15 @@ In my program, user could easily control the camera with keyboard.
 * Use "I", "O" to adjust the camera the focal length.
 * Use "L", "K" to adjust the camera the apperture radius.
 ![ResultImage](change view direction_depth_5_iteration_1000_Cut.bmp)
+* Compare with CPU version:  
+This feature in CPU will not be any different.
 
 ##Texture mapping effect:
 This program could read a bmp format image and store all the pixel colors in a color buffer. Then, when I am doing the path tracer, I could read the color according to the intersection point position. 
 ![ResultImage](testure mapping_Cut.bmp)
 ![ResultImage](testure mapping2_Cut.bmp)
+* Compare with CPU version:  
+This feature in CPU is doable and the required time will be similar.
 * Further improvement:  
 I would like to add the bump mapping effect for the next step. It should be easy to implement the effect. What I need to do is to change the normal vector for every point.
 
