@@ -19,16 +19,16 @@
 
 ![ResultImage](iteration number comparision.bmp)
 Conclusion:  
-The effect of increasing the iteration number is obvious. However, the difference of results of iteration number higher than 5000 are hard to be distinguished by eyes.
+The effect of increasing the iteration number is obvious. However, the difference of results of iteration number higher than 5000 are hard to be distinguished by eye.
 
-##Compare the different depth:
-* Depth: 3
+##Compare the different depth of trace:
+* Depth of trace: 3
 ![ResultImage](AntiAliasing_depth_3_iteration_5000_Cut.bmp)
 
-* Depth: 5
+* Depth of trace: 5
 ![ResultImage](AntiAliasing_depth_5_iteration_5000_Cut.bmp)
 
-* Depth: 10
+* Depth of trace: 10
 ![ResultImage](AntiAliasing_depth_10_iteration_5000_Cut.bmp)
 ![ResultImage](depth comparision.bmp)
 Conclusion:  
@@ -38,7 +38,7 @@ Besides, our color RGB value is from 0~255, that means even the 5th depth has dr
 
 ##Anti-aliasing effect:
 For the general sampling, we cast ray from camera location through each pixel center.
-For the anti-aliasing sampling, we still cast ray from camera locatin but not exactly through pixel center every time. Our ray will past through a random point with a given distance from the pixel center.
+For the anti-aliasing sampling, we still cast ray from camera locatin but not exactly through pixel center every time. Our ray will past through a random point inside a given distance from the pixel center.
 If we are doing the simple ray tracer, the anti-aliasing will increase the computation loading dramatically because we need to cast multiple rays for each pixel instead of only casting a single ray. 
 However, while we are doing the path tracer, we have to sample a pixel multiple times essentially. We could almost get anti-aliasing effect for free.
 ![ResultImage](antialiasing description.bmp)
@@ -66,10 +66,14 @@ Then, use the focal length to compute the focal point start from camera center a
 
 * Focal length:14  Aperture radius: 0.2
 ![ResultImage](focallength_14_aperture_0.2_depth_10_iteration_1000_Cut.bmp)
+* Further improvement:  
+Add more lens effects such as Fisheye lens or Wide-angle lens might be an interesting next step. 
 
 ##Motion blur effect:
 Motion blur effect is easy to implement. We could move the object every certain frames and do our general path tracer. Then we could get the motion blur effect for free.
 ![ResultImage](MotionBlur2_depth_5_iteration_1000_Cut.bmp)
+* Further improvement:  
+I will try not only move the normal object but also move the light source to create a trace of light effect.
 
 ##Change view direction and camera interaction:
 In my program, user could easily control the camera with keyboard.
@@ -87,6 +91,8 @@ In my program, user could easily control the camera with keyboard.
 This program could read a bmp format image and store all the pixel colors in a color buffer. Then, when I am doing the path tracer, I could read the color according to the intersection point position. 
 ![ResultImage](testure mapping_Cut.bmp)
 ![ResultImage](testure mapping2_Cut.bmp)
+* Further improvement:  
+I would like to add the bump mapping effect for the next step. It should be easy to implement the effect. What I need to do is change the normal vector for every point.
 
 ##Change light color:
 ![ResultImage](change color_depth_5_iteration_1000_Cut.bmp)
