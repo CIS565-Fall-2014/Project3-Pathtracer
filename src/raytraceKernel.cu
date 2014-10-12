@@ -21,7 +21,7 @@
 
 
 
-#define TRACE_DEPTH_LIMIT 5
+#define TRACE_DEPTH_LIMIT 1
 
 
 
@@ -143,7 +143,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 // NOTE: this kernel represents "tracing ONE bounce" 
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms){
+                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -155,7 +155,10 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 	   - use the pooled array map to ensure you're +='ing to the proper colors[] entry!
   */
   if((x<=resolution.x && y<=resolution.y)){
-	  colors[index] += generateRandomNumberFromThread(resolution, time, x, y);
+
+
+
+	  //colors[index] += generateRandomNumberFromThread(resolution, time, x, y);
   }
 }
 
@@ -197,7 +200,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
   cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
   
-  // TODO: package materials/lights and send to CUDA
+  // package materials/lights and send to CUDA
+  // I assume "materials" already contains everything I need, and numberOfMaterials has what I need:
+
+  material* cudamaterials = NULL;
+  cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
+  cudaMemcpy(cudamaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
 
   // package camera
   cameraData cam;
@@ -210,7 +218,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   //std::cout << "\nKernel launches about to start\n" << std::endl;
   //std::cout << "iterations is: " << iterations << std::endl;
   // kernel launches
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms);
+  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
 
   //std::cout << "\nraytraceRay call is done\n" << std::endl;
 
@@ -225,6 +233,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudaimage );
   cudaFree( cudageoms );
   delete geomList;
+  cudaFree( cudamaterials );
 
   // make certain the kernel has completed
   cudaThreadSynchronize();
