@@ -20,10 +20,29 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 
-__host__ __device__ float planeIntersectionTest(ray r, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3& intersectionPoint);
+__host__ __device__ float planeIntersectionTest(ray r, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3& intersectionPoint, glm::vec3& real_normal);
 
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
+
+
+// stuff from utilityCore has been copied here because of some weird CUDA issues
+__host__ __device__ cudaMat4 MYglmMat4ToCudaMat4(glm::mat4 a){
+    cudaMat4 m; a = glm::transpose(a);
+    m.x = a[0];
+    m.y = a[1];
+    m.z = a[2];
+    m.w = a[3];
+    return m;
+}
+__host__ __device__ glm::mat4 MYcudaMat4ToGlmMat4(cudaMat4 a){
+    glm::mat4 m;
+    m[0] = a.x;
+    m[1] = a.y;
+    m[2] = a.z;
+    m[3] = a.w;
+    return glm::transpose(m);
+}
 
 // Handy dandy little hashing function that provides seeds for random number generation
 __host__ __device__ unsigned int hash(unsigned int a){
@@ -96,85 +115,85 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	glm::vec3 isectpt(0,0,0);
 
 	float isectdist;
-	glm::vec3 norm_normal(0,0,0);
+	glm::vec3 real_normal(0,0,0);
 
 	//x = -.5
 	// if the result of planeIntersectionTest is NOT -1 ...
 	if (!epsilonCheck(
-		isectdist = planeIntersectionTest(r_norm, glm::vec3(-.5,0,0), glm::vec3(-.5,0,1), glm::vec3(-.5,1,0), isectpt),
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(-.5,0,0), glm::vec3(-.5,0,1), glm::vec3(-.5,1,0), isectpt, real_normal),
 		-1.f)) {
 		if (isectpt.y <= .5 + EPSILON && isectpt.y >= -.5 - EPSILON && isectpt.z <= .5 + EPSILON && isectpt.z >= -.5 - EPSILON) {
 			if (!min_t_set) {
 				min_t_set = true;
 				min_t = isectdist;
-				norm_normal = glm::vec3(-1,0,0);
+				//norm_normal = glm::vec3(-1,0,0);
 			}
 			else {
-				if (isectdist < min_t) norm_normal = glm::vec3(-1,0,0);
+				//if (isectdist < min_t) norm_normal = glm::vec3(-1,0,0);
 				min_t = (isectdist < min_t ? isectdist : min_t);
 			}
 		}
 	}
 	//x = .5
 	if (!epsilonCheck(
-		isectdist = planeIntersectionTest(r_norm, glm::vec3(.5,0,0), glm::vec3(.5,0,1), glm::vec3(.5,1,0), isectpt),
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(.5,0,0), glm::vec3(.5,0,1), glm::vec3(.5,1,0), isectpt, real_normal),
 		-1.f)) {
 		if (isectpt.y <= .5 + EPSILON && isectpt.y >= -.5 - EPSILON && isectpt.z <= .5 + EPSILON && isectpt.z >= -.5 - EPSILON) {
 			if (!min_t_set) {
 				min_t_set = true;
 				min_t = isectdist;
-				norm_normal = glm::vec3(1,0,0);
+				//norm_normal = glm::vec3(1,0,0);
 			}
 			else {
-				if (isectdist < min_t) norm_normal = glm::vec3(1,0,0);
+				//if (isectdist < min_t) norm_normal = glm::vec3(1,0,0);
 				min_t = (isectdist < min_t ? isectdist : min_t);
 			}
 		}
 	}
 	//y = -.5
 	if (!epsilonCheck(
-		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,-.5,0), glm::vec3(0,-.5,1), glm::vec3(1,-.5,0), isectpt),
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,-.5,0), glm::vec3(0,-.5,1), glm::vec3(1,-.5,0), isectpt, real_normal),
 		-1.f)) {
 		if (isectpt.x <= .5 + EPSILON && isectpt.x >= -.5 - EPSILON && isectpt.z <= .5 + EPSILON && isectpt.z >= -.5 - EPSILON) {
 			if (!min_t_set) {
 				min_t_set = true;
 				min_t = isectdist;
-				norm_normal = glm::vec3(0,-1,0);
+				//norm_normal = glm::vec3(0,-1,0);
 			}
 			else {
-				if (isectdist < min_t) norm_normal = glm::vec3(0,-1,0);
+				//if (isectdist < min_t) norm_normal = glm::vec3(0,-1,0);
 				min_t = (isectdist < min_t ? isectdist : min_t);
 			}
 		}
 	}
 	//y = .5
 	if (!epsilonCheck(
-		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,.5,0), glm::vec3(0,.5,1), glm::vec3(1,.5,0), isectpt),
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,.5,0), glm::vec3(0,.5,1), glm::vec3(1,.5,0), isectpt, real_normal),
 		-1.f)) {
 		if (isectpt.x <= .5 + EPSILON && isectpt.x >= -.5 - EPSILON && isectpt.z <= .5 + EPSILON && isectpt.z >= -.5 - EPSILON) {
 			if (!min_t_set) {
 				min_t_set = true;
 				min_t = isectdist;
-				norm_normal = glm::vec3(0,1,0);
+				//norm_normal = glm::vec3(0,1,0);
 			}
 			else {
-				if (isectdist < min_t) norm_normal = glm::vec3(0,1,0);
+				//if (isectdist < min_t) norm_normal = glm::vec3(0,1,0);
 				min_t = (isectdist < min_t ? isectdist : min_t);
 			}
 		}
 	}
 	//z = -.5
 	if (!epsilonCheck(
-		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,0,-.5), glm::vec3(0,1,-.5), glm::vec3(1,0,-.5), isectpt),
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,0,-.5), glm::vec3(0,1,-.5), glm::vec3(1,0,-.5), isectpt, real_normal),
 		-1.f)) {
 		if (isectpt.x <= .5 + EPSILON && isectpt.x >= -.5 - EPSILON && isectpt.y <= .5 + EPSILON && isectpt.y >= -.5 - EPSILON) {
 			if (!min_t_set) {
 				min_t_set = true;
 				min_t = isectdist;
-				norm_normal = glm::vec3(0,0,-1);
+				//norm_normal = glm::vec3(0,0,-1);
 			}
 			else {
-				if (isectdist < min_t) norm_normal = glm::vec3(0,0,-1);
+				//if (isectdist < min_t) norm_normal = glm::vec3(0,0,-1);
 				min_t = (isectdist < min_t ? isectdist : min_t);
 			}
 			
@@ -182,16 +201,16 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	}
 	//z = .5
 	if (!epsilonCheck(
-		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,0,.5), glm::vec3(0,1,.5), glm::vec3(1,0,.5), isectpt),
+		isectdist = planeIntersectionTest(r_norm, glm::vec3(0,0,.5), glm::vec3(0,1,.5), glm::vec3(1,0,.5), isectpt, real_normal),
 		-1.f)) {
 		if (isectpt.x <= .5 + EPSILON && isectpt.x >= -.5 - EPSILON && isectpt.y <= .5 + EPSILON && isectpt.y >= -.5 - EPSILON) {
 			if (!min_t_set) {
 				min_t_set = true;
 				min_t = isectdist;
-				norm_normal = glm::vec3(0,0,1);
+				//norm_normal = glm::vec3(0,0,1);
 			}
 			else {
-				if (isectdist < min_t) norm_normal = glm::vec3(0,0,1);
+				//if (isectdist < min_t) norm_normal = glm::vec3(0,0,1);
 				min_t = (isectdist < min_t ? isectdist : min_t);
 			}
 		}
@@ -206,16 +225,25 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	// calculate world pt and normal
 	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(r_norm, isectdist), 1.0));
 
-	cudaMat4 C = box.transform;
+	//cudaMat4 C = box.transform;
 	// I want (C-inverse)-transpose
-	cudaMat4 Cit = utilityCore::glmMat4ToCudaMat4(glm::transpose(glm::inverse(utilityCore::cudaMat4ToGlmMat4(C))));
+	//cudaMat4 Cit = MYglmMat4ToCudaMat4(glm::transpose(glm::inverse(MYcudaMat4ToGlmMat4(C))));
 
-	glm::vec3 realNormal = glm::normalize(multiplyMV(Cit, glm::vec4(norm_normal, 0.0))); // as specified on slide 793 in the FALL 2013 notes for CIS 560
+	//glm::vec3 realNormal = glm::normalize(multiplyMV(Cit, glm::vec4(norm_normal, 0.0))); // as specified on slide 793 in the FALL 2013 notes for CIS 560
 																						 // since the normal is a vector, its w-coordinate is 0
 
 	// use references to update intersection point and normal
 	intersectionPoint = realIntersectionPoint;
-	normal = realNormal;
+	// get the right normal (a plane intersection could have 2)
+	if (glm::dot(r.direction, real_normal) > 0) {
+		//normal and direction are NOT antiparallel; this is wrong
+		normal = -1.f * real_normal;
+	}
+	else {
+		normal = real_normal;
+	}
+
+	normal = glm::normalize(normal);
 
 	return glm::length(r.origin - realIntersectionPoint); //return the distance, WORLD to WORLD
 
@@ -225,13 +253,15 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 // any transformations, nor does it have anything to do with normals. p1-p3 are 3 points
 // which define a plane. They must not be collinear.
 // returns -1 for no intersection, otherwise, distance to intersection. The point can be found in intersectionPoint
-__host__ __device__ float planeIntersectionTest(ray r, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3& intersectionPoint){
+__host__ __device__ float planeIntersectionTest(ray r, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3& intersectionPoint, glm::vec3& realNormal){
 
 	//vectors along the plane
 	glm::vec3 vs1 = p2-p1;
 	glm::vec3 vs2 = p3-p1;
 
 	glm::vec3 n = glm::normalize(glm::cross(vs1, vs2));
+
+	realNormal = n;
 
 	float A = n.x;
 	float B = n.y;

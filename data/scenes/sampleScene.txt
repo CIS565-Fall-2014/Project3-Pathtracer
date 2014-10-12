@@ -104,7 +104,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   25 // 15
+EMITTANCE   20 // 15
 
 MATERIAL 9				//middle wall
 RGB         .7 .5 .7    // slight magenta       
@@ -131,8 +131,8 @@ RSCTCOEFF   0
 EMITTANCE   0
 
 CAMERA
-RES         400 400
-FOVY        5.5 // I think this is in radians...
+RES         350 350
+FOVY        5.65 // I think this is in radians...
 ITERATIONS  1000
 FILE        test.bmp
 frame 0
@@ -211,4 +211,20 @@ material 8
 frame 0
 TRANS       0 10 0
 ROTAT       0 0 90
-SCALE       .3 3 3
+SCALE       .3 5 5
+
+OBJECT 9
+cube
+material 8 
+frame 0
+TRANS       -2 3 4
+ROTAT       0 0 90
+SCALE       1 1 1
+
+//OBJECT 10
+//cube
+//material 8 
+//frame 0
+//TRANS       2 3 4
+//ROTAT       0 0 90
+//SCALE       1 1 1

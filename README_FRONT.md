@@ -33,7 +33,10 @@ See:
 * http://www.siggraph.org/education/materials/HyperGraph/raytrace/rayplane_intersection.htm
 * https://github.com/citizen-of-infinity/SCHOOL-CIS-560-Raytracer/blob/master/CIS560hw2/intersect.cpp
 * Slide 793 in the FALL 2013 notes for CIS 560 - basically, using ^-1^T to correctly
-  map the normal from normalized space to world space.
+  map the normal from normalized space to world space. 
+    * Addendum: this actually turned out not to work because CUDA is too sensitive
+	  about using glm function in a "__host__ __device__" function like boxIntersectionTest().
+	  I bypassed this issue by calculating the real normal in planeIntersectionTest().
 
 
 ##### getRandomDirectionInSphere()
@@ -121,9 +124,35 @@ Look like a real pathtracer, but no stream compaction opt or motion blur yet.
 
 I'm running into trouble - my image is black where the walls should be.
 
-However, I'm pretty sure my box intersection testing is right...
+However, I'm pretty sure my box intersection testing is right... check out this
+debug view that just returns material color:
 
 ![checkpoint 3-0.0](images/chkpt3-0.0.png)
+
+I guess something might be wrong with the normals I am getting... and the debug
+view showed that I was getting nothing back at all (just a black screen)!
+
+Upon fixing this, my walls were showing up, but coming back really dark:
+
+![checkpoint 3-0.1](images/chkpt3-0.1.png)
+
+I was unable to fix this, and consequently, decided to throw in a few extra emitting
+cubes in different parts of the scene to make stuff brighter.
+I also played around with my thrust RNG - there was a bug where the same seed was
+being used for each pixel in an iteration, causing a weird non-static-like convergence
+(it was more like chunks of objects lit up all at once).
+
+The end result was something like this. 
+
+![checkpoint 3-1](images/chkpt3-1.png)
+
+For some reason, the bmp output looked completely different:
+
+![checkpoint 3-1.1](images/chkpt3-1.1.bmp)
+
+At this point, I've decided to stop and focus on motion blur / stream compaction
+in the few remaining hours I have.
+
 
 
 

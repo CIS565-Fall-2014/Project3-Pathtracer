@@ -21,7 +21,7 @@
 
 
 
-#define TRACE_DEPTH_LIMIT 6 // this means 5 bounces in my convoluted code
+#define TRACE_DEPTH_LIMIT 6
 
 
 
@@ -195,11 +195,11 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 						minMaterial = materials[geoms[g].materialid];
 					}
 
-						//if ray isect any cube, add something
-					colors[index] += materials[geoms[g].materialid].color;
-						rays[index].active = false;
-						return;
-						////
+						////if ray isect any cube, add the normal
+						//colors[index] += (n);
+						//rays[index].active = false;
+						//return;
+						//////
 
 				}
 			}
