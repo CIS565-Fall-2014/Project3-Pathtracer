@@ -136,8 +136,13 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
     glm::vec3 col = glm::vec3(-1,-1,-1);
     
     glm::vec3 COLOR = glm::vec3(1,1,1);//initialize to white
+    int tooDeep = 0;
     
-    for(int j = 0; j < maxDepth; j++){
+    for(int j = 0; j <= maxDepth; j++){
+      if(j == maxDepth){
+        tooDeep = 1;
+        break;
+      }
       //intersection checks:
       float distToIntersect = FLT_MAX;//infinite distance
       float tmpDist;
@@ -162,15 +167,15 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
         col = glm::vec3(0,0,0);
         break;
       }
-     //is this a light source?
+      //is this a light source?
       if(mat.emittance > 0.001){
-        col = COLOR * (mat.color * mat.emittance);////////////////////////////
+        col = COLOR * (mat.color * mat.emittance);
         break;
-      }
+      } 
       calculateBSDF(thisRay, intersectPoint, intersectNormal, COLOR, mat, (float) u01(rng) ,(float) u01(rng));
+      col = COLOR;
     }
-    //ran out of depth
-    if(col == glm::vec3(-1,-1,-1)){
+    if(tooDeep == 1){//ran out of depth
       col = glm::vec3(0,0,0);
     }
 

@@ -114,20 +114,35 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 __host__ __device__ int calculateBSDF(ray& thisRay, glm::vec3 intersect, glm::vec3 normal,
                                        glm::vec3& color, material mat, float seed1, float seed2){
   ray newRay;
-  newRay.direction = calculateRandomDirectionInHemisphere(normal, seed1, seed2);
-  newRay.direction = glm::normalize(newRay.direction);
-  newRay.origin = intersect + .001f * newRay.direction;
   
-  //get Cosine of new ray and normal
-  float cos = glm::dot(newRay.direction, intersect);
+  if(seed1 < mat.hasReflective){ //reflect with probability of reflectance
+    //is ther emittance?
+    if(mat.emittance > 0.001){
+        color = color * (mat.color * mat.emittance); 
+      }
     
-  //update COLOR
-  color = color * mat.color * cos;
-  thisRay = newRay;
-  
-  
-
-  return 0;
+    //Perfect reflective
+    newRay.direction = glm::reflect(thisRay.direction, normal);
+    newRay.direction = glm::normalize(newRay.direction);
+    newRay.origin = intersect + .001f * newRay.direction;//nudge in direction
+    //get Cosine of new ray and normal
+    //float cos = glm::dot(newRay.direction, normal);
+    //update COLOR
+    //color = color * mat.color * mat.hasReflective; //don't update color
+    thisRay = newRay;
+    return 1;
+  }else{
+    //Diffuse
+    newRay.direction = calculateRandomDirectionInHemisphere(normal, seed1, seed2);
+    newRay.direction = glm::normalize(newRay.direction);
+    newRay.origin = intersect + .001f * newRay.direction; //nudge in direction
+    //get Cosine of new ray and normal
+    float cos = glm::dot(newRay.direction, normal);
+    //update COLOR
+    color = color * mat.color * cos;
+    thisRay = newRay;
+    return 0;
+  }
 };
 
 #endif
