@@ -10,16 +10,17 @@ real-time rendering progress (like other renderers do:) ), and camera angle can 
 ## BACIC FEATURES
 
 * Raycasting from a camera into a scene through a pixel grid  
-	Using jittered coordinates to achieve Anti-Aliasing
+	Using jittered coordinates to achieve Anti-Aliasing, and this effect is obvious when using small resolution, and less obvious when using large resolution.  
+	
 * Diffuse surfaces  
 Using Hemi sphere sampling to cast secondary diffuse rays. I used Importance Sampling (cos weighted) to reduce noise and speed up convergence. 
 shading is done by simplest Lambert BRDF.
 
 * Perfect specular reflective surfaces  
-Calculating reflected secondary ray by vector calculation
+Calculating reflected secondary ray by vector math
 
 * Cube intersection testing  
-My cube intersection based on 
+My cube intersection is based on 
 http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/ 
 
 * Sphere surface point sampling  
@@ -29,6 +30,7 @@ Monte-Carlo Sampling.
 Stream compaction was done by thrust, fast and reliable:)
 This can be turned on or off by defining "STREAM_COMPACTION" in "raytracerKernel.h"  
 The maximum limit of ray depth impacts the rendered speed, and this limit can be set in "MAX_DEPTH" in "raytracerKernel.h"  
+
 The comparison between using and not using stream compaction is shown below  
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Comparison.png)
 
@@ -81,7 +83,7 @@ But, my renderer can only handle one obj instead of multiple obj, at current sta
 but with other basic shape like sphere or cube is okay.) As I failed in adding the list of triangle to the member of "geom" and readable by CUDA. 
 This can be solved by expanding my current global array of triangle to an array of triangle list. I should implement this in the near future.  
 
-In order to load obj, speify the scene file as below  
+In order to load obj, speify the scene file as below. REMEMBER to include FULL PATH for the obj file, so that TinyObjLoader can correctly finds the file.    
 
 OBJECT 5  
 C:\Users\AppleDu\Documents\GitHub\Project3-Pathtracer\data\scenes\hexGem.obj  
@@ -96,9 +98,10 @@ SCALE       4 4 4
 
 ##Interactive camera  
 Interactive Camera is implemented to provide flexible in rendering angles, including pan, tilt, zoom, everything. 
-Play with camera like a camera man! :) Rendering will start fresh every time camera is changed.  
+Play with camera like a camera man! :) Rendering will start fresh every time camera is changed. This allows interactive adjustment to camera angle, and make interesting shots possible.    
 
-"STEP_SIZE" specifies the step size of camera movements, and can be changed in "main.h".
+"STEP_SIZE" specifies the step size of camera movements, and can be changed in "main.h".  
+The keyboard interaction during run-time is as specified below. In the future, I will include real-time modification of camera focal length and aperture as well, so that I can produce a good and realistic depth of field effect.  
 
 * W - move up
 * Q - move down
