@@ -154,13 +154,37 @@ At this point, I've decided to stop and focus on motion blur / stream compaction
 in the few remaining hours I have.
 
 
+#### Stream compaction
+
+
+
+
 
 
 ### _Extra feature analysis_
 
 ["extra features", performance analysis]
 
+#### Motion blur
 
+I'm going to hardcode in motion blur for object 7, the green sphere. The blur will
+be a movement 2.5 units to the right.
+
+This was done by adding an if-else wrappers around particular points in
+cudaRaytraceCore() - specifically, the exact lines where the green sphere's
+translation, transformation matrix, and inverse transformation matrix are specified
+(right before being sent to device CUDA memory). These are then redefined, using
+[scene.cpp](https://github.com/citizen-of-infinity/Project3-Pathtracer/blob/master/src/scene.cpp)
+for guidance.
+
+Here's the implementation change (this is NOT good code; if I had more time
+it would be a good idea for me to pull this stuff out into a more general function):
+
+![Motion Blur Implementation](images/motion-blur-impl.png)
+
+And here's the end result:
+
+![Motion Blur Image](images/motion-blur-img.png)
 
 
 
@@ -169,3 +193,12 @@ in the few remaining hours I have.
 ### _Overall comments_
 
 [Potential ideas for better optimization]
+
+I'd like to say that the Moore 100C computers are just slow, but it still seems
+likely that my implementation is not perfect. I can identify the following areas
+of redundancy:
+
+* 
+
+Also, stream compaction overhead may not be worth it if, for example, we're
+shooting rays around in an enclosed box with lights all over the place.

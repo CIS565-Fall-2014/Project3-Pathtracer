@@ -77,7 +77,7 @@ You are also required to implement at least 2 of the following features:
 * Refraction, i.e. glass
 * OBJ Mesh loading and rendering
 * Interactive camera
-* Motion blur
+* **[SELECTED]** Motion blur
 * Subsurface scattering
 
 The 'extra features' list is not comprehensive.  If you have a particular feature

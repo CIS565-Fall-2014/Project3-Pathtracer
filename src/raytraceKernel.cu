@@ -270,11 +270,34 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     staticGeom newStaticGeom;
     newStaticGeom.type = geoms[i].type;
     newStaticGeom.materialid = geoms[i].materialid;
-    newStaticGeom.translation = geoms[i].translations[frame];
+
+	if (i == 7) {
+		newStaticGeom.translation = geoms[i].translations[frame] + glm::vec3(2.5f*((float)iterations / (float)(renderCam->iterations)), 0, 0);
+	}
+	else
+	{
+		newStaticGeom.translation = geoms[i].translations[frame];
+	}
+
+
     newStaticGeom.rotation = geoms[i].rotations[frame];
     newStaticGeom.scale = geoms[i].scales[frame];
-    newStaticGeom.transform = geoms[i].transforms[frame];
-    newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+
+	glm::mat4 T = utilityCore::buildTransformationMatrix(newStaticGeom.translation, newStaticGeom.rotation, newStaticGeom.scale);
+
+	if (i == 7) {
+		newStaticGeom.transform = utilityCore::glmMat4ToCudaMat4(T);
+	}
+	else {
+		newStaticGeom.transform = geoms[i].transforms[frame];
+	}
+
+	if (i == 7) {
+		newStaticGeom.inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(T));
+	}		
+	else {
+		newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+	}
     geomList[i] = newStaticGeom;
   }
   
