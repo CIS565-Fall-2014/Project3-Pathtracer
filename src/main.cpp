@@ -67,13 +67,25 @@ int main(int argc, char** argv){
 
   return 0;
 }
-
+cudaEvent_t start, stop;
+float timeDuration;
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
+
+	//cuda timer event
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	cudaEventRecord( start, 0 );
+
     runCuda();
 
-    string title = "CIS565 Render | " + utilityCore::convertIntToString(iterations) + " Iterations";
+	cudaEventRecord( stop, 0 );
+	cudaEventSynchronize( stop );
+	cudaEventElapsedTime( &timeDuration, start, stop );
+
+    string title = "GPU MC Pathtracer | " + utilityCore::convertIntToString(iterations) + " Iterations | " + 
+		utilityCore::convertFloatToString(timeDuration) + "ms";
 	glfwSetWindowTitle(window, title.c_str());
 	//char title[1000];
 	//sprintf(title, "GPU Path Tracer | %d iterations", iterations);
@@ -183,7 +195,7 @@ bool init(int argc, char* argv[]) {
 
   width = 800;
   height = 800;
-  window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
+  window = glfwCreateWindow(width, height, "GPU MC Pathtracer", NULL, NULL);
   if (!window){
       glfwTerminate();
       return false;

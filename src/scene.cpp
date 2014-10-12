@@ -245,14 +245,7 @@ int scene::loadCamera(){
 	float fovy;
 	
 	//load static properties
-	int num;
-	if(DEPTH_OF_FIELD){
-		num = 6;  //6 lines to read
-	}
-	else{
-		num = 4;
-	}
-	for(int i=0; i<num; i++){
+	for(int i=0; i<6; i++){
 		string line;
         utilityCore::safeGetline(fp_in,line);
 		vector<string> tokens = utilityCore::tokenizeString(line);

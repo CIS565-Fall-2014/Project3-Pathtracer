@@ -9,32 +9,33 @@ real-time rendering progress (like other renderers do:) ), and camera angle can 
 
 ## BACIC FEATURES
 
-* Raycasting from a camera into a scene through a pixel grid
+* Raycasting from a camera into a scene through a pixel grid  
 	Using jittered coordinates to achieve Anti-Aliasing
-* Diffuse surfaces
+* Diffuse surfaces  
 Using Hemi sphere sampling to cast secondary diffuse rays. I used Importance Sampling (cos weighted) to reduce noise and speed up convergence. 
 shading is done by simplest Lambert BRDF.
 
-* Perfect specular reflective surfaces
+* Perfect specular reflective surfaces  
 Calculating reflected secondary ray by vector calculation
 
-* Cube intersection testing
+* Cube intersection testing  
 My cube intersection based on 
 http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/ 
 
-* Sphere surface point sampling
+* Sphere surface point sampling  
 Monte-Carlo Sampling. 
 
-* Stream compaction optimization
+* Stream compaction optimization  
 Stream compaction was done by thrust, fast and reliable:)
 This can be turned on or off by defining "STREAM_COMPACTION" in "raytracerKernel.h"
 The maximum limit of ray depth impacts the rendered speed, and this limit can be set in "MAX_DEPTH" in "raytracerKernel.h"
-
+The comparison between using and not using stream compaction is shown below  
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Comparison.png)
 
 
 ## ADVANCED FEATURES
 
-## Refraction, i.e. glass
+## Refraction, i.e. glass  
 Refraction was done based on snell's law and fresnel equation.
 Using good index of refraction will produce beautiful refractions.
 Both clear glass or colored glass can be handled here. Wondering doing some frosted glass(play with transparency).
@@ -42,14 +43,14 @@ The picture below shows three material - diffuse, highly reflective, and refract
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best6_Materials.bmp) 
 
 
-##Depth of field
+##Depth of field  
 Depth of filed was achieved by offsetting initial pinhole ray origin based on camera aperture, and re-calculate the ray direction based on previous focal plane intersecting point.
 Thus, the ray casting mimics the lens-based camera and produces depth of field effect where objects out of focus is blurred.
-If not using depth of field turn off "DEPTH_OF_FIELD" in "raytracerKernel.h" and "scene.h", and take out camera aperture and focal length in scene txt file
-If want to use depth of field effects, turn on "DEPTH_OF_FIELD" in "raytracerKernel.h" and "scene.h", which is initially off, 
+Turning on/off "DEPTH_OF_FIELD" in "raytracerKernel.h" will switch the effect on/off
+If want to use depth of field effects, turn on "DEPTH_OF_FIELD" in "raytracerKernel.h"
 and specify camera aperture and focal length in scene txt file, like illustrated below    
 
-CAMERA  
+CAMERA   
 RES         800 800  
 FOVY        35  
 ITERATIONS  5000  
@@ -66,7 +67,7 @@ second with longer focal length, so further objects are in focus, the third with
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best1_DepthOfField.bmp)
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best2_DepthOfField.bmp)
 
-##OBJ Mesh loading and rendering
+##OBJ Mesh loading and rendering  
 OBJ loading is possible with the help of "TinyObjLoader" by https://github.com/syoyo/tinyobjloader.
 The obj data is parsed "mesh" with both "indices" and "positions". This saved me a lot of time in reading the obj file.
 
@@ -89,7 +90,7 @@ SCALE       4 4 4
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best4_Diamond.bmp)
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best5_Crystal.bmp)
 
-##Interactive camera
+##Interactive camera  
 Interactive Camera is implemented to provide flexible in rendering angles, including pan, tilt, zoom, everything. 
 Play with camera like a camera man! :) Rendering will start fresh every time camera is changed.
 STEP_SIZE - step size of camera movements
@@ -108,19 +109,28 @@ STEP_SIZE - step size of camera movements
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best3_Depth_and_Camera_moving.bmp)
 [![ScreenShot](windows/Project3-Pathtracer/Project3-Pathtracer/YoutubeThumbnail.png)] (http://www.youtube.com/embed/RtjJXwnUBZo)
 
+##Compare to CPU Ray Tracer  
+There are tons of advantages this rendered has over the CPU raytracer, such as  
+* Much faster!   
+* Real-time Rendering  
+* Global Illumination ( Color Bleeding, Soft Shadow, & Caustics! )   
+* Realistic Rendering ( BRDF )  
+* 
 
-
-## SCENE FORMAT
-I have some scene files that are interesting to render:
-* sampleScene.txt
-I modified the original file and in current version, there is diffuse item, highly reflective item, glass item.
-WIHOUT depth of field.
-* myScene.txt
-Everything same as "sampleScene" except this one INCLUDES depth of field. In order to render this one, remember to turn on "DEPTH_OF_FIELD" 
-in both "raytracerKernel.h" and "scene.h", and specify "FOCAL" and "APERTURE" before "frame" for camera in the scene txt file.
-* myScene2.txt
+## SCENE FORMAT  
+In order to use my program, "FOCAL" and "APERTURE" MUST be specified for camera in the scene file, 
+though depth of field may not be turned on. This is to ensure correctness of reading in scene txt file.
+I have some scene files that are interesting to render:  
+* sampleScene.txt  
+Original file  
+* myScene.txt  
+There is diffuse item, highly reflective item, glass item, depth of field.
+with only one cube for Anti-Aliasing test  
+* myScene1.txt  
+Demonstrating basic materials - diffuse, reflection, and refraction
+* myScene2.txt  
 Diamond obj with white glass material
-* myScene3.txt
+* myScene3.txt  
 Crystal obj with blue glass material
 
 

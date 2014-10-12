@@ -380,8 +380,13 @@ __global__ void initialRayPool(ray * rayPool, cameraData cam, float iterations,g
 	ray r = rayPool[index];
 
 	if( x<= cam.resolution.x && y <= cam.resolution.y ){
-		glm::vec2 jittering = generateRandomNumberAntiAliasing((float)index * iterations, x, y, 0.5f);  //anti-alizsing
-		r = raycastFromCameraKernel( cam.resolution, iterations, jittering.x, jittering.y, cam.position, cam.view, cam.up, cam.fov );
+		if(ANTI_ALIASING){
+			glm::vec2 jitter = generateRandomNumberAntiAliasing((float)index * iterations, x, y, 0.5f);  //anti-alizsing
+			r = raycastFromCameraKernel( cam.resolution, iterations, jitter.x, jitter.y, cam.position, cam.view, cam.up, cam.fov );
+		}
+		else{
+			r = raycastFromCameraKernel( cam.resolution, iterations, x, y, cam.position, cam.view, cam.up, cam.fov );
+		}
 		r.pixel = index;  //mark ray with pixel indexing, after compaction, (r.pixel) will represent correct pixel location
 
 		if(DEPTH_OF_FIELD){

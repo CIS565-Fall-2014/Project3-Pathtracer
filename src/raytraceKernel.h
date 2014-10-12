@@ -20,6 +20,7 @@
 #include "sceneStructs.h"
 
 #define MAX_DEPTH 8
+#define ANTI_ALIASING 1
 #define STREAM_COMPACT 1
 #define LIGHT_STRENGTH 4   //anything with emittance bigger than this is regarded as light
 #define DEPTH_OF_FIELD 0
