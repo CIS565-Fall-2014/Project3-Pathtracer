@@ -8,7 +8,7 @@ Author: Dave Kotfis
 ##Overview
 
 This is a GPU pathtracing project utilizing starter code providing much of the backend (scene file loading, CUDA/OpenGL interop, etc). Some of the features include:
-- Shapes (Boxes, Spheres, Meshes)
+- Shapes (Boxes, Spheres, Meshes w/ limited support)
 - Materials (Diffuse, Specular, Refractive)
 - Stream Compaction (Thrust, Scan+Fan w/ limited support)
 
@@ -59,9 +59,9 @@ For a single iteration, I also captured the number of rays at each trace depth. 
 
 <img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/active rays.png" "Active Rays">
 
-Meshes
-
 ##Future
+
+I have implemented triangle intersection tests, and loading obj files. However, I cannot show off any results from this because I ran out of time before working out the bugs in how I was packaging the mesh data to send to the GPU.
 
 My original intention was to extend the mesh representation to use an octree for spatial subdivision. Due to lack of time, I did not implement this (it required working tri-meshes first in order to show benefit). I will likely come back to implementing this on a later project.
 

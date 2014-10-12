@@ -107,6 +107,22 @@ __host__ __device__ float collideRay(const ray& r, const worldData* world, world
 			}
 			break;	
 			}
+		case MESH:
+		    {
+			// Loop over triangles in the mesh
+			glm::vec3 triangle[3];
+			for (int k = 0; k < world->meshes[g.meshid].numberOfTriangles; k++) {
+				for (int j = 0; j < 3; j++) {
+					triangle[j] = world->meshes[g.meshid].vertices[world->meshes[g.meshid].indices[3 * k + j]];
+				}
+				d = triangleIntersectionTest(triangle, r, i_point, norm);
+				if (d >= 0.0f && d < min_dist) {
+					idx = i;
+					min_dist = d;
+					normal = norm;
+				}
+			}
+		    }
 		default :
 			{
 			break;
@@ -114,21 +130,7 @@ __host__ __device__ float collideRay(const ray& r, const worldData* world, world
 		}
 	}
 
-	// Loop over triangles
-	glm::vec3 triangle[3];
-	for (int i = 0; i < ws.numberOfTriangles; i++) {
-		for (int j = 0; j < 3; j++) {
-			triangle[j] = world->vertices[world->indices[3*i + j]];
-		}
-		d = triangleIntersectionTest(triangle, r, i_point, norm);
-		if (d >= 0.0f && d < min_dist) {
-			//idx = i; TODO: Associate a triangle with a geometry
-			min_dist = d;
-			normal = norm;
-		}
-	}
-
-		return (idx == -1 ? -1.0f : min_dist);
+	return (idx == -1 ? -1.0f : min_dist);
 }
 
 // predicate struct for thrust stream compaction (utilizing the google code template for doing this)
@@ -434,7 +436,7 @@ void compactRaysThrust(ray* raysIn, int& num, ray* raysOut) {
 }
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, geom* geoms, worldSizes ws){
+void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, geom* geoms, mesh* meshes, worldSizes ws){
   
   //startTiming();
 
@@ -481,13 +483,29 @@ void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterati
   cudaMemcpy(cudaMaterials, materials, ws.numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
   hostWorld.materials = cudaMaterials;
 
-  // send triangles to GPU
-  /*glm::vec3* cudaVertices;
-  int* cudaIndices;
-  cudaMalloc((void**)&cudaVertices, ws.numberOfVertices*sizeof(glm::vec3));
-  cudaMalloc((void**)&cudaIndices, ws.numberOfTriangles*3*sizeof(int));
-  hostWorld.vertices = cudaVertices;
-  hostWorld.indices = cudaIndices;*/
+  // send meshes to GPU
+  mesh* cudaMeshes;
+  glm::vec3** cudaVertices;
+  int** cudaIndices;
+  mesh* hostMeshes;
+  if (ws.numberOfMeshes > 0) {
+	  hostMeshes = (mesh*)malloc(ws.numberOfMeshes*sizeof(mesh));
+	  cudaMalloc((void**)&cudaVertices, ws.numberOfMeshes*sizeof(glm::vec3*));
+	  cudaMalloc((void**)&cudaIndices, ws.numberOfMeshes*sizeof(int*));
+	  for (int i = 0; i < ws.numberOfMeshes; i++) {
+		  cudaMalloc((void**)&(cudaVertices[i]), meshes[i].numberOfVertices*sizeof(glm::vec3));
+		  cudaMemcpy(cudaVertices[i], meshes[i].vertices, meshes[i].numberOfVertices*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+		  hostMeshes[i].vertices = cudaVertices[i];
+		  hostMeshes[i].numberOfVertices = meshes[i].numberOfVertices;
+		  cudaMalloc((void**)&(cudaIndices[i]), meshes[i].numberOfTriangles * 3 * sizeof(int));
+		  cudaMemcpy(cudaIndices[i], meshes[i].indices, meshes[i].numberOfTriangles*3*sizeof(int), cudaMemcpyHostToDevice);
+		  hostMeshes[i].indices = cudaIndices[i];
+		  hostMeshes[i].numberOfTriangles = meshes[i].numberOfTriangles;
+	  }
+	  cudaMalloc((void**)&cudaMeshes, ws.numberOfMeshes*sizeof(mesh));
+	  cudaMemcpy(cudaMeshes, hostMeshes, ws.numberOfMeshes*sizeof(mesh), cudaMemcpyHostToDevice);
+	  hostWorld.meshes = cudaMeshes;
+  }
 
   // send the final world to the GPU
   cudaMemcpy(cudaWorld, &hostWorld, sizeof(worldData), cudaMemcpyHostToDevice);
@@ -560,8 +578,15 @@ void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterati
   cudaFree( cudaWorld );
   cudaFree( cudaGeoms );
   cudaFree( cudaMaterials );
-  //cudaFree( cudaVertices );
-  //cudaFree( cudaIndices );
+  if (ws.numberOfMeshes > 0) {
+	  cudaFree( cudaMeshes );
+	  delete hostMeshes;
+	  for (int i = 0; i < ws.numberOfMeshes; i++) {
+		  cudaFree( cudaVertices[i] );
+		  cudaFree( cudaIndices[i] );
+	  }
+  }
+
   cudaFree( cudaRays1 );
   cudaFree( cudaRays2 );
   //cudaFree(cudaRayMask);

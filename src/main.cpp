@@ -103,6 +103,7 @@ void runCuda(){
     // pack geom and material arrays
     geom* geoms = new geom[renderScene->objects.size()];
     material* materials = new material[renderScene->materials.size()];
+	mesh* meshes = new mesh[renderScene->meshes.size()];
     
     for (int i=0; i < renderScene->objects.size(); i++) {
       geoms[i] = renderScene->objects[i];
@@ -110,14 +111,16 @@ void runCuda(){
     for (int i=0; i < renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
+	for (int i = 0; i < renderScene->meshes.size(); i++) {
+		meshes[i] = renderScene->meshes[i];
+	}
 	worldSizes ws;
 	ws.numberOfGeoms = renderScene->objects.size();
 	ws.numberOfMaterials = renderScene->materials.size();
-	ws.numberOfTriangles = 0;
-	ws.numberOfVertices = 0;
+	ws.numberOfMeshes = renderScene->meshes.size();
 
     // execute the kernel
-    cudaPathtraceCore(dptr, renderCam, targetFrame, iterations, materials, geoms, ws);
+    cudaPathtraceCore(dptr, renderCam, targetFrame, iterations, materials, geoms, meshes, ws);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);

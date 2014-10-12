@@ -24,6 +24,7 @@ struct ray {
 struct geom {
 	enum GEOMTYPE type;
 	int materialid;
+	int meshid;
 	int frames;
 	glm::vec3* translations;
 	glm::vec3* rotations;
@@ -35,6 +36,7 @@ struct geom {
 struct staticGeom {
 	enum GEOMTYPE type;
 	int materialid;
+	int meshid;
 	glm::vec3 translation;
 	glm::vec3 rotation;
 	glm::vec3 scale;
@@ -55,18 +57,23 @@ struct material{
 	float emittance;
 };
 
+struct mesh {
+	glm::vec3* vertices;
+	int* indices;
+	int numberOfTriangles;
+	int numberOfVertices;
+};
+
 struct worldSizes {
 	int numberOfGeoms;
 	int numberOfMaterials;
-	int numberOfTriangles;
-	int numberOfVertices;
+	int numberOfMeshes;
 };
 
 struct worldData{
 	staticGeom* geoms;
 	material* materials;
-	glm::vec3* vertices;
-	int* indices;
+	mesh* meshes;
 };
 
 struct cameraData {

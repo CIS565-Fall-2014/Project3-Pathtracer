@@ -14,6 +14,6 @@
 #include <cmath>
 #include "sceneStructs.h"
 
-void cudaPathtraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, geom* geoms, worldSizes ws);
+void cudaPathtraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, geom* geoms, mesh* meshes, worldSizes ws);
 
 #endif
