@@ -20,7 +20,7 @@
 #include "interactions.h"
 
 #define ANTI_ALIAS 1
-#define MAX_DEPTH 8
+#define MAX_DEPTH 3
 
 #define DOFLENGTH	12
 void checkCUDAError(const char *msg) {
@@ -73,11 +73,11 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	glm::vec3 P = M + (2*fx/(resolution.x-1)-1) * H + (2*(1-fy/(resolution.y-1))-1) * V;
 	r.direction = glm::normalize(P-eye);
 	//depth of field
-	thrust::uniform_real_distribution<float> u02(-0.3,0.3);
+	/*thrust::uniform_real_distribution<float> u02(-0.3,0.3);
 	glm::vec3 aimPoint = r.origin + (float)DOFLENGTH * r.direction;
 	r.origin += glm::vec3(u02(rng),u02(rng),u02(rng));
 	r.direction = aimPoint - r.origin;
-	r.direction = glm::normalize(r.direction);
+	r.direction = glm::normalize(r.direction);*/
 
   return r;
   
@@ -326,14 +326,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	generateRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam, (float)iterations, raypool1);
 	// kernel launches
-	int threadPerBlock = 64;//TODO tweak
+	int threadPerBlock = 128;//TODO tweak
     int blockPerGrid = (int)ceil((float)numberOfRays/threadPerBlock);
 	for(traceDepth = 0; traceDepth < MAX_DEPTH; traceDepth++){
 		raytraceRay<<<blockPerGrid, threadPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamtls, raypool1, numberOfRays);
 		cudaDeviceSynchronize();
-		thrust::device_ptr<ray> rayPoolStart = thrust::device_pointer_cast(raypool1);
+		/*thrust::device_ptr<ray> rayPoolStart = thrust::device_pointer_cast(raypool1);
 	    thrust::device_ptr<ray> rayPoolEnd = thrust::remove_if(rayPoolStart,rayPoolStart+numberOfRays,isDead());
-	    numberOfRays = (int)( rayPoolEnd - rayPoolStart);
+	    numberOfRays = (int)( rayPoolEnd - rayPoolStart);*/
 		if(numberOfRays <= 0) break;
 	}
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
