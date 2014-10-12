@@ -168,20 +168,21 @@ Positions:
 ![](images/02_debug_pos.png)
 
 Materials/emittance:
-![](images/03_debug_emit.png)
+![](images/04_debug_emit.png)
 
 Direct lighting lit areas (not included in final version):
-![](images/14_direct_lighting_depth_1)
+![](images/14_direct_lighting_depth1.png)
 
-Fresnel reflected light factor:
+Fresnel reflected light factor (shown here for all reflective surfaces, but to
+be only applied to refractive surfaces):
 ![](images/20_fresnel_debug_d16s500.png)
 
 
 Bloopers
 --------
 
-Seed error
+Seed error:
 ![](images/06_seed_error_500.png)
 
-Code refactoring error
+Code refactoring error:
 ![](images/10_refactor_error.png)
