@@ -4,6 +4,16 @@ CIS 565 Project 3: CUDA Pathtracer
 * Kai Ninomiya (Arch Linux/Windows 8, Intel i5-4670, GTX 750)
 
 
+Keybindings
+-----------
+
+* Escape: save image and exit program
+* Space: save image early and continue rendering
+* Arrow keys: rotate camera
+* WASDRF keys: fly through space laterally (WASD) and vertically (RF) relative
+  to the camera orientation
+
+
 Base Code Features
 ------------------
 

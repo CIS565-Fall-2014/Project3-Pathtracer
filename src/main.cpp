@@ -11,6 +11,7 @@
 
 static bool camchanged = 0;
 static float theta = 0, phi = 0;
+static glm::vec3 cammove;
 
 //-------------------------------
 //-------------MAIN--------------
@@ -63,6 +64,34 @@ int main(int argc, char** argv){
   return 0;
 }
 
+void saveImage() {
+    // output image file
+    image outputImage(renderCam->resolution.x, renderCam->resolution.y);
+
+    for (int x=0; x < renderCam->resolution.x; x++) {
+        for (int y=0; y < renderCam->resolution.y; y++) {
+            int index = x + (y * renderCam->resolution.x);
+            glm::vec4 pix = renderCam->image[index];
+            outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,glm::vec3(pix) / pix.w);
+        }
+    }
+
+    gammaSettings gamma;
+    gamma.applyGamma = true;
+    gamma.gamma = 1.0;
+    gamma.divisor = 1.0; 
+    outputImage.setGammaSettings(gamma);
+    string filename = renderCam->imageName;
+    string s;
+    stringstream out;
+    out << targetFrame;
+    s = out.str();
+    utilityCore::replaceString(filename, ".bmp", "."+s+".bmp");
+    utilityCore::replaceString(filename, ".png", "."+s+".png");
+    outputImage.saveImageRGB(filename);
+    cout << "Saved frame " << s << " to " << filename << endl;
+}
+
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
@@ -99,8 +128,10 @@ void runCuda(){
             glm::mat4 rotmat = glm::rotate(theta, r) * glm::rotate(phi, u);
             renderCam->views[i] = glm::vec3(rotmat * glm::vec4(v, 0.f));
             renderCam->ups  [i] = glm::vec3(rotmat * glm::vec4(u, 0.f));
+            renderCam->positions[i] += cammove.x * r + cammove.y * u + cammove.z * v;
         }
         theta = phi = 0;
+        cammove = glm::vec3();
         camchanged = false;
     }
 
@@ -131,31 +162,7 @@ void runCuda(){
   } else {
 
     if (!finishedRender) {
-      // output image file
-      image outputImage(renderCam->resolution.x, renderCam->resolution.y);
-
-      for (int x=0; x < renderCam->resolution.x; x++) {
-        for (int y=0; y < renderCam->resolution.y; y++) {
-          int index = x + (y * renderCam->resolution.x);
-          glm::vec4 pix = renderCam->image[index];
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,glm::vec3(pix) / pix.w);
-        }
-      }
-      
-      gammaSettings gamma;
-      gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; 
-      outputImage.setGammaSettings(gamma);
-      string filename = renderCam->imageName;
-      string s;
-      stringstream out;
-      out << targetFrame;
-      s = out.str();
-      utilityCore::replaceString(filename, ".bmp", "."+s+".bmp");
-      utilityCore::replaceString(filename, ".png", "."+s+".png");
-      outputImage.saveImageRGB(filename);
-      cout << "Saved frame " << s << " to " << filename << endl;
+      saveImage();
       finishedRender = true;
       //if (singleFrameMode==true) {
         cudaDeviceReset(); 
@@ -336,14 +343,23 @@ void errorCallback(int error, const char* description){
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
-    if (action = GLFW_PRESS) {
+    if (action == GLFW_PRESS) {
         switch (key) {
             break; case GLFW_KEY_ESCAPE:
+                saveImage();
                 glfwSetWindowShouldClose(window, GL_TRUE);
-            break; case GLFW_KEY_DOWN: theta = -0.1f; camchanged = true;
-            break; case GLFW_KEY_UP:   theta = +0.1f; camchanged = true;
-            break; case GLFW_KEY_RIGHT:  phi = -0.1f; camchanged = true;
-            break; case GLFW_KEY_LEFT:   phi = +0.1f; camchanged = true;
+            break; case GLFW_KEY_SPACE:
+                saveImage();
+            break; case GLFW_KEY_DOWN : camchanged = true; theta = -0.1f;
+            break; case GLFW_KEY_UP   : camchanged = true; theta = +0.1f;
+            break; case GLFW_KEY_RIGHT: camchanged = true;  phi = -0.1f;
+            break; case GLFW_KEY_LEFT : camchanged = true;  phi = +0.1f;
+            break; case GLFW_KEY_A    : camchanged = true; cammove -= glm::vec3(.1f, 0, 0);
+            break; case GLFW_KEY_D    : camchanged = true; cammove += glm::vec3(.1f, 0, 0);
+            break; case GLFW_KEY_W    : camchanged = true; cammove += glm::vec3(0, 0, .1f);
+            break; case GLFW_KEY_S    : camchanged = true; cammove -= glm::vec3(0, 0, .1f);
+            break; case GLFW_KEY_R    : camchanged = true; cammove += glm::vec3(0, .1f, 0);
+            break; case GLFW_KEY_F    : camchanged = true; cammove -= glm::vec3(0, .1f, 0);
         }
     }
 }
