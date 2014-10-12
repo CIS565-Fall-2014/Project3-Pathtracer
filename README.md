@@ -6,9 +6,9 @@ This is a standalone pathtracer implemented on the GPU using CUDA and OpenGL.
 
 **Global Illumination,Soft Shadow, Caustics, Color Bleeding**
 
-**Depth of Field
+**Depth of Field**
 
-**Subsurface scattering
+**Subsurface scattering**
 
 **Fresnel Coefficients for reflection/refraction**
 
