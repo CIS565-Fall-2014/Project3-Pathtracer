@@ -7,6 +7,9 @@
 #define INTERACTIONS_H
 
 #include "intersections.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "utilities.h"
 
 struct Fresnel {
   float reflectionCoefficient;
@@ -117,15 +120,25 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 // NOTE: this function REQUIRES both "diffuse" and "perfect specular reflective" functionality!
 // I will NOT be supporting transmittance, so only the "hemisphere" random function will be used.
 __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
-                                       AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
-                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m){
+                                       glm::vec3& color, material m){
 	// hasReflective of 0 means no reflection
 	if (m.hasReflective < EPSILON) {
+		
+
+		// do something with color? Idea: add 10% of whatever you hit. when LIGHT is hit, add 100% of the light, 
+
 
 		return 0;
 	}
-	// if hasReflective is anything else, 
+	// if hasReflective is anything else, PERFECT REFLECTION
 	else {
+		glm::vec3 incomingDirection = r.direction;
+		float c1 = -1. * glm::dot(normal, incomingDirection);
+		//update r's attributes
+		r.direction = incomingDirection + (normal * (2.f * c1));
+		r.origin = intersect + (float)EPSILON * r.direction; // ensure it doesn't hit itself
+
+		// no difficult color math needed for perfect reflection, so don't worry about any other inputs.
 
 		return 1;
 	}

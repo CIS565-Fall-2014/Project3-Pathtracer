@@ -14,6 +14,7 @@ CIS 565 Project 3: CUDA Pathtracer
 
 ### _Details on what I implemented_
 
+
 ##### getRandomPointOnSphere()
 
 Used:
@@ -52,6 +53,20 @@ same thing as getRandomPointOnSphere().
 For simplicity, I only support scattering and reflection. Not too sure about some
 of the math either, so I guess I'm just making stuff up (research takes too
 much effort... XP)
+
+Essentially, perfect reflection uses the standard formula for reflection;
+diffuse uses calculateRandomDirectionInHemisphere().
+
+This function also does some sort of weird math (inspired by Wikipedia) for
+diffuse intersections, based on "Lambertian reflection". Unfortunately the
+specifics of how to do this was never discussed in class, so I've kind of just
+made things up. You really should **not** bet that this path tracer does any conservation
+of energy correctly or whatever.
+
+With help from:
+
+* https://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
+* http://en.wikipedia.org/wiki/Path_tracing#Algorithm
 
 
 ##### raytraceKernel.cu work

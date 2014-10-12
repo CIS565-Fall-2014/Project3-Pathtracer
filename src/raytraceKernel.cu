@@ -18,6 +18,14 @@
 #include "intersections.h"
 #include "interactions.h"
 
+
+
+
+#define TRACE_DEPTH_LIMIT 5
+
+
+
+
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
   if( cudaSuccess != err) {
@@ -73,6 +81,8 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	r.origin = eye;
 	r.active = true;
 	r.sourceindex = x + (y * resolution.x);
+	r.color = glm::vec3(0,0,0);
+	r.intensityMultiplier = 1.f;
 
 	return r;
 }
@@ -157,7 +167,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 */
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
-  int traceDepth = 1; //determines how many bounces the raytracer traces
+  int traceDepth = 0; //determines how many bounces the raytracer traces
 
   // set up crucial magic
   int tileSize = 8;

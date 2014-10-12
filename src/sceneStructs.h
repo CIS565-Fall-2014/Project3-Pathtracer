@@ -16,9 +16,14 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
-	//additional stuff needed to make stream compaction optimization work
-	bool active;
-	int sourceindex; // of course, this DOES NOT CHANGE throughout the lifetime of a ray, even 
+	// additional stuff needed to make stream compaction optimization work
+	bool active; // if false, then a stream compaction alg should DESTROY this ray (so it doesn't exist in memory anymore)
+	             // changes to FALSE upon reaching max depth, or hitting nothing.
+	int sourceindex; // which pixel the ray originally came from. This DOES NOT CHANGE throughout the lifetime of a ray
+
+	// color-related stuff
+	glm::vec3 color;
+	float intensityMultiplier; // lowers with every bounce to take into account the effect of types of illumination.
 };
 
 struct geom {

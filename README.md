@@ -94,6 +94,8 @@ For each 'extra feature' you must provide the following analysis :
   should give a roadmap of how to further optimize and why you believe this is the next
   step)
 
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
 ## BASE CODE TOUR
 You will be working in three files: raytraceKernel.cu, intersections.h, and
 interactions.h. Within these files, areas that you need to complete are marked
@@ -135,11 +137,13 @@ reference are marked with the comment LOOK.
       sphere with a uniform probability. This function works in a fashion
       similar to that of calculateRandomDirectionInHemisphere(), which generates a
       random cosine-weighted direction in a hemisphere.
-    * calculateBSDF(), which takes in an incoming ray, normal, material, and
+    * *[IN PROGRESS]* calculateBSDF(), which takes in an incoming ray, normal, material, and
       other information, and returns an outgoing ray. You can either implement
       this function for ray-surface interactions, or you can replace it with your own
       function(s).
 
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	  
 You will also want to familiarize yourself with:
 
 * sceneStructs.h, which contains definitions for how geometry, materials,
