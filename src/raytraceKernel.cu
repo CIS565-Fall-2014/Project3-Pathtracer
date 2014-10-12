@@ -366,36 +366,42 @@ void raytraceRay( ray *ray_pool,
 	// Intersected object has a texture image.
 	//glm::vec3 foobar = rgb;
 	if ( obj.texture_id != -1 ) {
-		// Currently, only spheres support textures.
+
+		glm::vec2 uv( 0.0f, 0.0f );
+
 		if ( obj.type == SPHERE ) {
-			glm::vec2 uv = computeSphereUVCoordinates( obj, intersection_point );
-			
-			// Extract texture info.
-			int texture_info_base_index = obj.texture_id * 3;
-			int texture_rgb_starting_index = texture_info[texture_info_base_index];
-			int texture_width = texture_info[texture_info_base_index + 1];
-			int texture_height = texture_info[texture_info_base_index + 2];
+			uv = computeSphereUVCoordinates( obj, intersection_point );
+		}
+		else if ( obj.type == CUBE ) {
+			uv = computeCubeUVCoordinates( obj, intersection_point );
+		}
 
-			// Compute pixel coordinates within single texture.
-			int pixel_coord_x = ( int )( uv.x * texture_width );
-			int pixel_coord_y = ( int )( uv.y * texture_height );
+		// Extract texture info.
+		int texture_info_base_index = obj.texture_id * 3;
+		int texture_rgb_starting_index = texture_info[texture_info_base_index];
+		int texture_width = texture_info[texture_info_base_index + 1];
+		int texture_height = texture_info[texture_info_base_index + 2];
 
-			if ( !( pixel_coord_x < 0 || pixel_coord_y < 0 || pixel_coord_x >= texture_width || pixel_coord_y >= texture_height ) ) {
-				// Compute texture RGB index.
-				int pixel_linear_index = ( pixel_coord_y * texture_width ) + pixel_coord_x;
-				int texture_rgb_index = texture_rgb_starting_index + pixel_linear_index;
+		// Compute pixel coordinates within single texture.
+		int pixel_coord_x = ( int )( uv.x * texture_width );
+		int pixel_coord_y = ( int )( uv.y * texture_height );
 
-				if ( texture_rgb_index < texture_rgb_starting_index || texture_rgb_index >= ( texture_rgb_starting_index + texture_width * texture_height ) ) {
-					rgb = glm::vec3( 1.0f, 0.078f, 0.577f ); // Hot pink to visualize an error.
-				}
-				else {
-					rgb = texture_rgb[texture_rgb_index];
-				}
-			}
-			else {
+		if ( !( pixel_coord_x < 0 || pixel_coord_y < 0 || pixel_coord_x >= texture_width || pixel_coord_y >= texture_height ) ) {
+			// Compute texture RGB index.
+			int pixel_linear_index = ( pixel_coord_y * texture_width ) + pixel_coord_x;
+			int texture_rgb_index = texture_rgb_starting_index + pixel_linear_index;
+
+			if ( texture_rgb_index < texture_rgb_starting_index || texture_rgb_index >= ( texture_rgb_starting_index + texture_width * texture_height ) ) {
 				rgb = glm::vec3( 1.0f, 0.078f, 0.577f ); // Hot pink to visualize an error.
 			}
+			else {
+				rgb = texture_rgb[texture_rgb_index];
+			}
 		}
+		else {
+			rgb = glm::vec3( 1.0f, 0.078f, 0.577f ); // Hot pink to visualize an error.
+		}
+
 	}
 
 	// Ray hits light source. Add acculumated color contribution of ray. Kill ray.

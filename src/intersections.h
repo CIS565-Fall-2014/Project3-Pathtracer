@@ -428,4 +428,48 @@ glm::vec2 computeSphereUVCoordinates( staticGeom sphere,
 	return glm::vec2( u, v );
 }
 
+
+__host__
+__device__
+glm::vec2 computeCubeUVCoordinates( staticGeom cube,
+									glm::vec3 intersection_point )
+{
+	// Convert intersection point from world-space to object-space.
+	glm::vec3 p = glm::normalize( multiplyMV( cube.inverseTransform, glm::vec4( intersection_point, 1.0f ) ) );
+
+	// Compute face ( 1 => x, 2 => y, 3 => z ).
+	int face = ( abs( p.x ) > abs( p.y ) && abs( p.x ) > abs( p.z ) ) ? 1 : ( abs( p.y ) > abs( p.z ) ) ? 2 : 3;
+	face = ( p[face - 1] < 0 ) ? ( -1.0f * face  ) : face;
+
+	float u, v;
+
+	if ( face == 1 ) {			// +x
+		u = ( ( p.z / abs( p.x ) ) + 1.0f ) / 2.0f;
+		v = ( ( p.y / abs( p.x ) ) + 1.0f ) / 2.0f;
+	}
+	else if ( face == -1 ) {	// -x
+		u = ( ( -p.z / abs( p.x ) ) + 1.0f ) / 2.0f;
+		v = ( ( p.y / abs( p.x ) ) + 1.0f ) / 2.0f;
+	}
+	else if ( face == 2 ) {		// +y
+		u = ( ( p.x / abs( p.y ) ) + 1.0f ) / 2.0f;
+		v = ( ( p.z / abs( p.y ) ) + 1.0f ) / 2.0f;
+	}
+	else if ( face == -2 ) {	// -y
+		u = ( ( p.x / abs( p.y ) ) + 1.0f ) / 2.0f;
+		v = ( ( -p.z / abs( p.y ) ) + 1.0f ) / 2.0f;
+	}
+	else if ( face == 3 ) {		// +z
+		u = ( ( p.x / abs( p.z ) ) + 1.0f ) / 2.0f;
+		v = ( ( p.y / abs( p.z ) ) + 1.0f ) / 2.0f;
+	}
+	else if ( face == -3 ) {	// -z
+		u = ( ( -p.x / abs( p.z ) ) + 1.0f ) / 2.0f;
+		v = ( ( p.y / abs( p.z ) ) + 1.0f ) / 2.0f;
+	}
+
+	return glm::vec2( u, v );
+}
+
+
 #endif

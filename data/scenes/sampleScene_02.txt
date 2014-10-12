@@ -112,6 +112,9 @@ FILE world_map_256x128.bmp
 TEXTURE 1
 FILE stripes_256x128.bmp
 
+TEXTURE 2
+FILE black_and_white_tiles_256x256.bmp
+
 CAMERA
 RES         800 800
 FOVY        25
@@ -125,7 +128,7 @@ UP          0 1 0
 OBJECT 0
 cube
 material 0
-texture -1
+texture 2
 frame 0
 TRANS       0 0 0
 ROTAT       0 0 90
@@ -134,7 +137,7 @@ SCALE       .01 10 10
 OBJECT 1
 cube
 material 0
-texture -1
+texture 1
 frame 0
 TRANS       0 5 -5
 ROTAT       0 90 0
@@ -169,8 +172,8 @@ SCALE       .01 10 10
 
 OBJECT 5
 sphere
-material 3
-texture 1
+material 5
+texture -1
 frame 0
 TRANS       0 2 0
 ROTAT       0 90 0
@@ -187,8 +190,8 @@ SCALE       2.5 2.5 2.5
 
 OBJECT 7
 sphere
-material 3
-texture 0
+material 5
+texture -1
 frame 0
 TRANS       -2 5 -2
 ROTAT       0 180 0
