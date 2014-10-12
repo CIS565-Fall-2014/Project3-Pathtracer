@@ -106,6 +106,12 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   15
 
+//TEXTURE 0
+//FILE world_map_medium.bmp
+
+TEXTURE 0
+FILE world_map_medium.bmp
+
 CAMERA
 RES         800 800
 FOVY        25
@@ -119,22 +125,25 @@ UP          0 1 0
 OBJECT 0
 cube
 material 0
+texture -1
 frame 0
 TRANS       0 0 0
 ROTAT       0 0 90
-SCALE       .01 10 10 
+SCALE       .01 10 10
 
 OBJECT 1
 cube
 material 0
+texture -1
 frame 0
 TRANS       0 5 -5
 ROTAT       0 90 0
-SCALE       .01 10 10 
+SCALE       .01 10 10
 
 OBJECT 2
 cube
 material 0
+texture -1
 frame 0
 TRANS       0 10 0
 ROTAT       0 0 90
@@ -143,6 +152,7 @@ SCALE       .01 10 10
 OBJECT 3
 cube
 material 1
+texture -1
 frame 0
 TRANS       -5 5 0
 ROTAT       0 0 0
@@ -151,6 +161,7 @@ SCALE       .01 10 10
 OBJECT 4
 cube
 material 2
+texture -1
 frame 0
 TRANS       5 5 0
 ROTAT       0 0 0
@@ -158,23 +169,26 @@ SCALE       .01 10 10
 
 OBJECT 5
 sphere
-material 5
+material 3
+texture 0
 frame 0
 TRANS       0 2 0
-ROTAT       0 180 0
+ROTAT       0 90 0
 SCALE       3 3 3
 
 OBJECT 6
 sphere
-material 5
+material 3
+texture 0
 frame 0
 TRANS       2 5 2
-ROTAT       0 180 0
+ROTAT       0 0 0
 SCALE       2.5 2.5 2.5
 
 OBJECT 7
 sphere
-material 5
+material 3
+texture 0
 frame 0
 TRANS       -2 5 -2
 ROTAT       0 180 0
@@ -183,6 +197,7 @@ SCALE       3 3 3
 OBJECT 8
 cube
 material 8
+texture -1
 frame 0
 TRANS       0 10 0
 ROTAT       0 0 90
@@ -191,6 +206,7 @@ SCALE       .3 3 3
 //OBJECT 9
 //sphere
 //material 8
+//texture -1
 //frame 0
 //TRANS       2 2 16
 //ROTAT       0 180 0
@@ -199,6 +215,7 @@ SCALE       .3 3 3
 //OBJECT 10
 //cube
 //material 0
+//texture -1
 //frame 0
 //TRANS       0 5 5
 //ROTAT       0 90 0

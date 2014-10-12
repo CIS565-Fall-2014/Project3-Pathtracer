@@ -40,6 +40,7 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+	int texture_id;
 };
 
 struct staticGeom {
@@ -50,6 +51,7 @@ struct staticGeom {
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+	int texture_id;
 };
 
 struct cameraData {
@@ -84,6 +86,12 @@ struct material{
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
+};
+
+struct simpleTexture {
+	glm::vec2 dimensions;	// num_pixels = width x height.
+	//glm::vec3 rgb[8192];	// Limited to images of at most 1024x1024 resolution.
+	glm::vec3 rgb[32768];
 };
 
 #endif //CUDASTRUCTS_H

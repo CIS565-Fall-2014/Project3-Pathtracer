@@ -7,6 +7,7 @@
 #define Raytracer_image_h
 
 #include "glm/glm.hpp"
+//#include <cuda.h>
 
 using namespace std;
 
@@ -26,13 +27,12 @@ private:
     int ySize;
     gammaSettings gamma;
 public:
-    image(int x, int y);
+    image(int x=0, int y=0);
     ~image();
     
     //------------------------
     //-------GETTERS----------
     //------------------------
-    glm::vec3 readPixelRGB(int x, int y);
     glm::vec4 readPixelRGBA(int x, int y);
     float readPixelR(int x, int y);
     float readPixelG(int x, int y);
@@ -44,8 +44,14 @@ public:
     float* getAlphaChannel();
     glm::vec3* getRGBChannels();
     glm::vec4* getRGBAChannels();
-    glm::vec2 getDimensions();
     gammaSettings getGammaSettings();
+
+	//__host__ __device__ glm::vec3 readPixelRGB(int x, int y);
+	//__host__ __device__ glm::vec2 getDimensions();
+
+	glm::vec3 readPixelRGB(int x, int y);
+	glm::vec2 getDimensions();
+
     
     //------------------------
     //-------SETTERS----------

@@ -38,7 +38,11 @@ void checkCUDAError( const char *msg )
 {
 	cudaError_t err = cudaGetLastError();
 	if ( cudaSuccess != err) {
-		fprintf( stderr, "Cuda error: %s: %s.\n", msg, cudaGetErrorString( err ) ); 
+		fprintf( stderr, "Cuda error: %s: %s.\n", msg, cudaGetErrorString( err ) );
+		
+		// DEBUG.
+		std::cin.ignore();
+
 		exit( EXIT_FAILURE );
 	}
 }
@@ -55,7 +59,7 @@ glm::vec3 generateRandomNumberFromThread( glm::vec2 resolution,
 {
 	int index = x + ( y * resolution.x );
    
-	thrust::default_random_engine rng( hash( index * time ) );
+	thrust::default_random_engine rng( simpleHash( index * time ) );
 	thrust::uniform_real_distribution<float> u01( 0, 1 );
 
 	return glm::vec3( ( float )u01( rng ),
@@ -152,7 +156,8 @@ bool sceneIntersection( const ray &r,
 			t = temp_t;
 			intersection_point = temp_intersection_point;
 			intersection_normal = temp_intersection_normal;
-			id = geoms[i].materialid;
+			//id = geoms[i].materialid;
+			id = i;
 		}
 	}
 
@@ -244,6 +249,9 @@ glm::vec2 computePixelSubsampleLocation( glm::vec2 pixel_index,
 										 glm::vec2 image_resolution,
 										 int current_iteration )
 {
+	// TODO: Set pixel index (x, y) as center of pixel instead of bottom left corner.
+	// TODO: Get rid of loop b/c it's completely unnecessary and wastes resources.
+
 	const int SUBSAMPLE_ROWS = 4;
 	const int SUBSAMPLE_COLS = 4;
 
@@ -309,6 +317,28 @@ glm::vec2 computePixelSubsampleLocation( glm::vec2 pixel_index,
 //}
 
 
+//__host__
+//__device__
+//glm::vec3 readImagePixelRGB( const image &img, const int x, const int y )
+//{
+//	if ( !( x < 0 || y < 0 || x >= img.xSize || y >= img.ySize ) ) {
+//		int index = ( y * img.xSize ) + x;
+//		return glm::vec3( img.redChannel[index], img.greenChannel[index], img.blueChannel[index] );
+//
+//		// Debug.
+//		//std::cout << "index = " << index << std::endl;
+//		//return glm::vec3( 1.0f, 0.078f, 0.577f );
+//	}
+//	else {
+//		// Hot pink.
+//		return glm::vec3( 1.0f, 0.078f, 0.577f );
+//	}
+//
+//	// Hot pink.
+//	//return glm::vec3( 1.0f, 0.078f, 0.577f );
+//}
+
+
 // Core raytracer kernel.
 __global__
 void raytraceRay( ray *ray_pool,
@@ -317,10 +347,12 @@ void raytraceRay( ray *ray_pool,
 				  float current_iteration, // Used solely for random number generation (I think).
 				  cameraData cam,
 				  int raytrace_depth,
-				  glm::vec3 *image,
+				  glm::vec3 *image_buffer,
 				  staticGeom *geoms,
 				  int num_geoms,
-				  material *materials )
+				  material *materials,
+				  simpleTexture *textures,
+				  int num_textures )
 {
 	int ray_pool_index = ( blockIdx.x * blockDim.x ) + threadIdx.x;
 
@@ -331,35 +363,43 @@ void raytraceRay( ray *ray_pool,
 	ray r = ray_pool[ray_pool_index];
 	int image_pixel_index = ( r.image_coords.y * ( int )resolution.x ) + r.image_coords.x;
 
+	// Only necessary when stream compaction is turned off.
+	if ( !r.is_active ) {
+		return;
+	}
+
 	// Nudge ray along it's direction to avoid intersecting with the surface it originates from.
 	r.origin += ( r.direction * 0.001f );
 
 	// Intersection testing.
 	float dist_to_intersection;
-	int material_index;
+	//int material_index;
+	int intersected_obj_id;
 	glm::vec3 intersection_point;
 	glm::vec3 intersection_normal;
 	bool ray_did_intersect_something = sceneIntersection( r,						// Current ray.
 														  geoms,					// List of scene geometry.
 														  num_geoms,				// Number of pieces of geometry.
 														  dist_to_intersection,		// Reference to be filled.
-														  material_index,			// Reference to be filled.
+														  intersected_obj_id,		// Reference to be filled.
 														  intersection_point,		// Reference to be filled.
 														  intersection_normal );	// Reference to be filled.
 
 
 	// Ray misses. Return background color. Kill ray.
 	if ( !ray_did_intersect_something ) {
-		image[image_pixel_index] += glm::vec3( 0.0f, 0.0f, 0.0f );
+		image_buffer[image_pixel_index] += glm::vec3( 0.0f, 0.0f, 0.0f );
 		r.is_active = false;
 		ray_pool[ray_pool_index] = r;
 		return;
 	}
 
-	// Get material of intersected object.
-	material mat = materials[material_index];
+	// Get intersected object and material of intersected object.
+	staticGeom obj = geoms[intersected_obj_id];
+	material mat = materials[obj.materialid];
 
 	// Use Roussian Roulette to randomly kill the current ray.
+	// f is the color of the intersected material, and is used in the computations that follow.
 	glm::vec3 f = mat.color;
 	float p = ( f.x > f.y && f.x > f.z ) ? f.x : ( ( f.y > f.z ) ? f.y : f.z );
     if ( raytrace_depth > 5 ) {
@@ -368,16 +408,47 @@ void raytraceRay( ray *ray_pool,
             f = f * ( 1.0f / p );
         }
         else {
-			image[image_pixel_index] += ( r.color * f * mat.emittance );
+			image_buffer[image_pixel_index] += ( r.color * f * mat.emittance );
 			r.is_active = false;
 			ray_pool[ray_pool_index] = r;
 			return;
         }
     }
 
+	// Intersected object has a texture image.
+	if ( obj.texture_id != -1 ) {
+		// Currently, only spheres support textures.
+		if ( obj.type == SPHERE ) {
+			glm::vec2 uv = computeSphereUVCoordinates( obj, intersection_point );
+			int texture_width = textures[obj.texture_id].dimensions.x;
+			int texture_height = textures[obj.texture_id].dimensions.y;
+			int pixel_coord_x = ( int )( uv.x * texture_width );
+			int pixel_coord_y = ( int )( uv.y * texture_height );
+
+			if ( !( pixel_coord_x < 0 || pixel_coord_y < 0 || pixel_coord_x >= texture_width || pixel_coord_y >= texture_height ) ) {
+				int index = ( pixel_coord_y * texture_width ) + pixel_coord_x;
+				f = textures[obj.texture_id].rgb[index];
+				//f = glm::vec3( 1.0f, 1.0f, 1.0f );
+			}
+			else {
+				//f = glm::vec3( 1.0f, 0.078f, 0.577f );
+				f = glm::vec3( 0.0f, 0.0f, 0.0f );
+				//std::cout << "ERROR: Texture pixel coordinates computed from (u, v) are outside texture bounds: ( " << texture_pixel_coords.x << ", " << texture_pixel_coords.y << " )." << std::endl;
+				//std::cin.ignore();
+				//std::exit( 1 );
+			}
+
+			// Test.
+			//image_buffer[image_pixel_index] = f;
+			//r.is_active = false;
+			//ray_pool[ray_pool_index] = r;
+			//return;
+		}
+	}
+
 	// Ray hits light source. Add acculumated color contribution of ray. Kill ray.
 	if ( mat.emittance > 0.0f ) {
-		image[image_pixel_index] += ( r.color * f * mat.emittance );
+		image_buffer[image_pixel_index] += ( r.color * f * mat.emittance );
 		r.is_active = false;
 		ray_pool[ray_pool_index] = r;
 		return;
@@ -513,8 +584,17 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 					   material *materials,
 					   int num_materials,
 					   geom *geoms,
-					   int num_geoms )
+					   int num_geoms,
+					   simpleTexture *textures,
+					   int num_textures )
 {
+	// Test.
+	//for ( int i = 0; i < num_textures; ++i ) {
+	//	glm::vec2 foobar = textures[i].getDimensions();
+	//	std::cout << "texture " << i << " dimensions: ( " <<  foobar.x << ", " << foobar.y << " )" << std::endl;
+	//}
+	//std::cin.ignore();
+
 	// Tune these for performance.
 	int depth = 10;
 	int camera_raycast_tile_size = 8;
@@ -547,6 +627,7 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 		newStaticGeom.scale = geoms[i].scales[frame];
 		newStaticGeom.transform = geoms[i].transforms[frame];
 		newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+		newStaticGeom.texture_id = geoms[i].texture_id;
 		geom_list[i] = newStaticGeom;
 	}
   
@@ -566,9 +647,38 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	cudaMalloc( ( void** )&cuda_materials,
 				size_material_list );
 	cudaMemcpy( cuda_materials,
-				materials,
+				materials, 
 				size_material_list,
 				cudaMemcpyHostToDevice );
+
+	// Send textures to GPU.
+	simpleTexture *cuda_textures = NULL;
+	float size_texture_list = num_textures * sizeof( simpleTexture );
+	cudaMalloc( ( void** )&cuda_textures,
+				size_texture_list );
+	cudaMemcpy( cuda_textures,
+				textures,
+				size_texture_list,
+				cudaMemcpyHostToDevice );
+
+	// DEBUG.
+	//for ( int i = 0; i < num_textures; ++i ) {
+	//	int width = textures[i].dimensions.x;
+	//	int height = textures[i].dimensions.y;
+	//	std::cout << "texture width = " << width << std::endl;
+	//	std::cout << "texture height = " << height << std::endl;
+	//	
+	//	for ( int y = 0; y < height; ++y ) {
+	//		for ( int x = 0; x < width; ++x ) {
+	//			int texture_index = ( y * width ) + x;
+	//			glm::vec3 pixel_color = textures[i].rgb[texture_index];
+	//			std::cout << "RGB for pixel ( " << x << ", " << y << " ): ( " << pixel_color.x << ", " << pixel_color.y << ", " << pixel_color.z << " )" << std::endl;
+	//			//std::cin.ignore();
+	//		}
+	//		std::cin.ignore();
+	//	}
+	//}
+	//std::cin.ignore();
   
 	// Package up camera.
 	cameraData cam;
@@ -589,8 +699,6 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	int num_rays = ( int )( render_cam->resolution.x * render_cam->resolution.y );
 	cudaMalloc( ( void** )&cuda_ray_pool,
 				num_rays * sizeof( ray ) );
-	
-	// TODO: Mod current iteration # with pixel subsample # for super-sampled anti-aliasing.
 
 	// Initialize ray pool with rays originating at the render camera directed through each pixel in the image buffer.
 	raycastFromCameraKernel<<< full_blocks_per_grid, threads_per_block >>>( cuda_ray_pool,
@@ -623,16 +731,18 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 																				 cuda_image,
 																				 cuda_geoms,
 																				 num_geoms,
-																				 cuda_materials );
+																				 cuda_materials,
+																				 cuda_textures,
+																				 num_textures );
 
-		// Note: Stream compaction is slow.
-		thrust::device_ptr<ray> ray_pool_device_ptr( cuda_ray_pool );
-		thrust::device_ptr<ray> culled_ray_pool_device_ptr = thrust::remove_if( ray_pool_device_ptr,
-																				ray_pool_device_ptr + num_rays,
-																				RayIsInactive() );
+		//// Note: Stream compaction is slow.
+		//thrust::device_ptr<ray> ray_pool_device_ptr( cuda_ray_pool );
+		//thrust::device_ptr<ray> culled_ray_pool_device_ptr = thrust::remove_if( ray_pool_device_ptr,
+		//																		ray_pool_device_ptr + num_rays,
+		//																		RayIsInactive() );
 
-		// Compute number of active rays in ray pool.
-		num_rays = culled_ray_pool_device_ptr.get() - ray_pool_device_ptr.get();
+		//// Compute number of active rays in ray pool.
+		//num_rays = culled_ray_pool_device_ptr.get() - ray_pool_device_ptr.get();
 	}
 
 	// Launch sendImageToPBO kernel.
@@ -652,6 +762,7 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	cudaFree( cuda_geoms );
 	cudaFree( cuda_materials );
 	cudaFree( cuda_ray_pool );
+	cudaFree( cuda_textures );
 	delete geom_list;
 
 	// Make certain the kernel has completed.

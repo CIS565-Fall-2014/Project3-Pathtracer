@@ -12,10 +12,15 @@
 image::image(int x, int y){
     xSize = x;
     ySize = y;
+
     redChannel   = new float[x*y];
     greenChannel = new float[x*y];
     blueChannel  = new float[x*y];
     alphaChannel = new float[x*y];
+
+	// DEBUG.
+	//std::cout << "Allocated " << x * y << " floats for each color channel." << std::endl;
+
     for(int i=0; i<(x*y); i++){
         redChannel[i]   = 0;
         greenChannel[i] = 0;
@@ -91,6 +96,8 @@ void image::saveImageRGB(string filename){
 //-------GETTERS----------
 //------------------------
 
+//__host__
+//__device__
 glm::vec3 image::readPixelRGB(int x, int y){
     if(!(x<0 || y<0 || x>=xSize || y>=ySize)){
         int index = (y*xSize)+x;
@@ -177,6 +184,8 @@ glm::vec4* image::getRGBAChannels(){
     return rgb;
 }
 
+//__host__
+//__device__
 glm::vec2 image::getDimensions(){
     return glm::vec2(xSize, ySize);
 }

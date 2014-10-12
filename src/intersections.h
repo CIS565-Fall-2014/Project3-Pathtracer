@@ -27,7 +27,7 @@ __host__ __device__ glm::vec3 computeBoxObjectSpaceNormal( const glm::vec3 &obje
 
 
 // Handy dandy little hashing function that provides seeds for random number generation
-__host__ __device__ unsigned int hash(unsigned int a){
+__host__ __device__ unsigned int simpleHash(unsigned int a){
     a = (a+0x7ed55d16) + (a<<12);
     a = (a^0xc761c23c) ^ (a>>19);
     a = (a+0x165667b1) + (a<<5);
@@ -306,7 +306,7 @@ __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
 // Generates a random point on a given cube
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed){
 
-    thrust::default_random_engine rng(hash(randomSeed));
+    thrust::default_random_engine rng(simpleHash(randomSeed));
     thrust::uniform_real_distribution<float> u01(0,1);
     thrust::uniform_real_distribution<float> u02(-0.5,0.5);
 
@@ -358,7 +358,7 @@ glm::vec3 getRandomPointOnSphere( staticGeom sphere,
 {
 	// Generate two random numbers u and v (0, 1) using thrust.
 
-    thrust::default_random_engine rng( hash( random_seed ) );
+    thrust::default_random_engine rng( simpleHash( random_seed ) );
     thrust::uniform_real_distribution<float> u01( 0.0f, 1.0f );
 
 	// Compute spherical coordinates theta and phi.
@@ -378,6 +378,60 @@ glm::vec3 getRandomPointOnSphere( staticGeom sphere,
 	float z = 0.5f * cos( phi );
 
 	return multiplyMV( sphere.transform, glm::vec4( x, y, z, 1.0f) );
+}
+
+
+__host__
+__device__
+glm::vec2 computeSphereUVCoordinates( staticGeom sphere,
+									  glm::vec3 intersection_point )
+{
+	// Thanks to https://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html#texturemap
+
+	// Convert intersection point from world-space to object-space.
+	glm::vec3 Vp = glm::normalize( multiplyMV( sphere.inverseTransform, glm::vec4( intersection_point, 1.0f ) ) );
+
+	// Define unit vector pointing from the center of the sphere to the "north pole".
+	glm::vec3 Vn( 0.0f, 1.0f, 0.0f );
+
+	// Define unit vector pointing from the center of the sphere to any point on the equator.
+	glm::vec3 Ve( 1.0f, 0.0f, 0.0f );
+
+	// Compute angle between Vp and Vn, or the latitude.
+	float phi = acos( -glm::dot( Vn, Vp ) );
+
+	// Compute v, or the vertical image-space location [0, 1].
+	float v = phi / PI;
+
+	// Compute angle between Vp and Ve, or the longitude.
+	//float theta = acos( glm::dot( Vp, Ve ) / sin( phi ) ) / TWO_PI;
+
+	float theta;
+	if ( sin( phi ) > -EPSILON && sin( phi ) < EPSILON ) {
+		theta = 0.0f;
+	}
+	else {
+		theta = acos( glm::dot( Vp, Ve ) / sin( phi ) ) / TWO_PI;
+	}
+
+	// Compute u, or the horizontal image location [0, 1]:
+	float u;
+	if ( glm::dot( glm::cross( Vn, Ve ), Vp ) > 0.0f ) {
+		//u = theta;
+		u = 1.0f - theta;
+	}
+	else {
+		//u = 1.0f - theta;
+		u = theta;
+	}
+
+
+	//glm::vec3 N = glm::normalize( multiplyMV( sphere.inverseTransform, glm::vec4( intersection_point, 1.0f ) ) );
+	//float u = asin( N.x ) / PI + 0.5f;
+	//float v = asin( N.y ) / PI + 0.5f;
+
+
+	return glm::vec2( u, v );
 }
 
 #endif

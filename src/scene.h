@@ -22,6 +22,7 @@ private:
     int loadMaterial(string materialid);
     int loadObject(string objectid);
     int loadCamera();
+	int loadTextures( std::string texture_id );
 public:
     scene(string filename);
     ~scene();
@@ -29,6 +30,9 @@ public:
     vector<geom> objects;
     vector<material> materials;
     camera renderCam;
+
+	//std::vector<image> textures;
+	std::vector<simpleTexture> textures;
 };
 
 #endif

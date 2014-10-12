@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include "cudaMat4.h"
+#include "image.h"
 
 #define PI                          3.1415926535897932384626422832795028841971
 #define TWO_PI                      6.2831853071795864769252867665590057683943
@@ -37,6 +38,8 @@ namespace utilityCore {
     extern void printCudaMat4(cudaMat4 m);
     extern std::string convertIntToString(int number);
     extern std::istream& safeGetline(std::istream& is, std::string& t); //Thanks to http://stackoverflow.com/a/6089413
+
+	//extern image* BMPToImage( std::string filename ); // Thanks to https://stackoverflow.com/questions/9296059/read-pixel-value-in-bmp-file
 
     //-----------------------------
     //-------GLM Printers----------

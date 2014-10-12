@@ -13,8 +13,98 @@
 // Constants
 ////////////////////////////////////////////////////
 
-const std::string SCENE_FILE_NAME = "sampleScene_02";
+const std::string SCENE_FILE_NAME = "sampleScene_02.txt";
 const std::string OUTPUT_IMAGE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\renders\\";
+//const std::string TEXTURE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\data\\textures\\world_map.bmp";
+
+
+//image* BMPToImage( std::string filename )
+//{
+//	int i;
+//	FILE *f = fopen( filename.c_str(), "rb" );
+//	unsigned char info[54];
+//	fread( info, sizeof( unsigned char ), 54, f ); // read the 54-byte header
+//
+//	// extract image height and width from header
+//	int width = *( int* )&info[18];
+//	int height = *( int* )&info[22];
+//
+//	int size = 3 * width * height;
+//	unsigned char* data = new unsigned char[size]; // allocate 3 bytes per pixel
+//	fread( data, sizeof( unsigned char ), size, f ); // read the rest of the data at once
+//	fclose( f );
+//
+//	for ( i = 0; i < size; i += 3 ) {
+//		unsigned char tmp = data[i];
+//		data[i] = data[i+2];
+//		data[i+2] = tmp;
+//	}
+//
+//	image *bmp_texture = new image( width, height );
+//
+//	for ( i = 0; i < size; i += 3 ) {
+//		int x = i % width;
+//		int y = i / width;
+//		glm::vec3 rgb( data[i], data[i + 1], data[i + 2] );
+//		bmp_texture->writePixelRGB( x, y, rgb );
+//	}
+//
+//	return bmp_texture;
+//}
+
+
+
+
+//glm::vec2 testUV( glm::vec3 Vp )
+//{
+//	// Thanks to https://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html#texturemap
+//
+//	// Define unit vector pointing from the center of the sphere to the "north pole".
+//	glm::vec3 Vn( 0.0f, 1.0f, 0.0f );
+//
+//	// Define unit vector pointing from the center of the sphere to any point on the equator.
+//	glm::vec3 Ve( 1.0f, 0.0f, 0.0f );
+//
+//	// Compute angle between Vp and Vn, or the latitude.
+//	float phi = acos( -glm::dot( Vn, Vp ) );
+//
+//	// Compute v, or the vertical image-space location [0, 1].
+//	float v = phi / PI;
+//
+//	// Compute angle between Vp and Ve, or the longitude.
+//	float theta = acos( glm::dot( Vp, Ve ) / sin( phi ) ) / TWO_PI;
+//
+//	// Compute u, or the horizontal image location [0, 1]:
+//	float u;
+//	if ( glm::dot( glm::cross( Vn, Ve ), Vp ) > 0.0f ) {
+//		u = theta;
+//	}
+//	else {
+//		u = 1.0f - theta;
+//	}
+//
+//	// check for errors in calculating pixel color
+//	if ( _isnan( u ) || _isnan( v ) ) {
+//		std::cout << "ERROR: (u, v) computed for location ( " << intersection_point.x << ", " << intersection_point.y << ", " << intersection_point.z << " )" << " is NAN: ( " << u << ", " << v << " )." << std::endl;
+//		std::cin.ignore();
+//		std::exit( 1 );
+//	}
+//
+//	 Naive error handling.
+//	if ( _isnan( u ) ) {
+//		u = 0.0f;
+//	}
+//	if ( _isnan( v ) ) {
+//		v = 0.0f;
+//	}
+//
+//	// Debug.
+//	std::cout << "( u, v ) = ( " << u << ", " << v << " )" << std::endl;
+//	std::cin.ignore();
+//
+//	return glm::vec2( u, v );
+//}
+
 
 
 //-------------------------------
@@ -22,6 +112,23 @@ const std::string OUTPUT_IMAGE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\c
 //-------------------------------
 
 int main(int argc, char** argv){
+
+	// Test.
+	//image *texture_image;
+	//texture_image = BMPToImage( TEXTURE_PATH );
+	//glm::vec2 tex_dims = texture_image->getDimensions();
+	//printf( "( %f, %f )\n", tex_dims.x, tex_dims.y );
+	//glm::vec3 rand_pix = texture_image->readPixelRGB( tex_dims.x / 2, tex_dims.y / 2 );
+	//printf( "( %f, %f, %f )\n", rand_pix.x, rand_pix.y, rand_pix.z );
+	//std::cin.ignore();
+
+	//testUV( glm::vec3( 1.0f, 0.0f, 0.0f ) );
+	//testUV( glm::vec3( 0.0f, 0.0f, -1.0f ) );
+	//testUV( glm::vec3( -1.0f, 0.0f, 0.0f ) );
+	//testUV( glm::vec3( 0.0f, 0.0f, 1.0f ) );
+	//testUV( glm::vec3( 0.0f, 1.0f, 0.0f ) );
+	//testUV( glm::vec3( 0.0f, -1.0f, 0.0f ) );
+
   // Set up pathtracer stuff
   bool loadedScene = false;
   finishedRender = false;
@@ -35,9 +142,18 @@ int main(int argc, char** argv){
     istringstream liness(argv[i]);
     getline(liness, header, '='); getline(liness, data, '=');
     if(strcmp(header.c_str(), "scene")==0){
-		std::string full_scene_path = data + SCENE_FILE_NAME + ".txt"; // Danny was here.
+		std::string full_scene_path = data + SCENE_FILE_NAME; // Danny was here.
 		renderScene = new scene(full_scene_path);
 		loadedScene = true;
+
+		// TEST.
+		//std::vector<geom> geom_list = renderScene->objects;
+		//for ( int i = 0; i < geom_list.size(); ++i ) {
+		//	std::cout << "object " << i << ": texture id " <<  geom_list[i].texture_id << std::endl;
+		//}
+		//std::cout << "textures list length = " << renderScene->textures.size() << std::endl;
+		//std::cin.ignore();
+
     }else if(strcmp(header.c_str(), "frame")==0){
       targetFrame = atoi(data.c_str());
       singleFrameMode = true;
@@ -105,9 +221,10 @@ void runCuda(){
     iterations++;
     cudaGLMapBufferObject((void**)&dptr, pbo);
   
-    // pack geom and material arrays
+    // pack geom, material, and texture arrays
     geom* geoms = new geom[renderScene->objects.size()];
     material* materials = new material[renderScene->materials.size()];
+	simpleTexture *texture_images = new simpleTexture[renderScene->textures.size()];
     
     for (int i=0; i < renderScene->objects.size(); i++) {
       geoms[i] = renderScene->objects[i];
@@ -115,7 +232,12 @@ void runCuda(){
     for (int i=0; i < renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
+    for (int i=0; i < renderScene->textures.size(); i++) {
+      texture_images[i] = renderScene->textures[i];
+    }
   
+	//std::cin.ignore();
+
     // execute the kernel
     cudaRaytraceCore( dptr,
 					  renderCam,
@@ -124,7 +246,9 @@ void runCuda(){
 					  materials,
 					  renderScene->materials.size(),
 					  geoms,
-					  renderScene->objects.size() );
+					  renderScene->objects.size(),
+					  texture_images,
+					  renderScene->textures.size() );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -141,6 +265,11 @@ void runCuda(){
 		  pixel_color.x /= iterations;
 		  pixel_color.y /= iterations;
 		  pixel_color.z /= iterations;
+
+		  // DEBUG.
+		  //std::cout << "pixel_color = ( " << pixel_color.x << ", " << pixel_color.y << ", " << pixel_color.z << " )" << std::endl;
+		  //std::cin.ignore();
+
           outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,pixel_color);
         }
       }
