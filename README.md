@@ -81,7 +81,13 @@ Extras
 
 Samples are taken randomly from within each pixel.
 
-**Performance:** Very small impact. TODO
+**Performance:** Negligible impact.
+
+*Mean rendering time per sample for an arbitrary example scene*
+
+|   Before |    After |
+| --------:| --------:|
+| 33.19 ms | 33.19 ms |
 
 Without:
 ![](images/15_slightly_better_depth1.png)
@@ -95,9 +101,15 @@ With:
 Origin and direction of camera rays is varied randomly (in a uniform circular
 distribution) to emulate a physical aperture.
 
-**Performance:** Very small impact per-sample, but increases the number of
-samples needed for visual smoothness due to the extreme variation between
-samples. Implementation-wise, this is identical to analogous CPU code. TODO
+**Performance:** Negligible impact per-sample. However, it increases the number
+of samples needed for visual smoothness due to the extreme variation between
+samples. Implementation-wise, this is identical to analogous CPU code.
+
+*Mean rendering time per sample for an arbitrary example scene*
+
+|   Before |    After |
+| --------:| --------:|
+| 98.6  ms | 97.5  ms |
 
 ### Fresnel Reflection/Refraction
 
@@ -111,9 +123,17 @@ handling of indices of refraction at interfaces. (This technically could have
 been done by adopting a different normal direction convention and checking
 dot products with that, but this is more readable.)
 
-TODO: debug render here
+(See debug render in the Debug Renders section below.)
 
-**Performance:** TODO
+**Performance:** Some performance impact per-sample. This is probably due to
+the additional Fresnel factor computation and the additional random branch
+calculation based on that factor.
+
+*Mean rendering time per sample for an arbitrary example scene*
+
+|   Before |    After |
+| --------:| --------:|
+| 233.2 ms | 249.9 ms |
 
 ### Camera movement
 
@@ -126,6 +146,8 @@ again.
 This is a minor thing, but I fixed the provided code to use inverse transpose
 transformations to calculate the sphere normals.
 
+(Error image in bloopers.)
+
 
 Parameter Comparison Renderings
 -------------------------------
@@ -134,12 +156,17 @@ Higher iteration counts always improved image smoothness, since more samples
 were averaged over time. Higher path depths seem to correspond with bright
 spots which never get optimized out, for some reason.
 
-|              | Depth 16                         | Depth 256                         |
-| ------------:| -------------------------------- | --------------------------------- |
-|  500 samples | ![](images/22_ultimate_d16s500 ) | ![](images/22_ultimate_d256s500 ) |
-| 2000 samples | ![](images/22_ultimate_d16s2000) | ![](images/22_ultimate_d256s2000) |
+Depth 16, 500 samples:
+![](images/22_ultimate_d16s500)
 
-// TODO fix this it didn't work
+Depth 16, 2000 samples:
+![](images/22_ultimate_d16s2000)
+
+Depth 256, 500 samples:
+![](images/22_ultimate_d256s500)
+
+Depth 256, 2000 samples;
+![](images/22_ultimate_d256s2000)
 
 
 Earlier Renders
@@ -186,3 +213,6 @@ Seed error:
 
 Code refactoring error:
 ![](images/10_refactor_error.png)
+
+Sphere normal error (from provided code):
+![](images/22_bad_sphere_scaling_d16s500.png)
