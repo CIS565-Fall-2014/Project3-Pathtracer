@@ -25,14 +25,17 @@ int main(int argc, char** argv){
   for(int i=1; i<argc; i++){
     string header; string data;
     istringstream liness(argv[i]);
-    getline(liness, header, '='); getline(liness, data, '=');
+    getline(liness, header, '='); 
+	getline(liness, data, '=');
     if(strcmp(header.c_str(), "scene")==0){
       renderScene = new scene(data);
       loadedScene = true;
     }else if(strcmp(header.c_str(), "frame")==0){
       targetFrame = atoi(data.c_str());
       singleFrameMode = true;
-    }
+    }else if(strcmp(header.c_str(), "texture")==0){
+		
+	}
   }
 
   if(!loadedScene){
@@ -45,6 +48,7 @@ int main(int argc, char** argv){
   renderCam = &renderScene->renderCam;
   width = renderCam->resolution[0];
   height = renderCam->resolution[1];
+
 
   if(targetFrame >= renderCam->frames){
     cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
@@ -105,10 +109,12 @@ void runCuda(){
     for (int i=0; i < renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
+
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
-    
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), DOF);
+	
+
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   } else {
@@ -168,7 +174,7 @@ bool init(int argc, char* argv[]) {
   if (!glfwInit()) {
       return false;
   }
-
+  DOF = false;
   width = 800;
   height = 800;
   window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
@@ -321,4 +327,121 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+	if(key == GLFW_KEY_A && action == GLFW_PRESS){
+		renderCam->positions->x -= 0.2;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if(key == GLFW_KEY_D && action == GLFW_PRESS){
+		renderCam->positions->x += 0.2;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if(key == GLFW_KEY_W && action == GLFW_PRESS){
+		renderCam->positions->y += 0.2;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if(key == GLFW_KEY_S && action == GLFW_PRESS){
+		renderCam->positions->y -= 0.2;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if(key == GLFW_KEY_Z && action == GLFW_PRESS){
+		renderCam->positions->z += 0.2;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if(key == GLFW_KEY_C && action == GLFW_PRESS){
+		renderCam->positions->z -= 0.2;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+
+	//rotate around up
+	if((key == GLFW_KEY_Q || key == GLFW_KEY_E) && action == GLFW_PRESS){
+		glm::vec3 view = glm::vec3(renderCam->views->x, renderCam->views->y, renderCam->views->z);
+		glm::vec3 up = glm::vec3(renderCam->ups->x, renderCam->ups->y, renderCam->ups->z);
+		float rotateAngle;
+		if(key == GLFW_KEY_Q)
+			rotateAngle = -1;
+		else
+			rotateAngle = 1;
+		float s = cos((float)rotateAngle / 180 * PI);
+		float x = sin((float)rotateAngle / 180 * PI) * up.x;
+		float y = sin((float)rotateAngle / 180 * PI) * up.y;
+		float z = sin((float)rotateAngle / 180 * PI) * up.z;
+
+		float m11 = 1 - 2*y*y - 2*z*z,	 m12 = 2*x*y - 2*s*z,	    m13 = 2*x*z + 2*s*y;
+		float m21 = 2*x*y + 2*s*z,       m22 = 1 - 2*x*x - 2*z*z,   m23 = 2*y*z - 2*s*x;
+		float m31 = 2*x*z - 2*s*y,       m32 = 2*y*z + 2*s*x,       m33 = 1 - 2*x*x - 2*y*y ;
+
+		renderCam->views->x = m11*view.x + m12*view.y + m13*view.z;
+		renderCam->views->y = m21*view.x + m22*view.y + m23*view.z;
+		renderCam->views->z = m31*view.x + m32*view.y + m33*view.z;
+
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+
+		//rotate around wing
+	if((key == GLFW_KEY_T || key == GLFW_KEY_B) && action == GLFW_PRESS){
+		glm::vec3 view = glm::vec3(renderCam->views->x, renderCam->views->y, renderCam->views->z);
+		glm::vec3 up = glm::vec3(renderCam->ups->x, renderCam->ups->y, renderCam->ups->z);
+		glm::vec3 wing = glm::cross(view, up);
+
+
+		float rotateAngle;
+		if(key == GLFW_KEY_T)
+			rotateAngle = -1;
+		else
+			rotateAngle = 1;
+		float s = cos((float)rotateAngle / 180 * PI);
+		float x = sin((float)rotateAngle / 180 * PI) * wing.x;
+		float y = sin((float)rotateAngle / 180 * PI) * wing.y;
+		float z = sin((float)rotateAngle / 180 * PI) * wing.z;
+
+		float m11 = 1 - 2*y*y - 2*z*z,	 m12 = 2*x*y - 2*s*z,	    m13 = 2*x*z + 2*s*y;
+		float m21 = 2*x*y + 2*s*z,       m22 = 1 - 2*x*x - 2*z*z,   m23 = 2*y*z - 2*s*x;
+		float m31 = 2*x*z - 2*s*y,       m32 = 2*y*z + 2*s*x,       m33 = 1 - 2*x*x - 2*y*y ;
+
+		renderCam->views->x = m11*view.x + m12*view.y + m13*view.z;
+		renderCam->views->y = m21*view.x + m22*view.y + m23*view.z;
+		renderCam->views->z = m31*view.x + m32*view.y + m33*view.z;
+
+		renderCam->ups->x = m11*up.x + m12*up.y + m13*up.z;
+		renderCam->ups->y = m21*up.x + m22*up.y + m23*up.z;
+		renderCam->ups->z = m31*up.x + m32*up.y + m33*up.z;
+
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if((key == GLFW_KEY_P ) && action == GLFW_PRESS){
+		DOF = !DOF;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if((key == GLFW_KEY_O ) && action == GLFW_PRESS){
+		renderCam->focalLength += 0.2;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if((key == GLFW_KEY_I ) && action == GLFW_PRESS){
+		renderCam->focalLength -= 0.2;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if((key == GLFW_KEY_K ) && action == GLFW_PRESS){
+		renderCam->aperture += 0.05;
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
+	if((key == GLFW_KEY_L ) && action == GLFW_PRESS){
+		renderCam->aperture -= 0.05;
+		if(renderCam->aperture < 0)
+			renderCam->aperture = 0;
+
+		renderCam->image = new glm::vec3[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+		iterations = 0;
+	}
 }
