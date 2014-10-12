@@ -32,7 +32,7 @@ You can change the scene file in command arguments section.
 ## IMPLEMENTATION
 * Color Accumulation
 I have touble accumulate color when I was testing my diffuse surface, here is what I got at first diffuse rendering:
-
+https://raw.githubusercontent.com/XJMa/Project3-Pathtracer/master/screenShoots/bug.jpg
 Later I found out the color contribution of each iteration should be different, then I divide the color with 1/iteration and got much more reasonable result: 
 
 * Stream Compaction
