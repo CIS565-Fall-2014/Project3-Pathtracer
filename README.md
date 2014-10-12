@@ -95,3 +95,8 @@ This is what I used to debug during my coding. I used different color to represe
 ![ResultImage](normal vector_Cut.bmp)
 
 ##Stream compaction
+The required time for each iteration depends on several factors such as number of light source, number of object, object geometry, object material, and depth of trace.  
+Besides, we could use stream compaction to shorten the required time of each iteration.  
+The stream compaction effect will increase with the depth of trace.
+![ResultImage](time comparison.bmp)
+ The defect of my program is that when a ray hit into a transparent object and is trapped inside the object because of the total internal reflection, it will bounce several times until it could escape from the object or 
