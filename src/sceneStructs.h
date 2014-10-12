@@ -73,4 +73,11 @@ struct material{
 	float emittance;
 };
 
+struct rayState{
+  ray RAY;
+  int isValid;
+  glm::vec3 color;
+  int photoIDX;
+};
+
 #endif //CUDASTRUCTS_H

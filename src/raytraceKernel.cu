@@ -9,12 +9,21 @@
 #include <cuda.h>
 #include <cmath>
 
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+#include <thrust/count.h>
+#include <thrust/scan.h>
+
+
 #include "sceneStructs.h"
 #include "glm/glm.hpp"
 #include "utilities.h"
 #include "raytraceKernel.h"
 #include "intersections.h"
 #include "interactions.h"
+
+
+
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -112,6 +121,23 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   }
 }
 
+//Initialize rays
+__global__ void initializeRay(glm::vec2 resolution, float time, cameraData cam, rayState* rayList){
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  int index = x + (y * resolution.x);
+
+  if((x<=resolution.x && y<=resolution.y)){
+    ray thisRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+    rayList[index].RAY      = thisRay;
+    rayList[index].isValid  = 1;
+    rayList[index].color    = glm::vec3(1,1,1);
+    rayList[index].photoIDX = index;
+  }
+}
+
+
+
 ///////////////////////////////////
 //////////////////////////////////
 // TODO: IMPLEMENT THIS FUNCTION/ 
@@ -121,65 +147,86 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 ///////////////////////////////
 // Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int maxDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
-
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
-  
-  thrust::default_random_engine rng(hash(index*time));
-  thrust::uniform_real_distribution<float> u01(0,1);
-
-  if((x<=resolution.x && y<=resolution.y)){
-    ray thisRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
-
-    glm::vec3 col = glm::vec3(-1,-1,-1);
-    
-    glm::vec3 COLOR = glm::vec3(1,1,1);//initialize to white
-    int tooDeep = 0;
-    
-    for(int j = 0; j <= maxDepth; j++){
-      if(j == maxDepth){
-        tooDeep = 1;
-        break;
-      }
-      //intersection checks:
-      float distToIntersect = FLT_MAX;//infinite distance
-      float tmpDist;
-      glm::vec3 tmpIntersectPoint, tmpIntersectNormal, intersectPoint, intersectNormal;
-      material mat;
-      
-      for(int i = 0; i < numberOfGeoms; i++){
-        if (geoms[i].type == SPHERE){
-          tmpDist = sphereIntersectionTest(geoms[i], thisRay, tmpIntersectPoint, tmpIntersectNormal);
-        }else if (geoms[i].type == CUBE){
-          tmpDist = boxIntersectionTest(   geoms[i], thisRay, tmpIntersectPoint, tmpIntersectNormal);
-        }//insert triangles here for meshes
-        if (tmpDist != -1 && tmpDist < distToIntersect){ //hit is new closest
-          distToIntersect = tmpDist;
-          intersectNormal = tmpIntersectNormal;
-          intersectPoint  = tmpIntersectPoint;
-          mat = materials[geoms[i].materialid];
-        }
-      }
-      //Did I intersect anything?
-      if(distToIntersect == FLT_MAX){//miss
-        col = glm::vec3(0,0,0);
-        break;
-      }
-      //is this a light source?
-      if(mat.emittance > 0.001){
-        col = COLOR * (mat.color * mat.emittance);
-        break;
-      } 
-      calculateBSDF(thisRay, intersectPoint, intersectNormal, COLOR, mat, (float) u01(rng) ,(float) u01(rng));
-      col = COLOR;
+                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, 
+                            rayState* rayList, int currDepth, int* validRays, int length){
+  //need to update for string compaction
+  //int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  //int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  //int index = x + (y * resolution.x);
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if(index < length){
+  //if((x<=resolution.x && y<=resolution.y)){
+    if(rayList[index].isValid == 0){
+      return;
     }
-    if(tooDeep == 1){//ran out of depth
-      col = glm::vec3(0,0,0);
+    if(currDepth >= maxDepth){//exceeded max depth
+       //this contribution is black
+      colors[rayList[index].photoIDX] = (colors[rayList[index].photoIDX] * (time - 1.0f)/time) + (glm::vec3(0,0,0) * 1.0f/time);
+      rayList[index].isValid = 0;
+      validRays[index] = 0;
+      return;
     }
+    //get variables
+    ray thisRay     = rayList[index].RAY;
+    glm::vec3 COLOR = rayList[index].color;
 
-    colors[index] = (colors[index] * (time - 1.0f)/time) + (col * 1.0f/time);
+    //intersection checks:
+    float distToIntersect = FLT_MAX;//infinite distance
+    float tmpDist;
+    glm::vec3 tmpIntersectPoint, tmpIntersectNormal, intersectPoint, intersectNormal;
+    material mat;
+    
+    for(int i = 0; i < numberOfGeoms; i++){
+      if (geoms[i].type == SPHERE){
+        tmpDist = sphereIntersectionTest(geoms[i], thisRay, tmpIntersectPoint, tmpIntersectNormal);
+      }else if (geoms[i].type == CUBE){
+        tmpDist = boxIntersectionTest(   geoms[i], thisRay, tmpIntersectPoint, tmpIntersectNormal);
+      }//insert triangles here for meshes
+      if (tmpDist != -1 && tmpDist < distToIntersect){ //hit is new closest
+        distToIntersect = tmpDist;
+        intersectNormal = tmpIntersectNormal;
+        intersectPoint  = tmpIntersectPoint;
+        mat = materials[geoms[i].materialid];
+      }
+    }
+    //Did I intersect anything?
+    if(distToIntersect == FLT_MAX){//miss
+      //this contribution is black
+      colors[rayList[index].photoIDX] = (colors[rayList[index].photoIDX] * (time - 1.0f)/time) + (glm::vec3(0,0,0) * 1.0f/time);
+      rayList[index].isValid = 0;
+      validRays[index] = 0;
+    }
+    //is this a light source?
+    if(mat.emittance > 0.001){
+      COLOR = COLOR * (mat.color * mat.emittance);
+      colors[rayList[index].photoIDX] = (colors[rayList[index].photoIDX] * (time - 1.0f)/time) + (COLOR * 1.0f/time);
+      rayList[index].isValid = 0;
+      validRays[index] = 0;
+      return;
+    }
+    
+    //update variables
+    thrust::default_random_engine rng(hash(index*(time + currDepth)));
+    thrust::uniform_real_distribution<float> u01(0,1);
+    calculateBSDF(thisRay, intersectPoint, intersectNormal, COLOR, mat, (float) u01(rng) ,(float) u01(rng)); 
+    //update struct
+    rayList[index].RAY   = thisRay;
+    rayList[index].color = COLOR;
+  }
+}
+
+__global__ void compactRays(int* scanRays, rayState* rayList, int length){
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if(index < length){
+    return;
+  }
+  if(index == 0){//first 
+    return;
+  }
+  rayState newRay = rayList[index];
+  __syncthreads();
+  if(scanRays[index - 1] < scanRays[index]){
+    rayList[scanRays[index]] = newRay;
   }
 }
 
@@ -192,7 +239,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
-  int traceDepth = 5; //determines how many bounces the raytracer traces
+  int traceDepth = 10; //determines how many bounces the raytracer traces
 
   // set up crucial magic
   int tileSize = 8;
@@ -234,14 +281,35 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   material* materialList = NULL;
   cudaMalloc((void**) &materialList,   numberOfMaterials * sizeof(material));
   cudaMemcpy( materialList, materials, numberOfMaterials * sizeof(material), cudaMemcpyHostToDevice);
+  
+  //allocate Rays
+  rayState* rayList = NULL;
+  cudaMalloc((void**)&rayList, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(rayState));
 
-    //thrust::default_random_engine rng;
-    //thrust::uniform_real_distribution<float> u01;
-    //std::cout << (float)u01(rng) << "test" << (float)u01(rng) << "test" << (float)u01(rng) << "\n";
+  
+
 
   // kernel launches
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, materialList, numberOfMaterials);
-
+  //Get initial rays
+  initializeRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, rayList);
+  thrust::device_vector<int> validRays((int)renderCam->resolution.x * (int)renderCam->resolution.y, 1);
+  int* thrustArray = thrust::raw_pointer_cast( &validRays[0] );
+  int length = thrust::count(validRays.begin(), validRays.end(), 1);//count valid rays
+  std::cout << length << "\n";
+  thrust::device_vector<int> scanRay((int)renderCam->resolution.x * (int)renderCam->resolution.y, 0);
+  int* scanPointer = thrust::raw_pointer_cast( &validRays[0] );
+  
+  
+  //depth trace with compaction
+  for(int i = 0; i <= traceDepth; i++){
+    raytraceRay<<<64, (int)ceil((float)length/64.0f)>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, materialList, numberOfMaterials, rayList, i, thrustArray, length);
+    length = thrust::count(validRays.begin(), validRays.end(), 1);//count valid rays
+    thrust::exclusive_scan(validRays.begin(), validRays.end(), scanRay.begin());
+    compactRays<<<64, (int)ceil((float)length/64.0f) >>>(scanPointer, rayList, length);
+    std::cout << length << "\n";
+  }
+  std::cout  << "\n";
+  //update visual
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
   // retrieve image from GPU
@@ -251,6 +319,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudaimage );
   cudaFree( cudageoms );
   cudaFree(materialList); //added
+  cudaFree(rayList); //added
+
   delete geomList;
 
   // make certain the kernel has completed

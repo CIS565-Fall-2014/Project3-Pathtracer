@@ -116,10 +116,6 @@ __host__ __device__ int calculateBSDF(ray& thisRay, glm::vec3 intersect, glm::ve
   ray newRay;
   
   if(seed1 < mat.hasReflective){ //reflect with probability of reflectance
-    //is ther emittance?
-    if(mat.emittance > 0.001){
-        color = color * (mat.color * mat.emittance); 
-      }
     
     //Perfect reflective
     newRay.direction = glm::reflect(thisRay.direction, normal);
