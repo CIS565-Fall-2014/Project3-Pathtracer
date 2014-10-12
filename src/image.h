@@ -46,9 +46,6 @@ public:
     glm::vec4* getRGBAChannels();
     gammaSettings getGammaSettings();
 
-	//__host__ __device__ glm::vec3 readPixelRGB(int x, int y);
-	//__host__ __device__ glm::vec2 getDimensions();
-
 	glm::vec3 readPixelRGB(int x, int y);
 	glm::vec2 getDimensions();
 

@@ -39,8 +39,6 @@ namespace utilityCore {
     extern std::string convertIntToString(int number);
     extern std::istream& safeGetline(std::istream& is, std::string& t); //Thanks to http://stackoverflow.com/a/6089413
 
-	//extern image* BMPToImage( std::string filename ); // Thanks to https://stackoverflow.com/questions/9296059/read-pixel-value-in-bmp-file
-
     //-----------------------------
     //-------GLM Printers----------
     //-----------------------------

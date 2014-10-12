@@ -279,119 +279,7 @@ int scene::loadMaterial(string materialid){
 }
 
 
-
-
 const std::string TEXTURE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\data\\textures\\";
-
-
-//glm::vec2 extractTextureDimensions( std::string filename )
-//{
-//	FILE *f = fopen( filename.c_str(), "rb" );
-//	unsigned char info[54];
-//	fread( info, sizeof( unsigned char ), 54, f ); // Read the 54-byte header.
-//
-//	// Extract image height and width from header.
-//	int width = *( int* )&info[18];
-//	int height = *( int* )&info[22];
-//
-//	fclose( f );
-//
-//	return glm::vec2( width, height );
-//}
-
-
-//void BMPToImage( const std::string &filename, image &texture_image )
-//{
-//	int i;
-//	FILE *f = fopen( filename.c_str(), "rb" );
-//	unsigned char info[54];
-//	fread( info, sizeof( unsigned char ), 54, f ); // read the 54-byte header
-//
-//	// extract image height and width from header
-//	int width = *( int* )&info[18];
-//	int height = *( int* )&info[22];
-//
-//	int size = 3 * width * height;
-//	unsigned char* data = new unsigned char[size]; // allocate 3 bytes per pixel
-//	fread( data, sizeof( unsigned char ), size, f ); // read the rest of the data at once
-//	fclose( f );
-//
-//	for ( i = 0; i < size; i += 3 ) {
-//		unsigned char tmp = data[i];
-//		data[i] = data[i+2];
-//		data[i+2] = tmp;
-//	}
-//
-//	//for ( i = 0; i < size; i += 3 ) {
-//	//	int x = i % width;
-//	//	int y = i / width;
-//	//	glm::vec3 rgb( data[i], data[i + 1], data[i + 2] );
-//	//	texture_image.writePixelRGB( x, y, rgb );
-//	//}
-//
-//	// DEBUG.
-//	//std::cout << "Texture dimensions: ( " << width << ", " << height << " )" << std::endl;
-//	//std::cin.ignore();
-//
-//	for ( int y = 0; y < height; ++y ) {
-//		for ( int x = 0; x < width; ++x ) {
-//			int buffer_loc = ( ( y * width ) + x ) * 3;
-//			glm::vec3 rgb( data[buffer_loc] / 255.0f, data[buffer_loc + 1] / 255.0f, data[buffer_loc + 2] / 255.0f );
-//			texture_image.writePixelRGB( x, y, rgb );
-//
-//			// DEBUG.
-//			//std::cout << "( x, y ) = ( " << x << ", " << y << " )" << std::endl;
-//			//std::cout << "buffer_loc = " << buffer_loc << std::endl;
-//			//std::cout << "Writing RGB for pixel ( " << x << ", " << y << " ): ( " << rgb.x << ", " << rgb.y << ", " << rgb.z << " )" << std::endl;
-//			//std::cin.ignore();
-//		}
-//
-//		// DEBUG
-//		//std::cin.ignore();
-//	}
-//
-//	// DEBUG
-//	//std::cin.ignore();
-//}
-
-
-//int scene::loadTextures( std::string texture_id )
-//{
-//	// DEBUG
-//	//std::cout << "Inside int scene::loadTextures( std::string texture_id )." << std::endl;
-//
-//	int id = atoi( texture_id.c_str() );
-//	
-//	if ( id != textures.size() ) {
-//		std::cout << "ERROR: TEXTURE ID does not match expected number of textures." << std::endl;
-//		return -1;
-//	}
-//	else{
-//		cout << "Loading texture " << id << "..." << endl;
-//
-//		std::string line;
-//        utilityCore::safeGetline( fp_in, line );
-//		std::vector<std::string> tokens = utilityCore::tokenizeString( line );
-//
-//		std::string texture_filename = "";
-//		if ( strcmp( tokens[0].c_str(), "FILE" ) == 0 ) {
-//			texture_filename = tokens[1];
-//		}
-//
-//		std::string texture_full_path = TEXTURE_PATH + texture_filename;
-//		glm::vec2 texture_dimensions = extractTextureDimensions( texture_full_path );
-//
-//		// DEBUG.
-//		//std::cout << "Texture dimensions: ( " << texture_dimensions.x << ", " << texture_dimensions.y << " )" << std::endl;
-//
-//		image texture_image( texture_dimensions.x, texture_dimensions.y );
-//		BMPToImage( texture_full_path, texture_image );
-//	
-//		textures.push_back( texture_image );
-//		return 1;
-//	}
-//}
-
 
 int scene::loadTextures( std::string texture_id )
 {
@@ -424,25 +312,10 @@ int scene::loadTextures( std::string texture_id )
 		int width = *( int* )&info[18];
 		int height = *( int* )&info[22];
 
-		// Currently, textures are limited to images of at most 1024x1024 resolution.
-		// The number of pixels is hard-coded in the texture struct in sceneStructs.h.
-		//if ( width > 1024 || height > 1024 ) {
-		//	std::cout << "ERROR: Texture is too large: ( " << width << ", " << height << " )" << std::endl;
-		//	return -1;
-		//}
-
-		//image texture_image( width, height );
-
 		int size = 3 * width * height;
 		unsigned char* data = new unsigned char[size]; // allocate 3 bytes per pixel
 		fread( data, sizeof( unsigned char ), size, f ); // read the rest of the data at once
 		fclose( f );
-
-		//for ( i = 0; i < size; i += 3 ) {
-		//	unsigned char tmp = data[i];
-		//	data[i] = data[i+2];
-		//	data[i+2] = tmp;
-		//}
 
 		simpleTexture texture_image;
 		texture_image.width = width;
@@ -455,16 +328,9 @@ int scene::loadTextures( std::string texture_id )
 				int linear_index = ( y * width ) + x;
 				int bmp_buffer_loc = linear_index * 3;
 				glm::vec3 rgb( data[bmp_buffer_loc + 1] / 255.0f, data[bmp_buffer_loc] / 255.0f, data[bmp_buffer_loc + 2] / 255.0f );
-				//texture_image.writePixelRGB( x, y, rgb );
 				texture_image.rgb[linear_index] = rgb;
-
-				// DEBUG.
-				//std::cout << "RGB for index " << linear_index << ": ( " << rgb.x << ", " << rgb.y << ", " << rgb.z << " )" << std::endl;
 			}
 		}
-
-		// DEBUG.
-		//std::cin.ignore();
 
 		textures.push_back( texture_image );
 		return 1;

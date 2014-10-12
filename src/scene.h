@@ -31,7 +31,6 @@ public:
     vector<material> materials;
     camera renderCam;
 
-	//std::vector<image> textures;
 	std::vector<simpleTexture> textures;
 };
 

@@ -425,12 +425,6 @@ glm::vec2 computeSphereUVCoordinates( staticGeom sphere,
 		u = theta;
 	}
 
-
-	//glm::vec3 N = glm::normalize( multiplyMV( sphere.inverseTransform, glm::vec4( intersection_point, 1.0f ) ) );
-	//float u = asin( N.x ) / PI + 0.5f;
-	//float v = asin( N.y ) / PI + 0.5f;
-
-
 	return glm::vec2( u, v );
 }
 

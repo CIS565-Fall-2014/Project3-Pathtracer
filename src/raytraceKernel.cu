@@ -41,7 +41,7 @@ void checkCUDAError( const char *msg )
 		fprintf( stderr, "Cuda error: %s: %s.\n", msg, cudaGetErrorString( err ) );
 		
 		// DEBUG.
-		//std::cin.ignore();
+		std::cin.ignore();
 
 		exit( EXIT_FAILURE );
 	}
@@ -286,59 +286,6 @@ glm::vec2 computePixelSubsampleLocation( glm::vec2 pixel_index,
 }
 
 
-//// Test kernel to verify raycastFromCameraKernel results were correct.
-//__global__
-//void testOutputKernel( glm::vec3 *image,
-//					   ray *ray_pool,
-//					   glm::vec2 resolution )
-//{
-//	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
-//	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
-//	int index = ( y * ( int )resolution.x ) + x;
-//
-//	if ( index > ( resolution.x * resolution.y ) ) {
-//		return;
-//	}
-//
-//	glm::vec3 normal_color = ray_pool[index].direction;
-//	normal_color.x = ( normal_color.x < 0.0f ) ? ( normal_color.x * -1.0f ) : normal_color.x;
-//	normal_color.y = ( normal_color.y < 0.0f ) ? ( normal_color.y * -1.0f ) : normal_color.y;
-//	normal_color.z = ( normal_color.z < 0.0f ) ? ( normal_color.z * -1.0f ) : normal_color.z;
-//
-//	image[index] = normal_color;
-//}
-
-
-//__global__
-//void uselessKernel()
-//{
-//	int ray_pool_index = ( blockIdx.x * blockDim.x ) + threadIdx.x;
-//	return;
-//}
-
-
-//__host__
-//__device__
-//glm::vec3 readImagePixelRGB( const image &img, const int x, const int y )
-//{
-//	if ( !( x < 0 || y < 0 || x >= img.xSize || y >= img.ySize ) ) {
-//		int index = ( y * img.xSize ) + x;
-//		return glm::vec3( img.redChannel[index], img.greenChannel[index], img.blueChannel[index] );
-//
-//		// Debug.
-//		//std::cout << "index = " << index << std::endl;
-//		//return glm::vec3( 1.0f, 0.078f, 0.577f );
-//	}
-//	else {
-//		// Hot pink.
-//		return glm::vec3( 1.0f, 0.078f, 0.577f );
-//	}
-//
-//	// Hot pink.
-//	//return glm::vec3( 1.0f, 0.078f, 0.577f );
-//}
-
-
 // Core raytracer kernel.
 __global__
 void raytraceRay( ray *ray_pool,
@@ -439,40 +386,17 @@ void raytraceRay( ray *ray_pool,
 				int texture_rgb_index = texture_rgb_starting_index + pixel_linear_index;
 
 				if ( texture_rgb_index < texture_rgb_starting_index || texture_rgb_index >= ( texture_rgb_starting_index + texture_width * texture_height ) ) {
-					rgb = glm::vec3( 1.0f, 0.078f, 0.577f );
-					//rgb = mat.color;
-
-					//image_buffer[image_pixel_index] = glm::vec3( 1.0f, 0.078f, 0.577f );
-					//r.is_active = false;
-					//ray_pool[ray_pool_index] = r;
-					//return;
-
+					rgb = glm::vec3( 1.0f, 0.078f, 0.577f ); // Hot pink to visualize an error.
 				}
 				else {
 					rgb = texture_rgb[texture_rgb_index];
-					//rgb = mat.color;
-
-					//image_buffer[image_pixel_index] = texture_rgb[texture_rgb_index];
-					//r.is_active = false;
-					//ray_pool[ray_pool_index] = r;
-					//return;
-
 				}
 			}
 			else {
-				rgb = glm::vec3( 1.0f, 0.078f, 0.577f );
-				//rgb = mat.color;
-				//rgb = rgb * ( 1.0f / p );
-
-				//image_buffer[image_pixel_index] = glm::vec3( 1.0f, 0.078f, 0.577f );
-				//r.is_active = false;
-				//ray_pool[ray_pool_index] = r;
-				//return;
-
+				rgb = glm::vec3( 1.0f, 0.078f, 0.577f ); // Hot pink to visualize an error.
 			}
 		}
 	}
-
 
 	// Ray hits light source. Add acculumated color contribution of ray. Kill ray.
 	if ( mat.emittance > 0.0f ) {
@@ -590,7 +514,6 @@ MaterialType determineMaterialType( material mat )
 }
 
 
-
 // thrust predicate to cull inactive rays from ray pool.
 struct RayIsInactive
 {
@@ -616,13 +539,6 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 					   simpleTexture *textures,
 					   int num_textures )
 {
-	// Test.
-	//for ( int i = 0; i < num_textures; ++i ) {
-	//	glm::vec2 foobar = textures[i].getDimensions();
-	//	std::cout << "texture " << i << " dimensions: ( " <<  foobar.x << ", " << foobar.y << " )" << std::endl;
-	//}
-	//std::cin.ignore();
-
 	// Tune these for performance.
 	int depth = 10;
 	int camera_raycast_tile_size = 8;
@@ -679,20 +595,10 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 				size_material_list,
 				cudaMemcpyHostToDevice );
 
-	// Send textures to GPU.
-	//simpleTexture *cuda_textures = NULL;
-	//float size_texture_list = num_textures * sizeof( simpleTexture );
-	//cudaMalloc( ( void** )&cuda_textures,
-	//			size_texture_list );
-	//cudaMemcpy( cuda_textures,
-	//			textures,
-	//			size_texture_list,
-	//			cudaMemcpyHostToDevice );
-
 
 	// TODO: The below computations for textures only need to be done once.
 
-	// TODO: Create int *texture_info.
+	// Create int *texture_info.
 	int *texture_info = new int[num_textures * 3]; // Starting index, width, height.
 	int starting_index = 0;
 	for ( int i = 0; i < num_textures; ++i ) {
@@ -703,7 +609,7 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 		starting_index += ( textures[i].width * textures[i].height );
 	}
 
-	// TODO: Create glm::vec3 *texture_rgb.
+	// Create glm::vec3 *texture_rgb.
 	int num_texture_pixels = starting_index;
 	glm::vec3 *texture_rgb = new glm::vec3[num_texture_pixels];
 	int rgb_index = 0;
@@ -716,7 +622,7 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 		}
 	}
 
-	// TODO: Send texture_info and texture_rgb to CUDA.
+	// Send texture_info and texture_rgb to CUDA.
 	int *cuda_texture_info = NULL;
 	int size_texture_info = num_textures * 3 * sizeof( int );
 	cudaMalloc( ( void** )&cuda_texture_info,
@@ -734,31 +640,6 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 				texture_rgb,
 				size_texture_rgb,
 				cudaMemcpyHostToDevice );
-
-	// TEST.
-	//std::cout << "SAFE!" << std::endl;
-	//std::cout << "num_texture_pixels = " << num_texture_pixels << std::endl;
-	//std::cin.ignore();
-
-
-	// DEBUG.
-	//for ( int i = 0; i < num_textures; ++i ) {
-	//	int width = textures[i].dimensions.x;
-	//	int height = textures[i].dimensions.y;
-	//	std::cout << "texture width = " << width << std::endl;
-	//	std::cout << "texture height = " << height << std::endl;
-	//	
-	//	for ( int y = 0; y < height; ++y ) {
-	//		for ( int x = 0; x < width; ++x ) {
-	//			int texture_index = ( y * width ) + x;
-	//			glm::vec3 pixel_color = textures[i].rgb[texture_index];
-	//			std::cout << "RGB for pixel ( " << x << ", " << y << " ): ( " << pixel_color.x << ", " << pixel_color.y << ", " << pixel_color.z << " )" << std::endl;
-	//			//std::cin.ignore();
-	//		}
-	//		std::cin.ignore();
-	//	}
-	//}
-	//std::cin.ignore();
   
 	// Package up camera.
 	cameraData cam;
@@ -789,17 +670,10 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 																			v,
 																			( float )current_iteration );
 
-	//testOutputKernel<<< full_blocks_per_grid, threads_per_block >>>( cuda_image,
-	//																 cuda_ray_pool,
-	//																 render_cam->resolution );
-
 	// Launch raytraceRay kernel once per raytrace depth.
 	for ( int i = 0; i < depth; ++i ) {
 		dim3 threads_per_raytrace_block( raytrace_tile_size );
 		dim3 blocks_per_raytrace_grid( ( int )ceil( ( float )num_rays / ( float )raytrace_tile_size ) );
-
-		// Test.
-		//uselessKernel<<< blocks_per_raytrace_grid, threads_per_raytrace_block >>>();
 
 		// Launch raytraceRay kernel.
 		raytraceRay<<< blocks_per_raytrace_grid, threads_per_raytrace_block >>>( cuda_ray_pool,
@@ -815,14 +689,14 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 																				 cuda_texture_info,
 																				 cuda_texture_rgb );
 
-		//// Note: Stream compaction is slow.
-		//thrust::device_ptr<ray> ray_pool_device_ptr( cuda_ray_pool );
-		//thrust::device_ptr<ray> culled_ray_pool_device_ptr = thrust::remove_if( ray_pool_device_ptr,
-		//																		ray_pool_device_ptr + num_rays,
-		//																		RayIsInactive() );
+		// Note: Stream compaction is slow.
+		thrust::device_ptr<ray> ray_pool_device_ptr( cuda_ray_pool );
+		thrust::device_ptr<ray> culled_ray_pool_device_ptr = thrust::remove_if( ray_pool_device_ptr,
+																				ray_pool_device_ptr + num_rays,
+																				RayIsInactive() );
 
-		//// Compute number of active rays in ray pool.
-		//num_rays = culled_ray_pool_device_ptr.get() - ray_pool_device_ptr.get();
+		// Compute number of active rays in ray pool.
+		num_rays = culled_ray_pool_device_ptr.get() - ray_pool_device_ptr.get();
 	}
 
 	// Launch sendImageToPBO kernel.
@@ -842,7 +716,6 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	cudaFree( cuda_geoms );
 	cudaFree( cuda_materials );
 	cudaFree( cuda_ray_pool );
-	//cudaFree( cuda_textures );
 	cudaFree( cuda_texture_info );
 	cudaFree( cuda_texture_rgb );
 	delete[] geom_list;
