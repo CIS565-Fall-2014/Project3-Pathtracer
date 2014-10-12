@@ -206,7 +206,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
     }
     
     //update variables
-    thrust::default_random_engine rng(hash(index*(time + currDepth)));
+    thrust::default_random_engine rng(hash(index * (time + currDepth)));
     thrust::uniform_real_distribution<float> u01(0,1);
     calculateBSDF(thisRay, intersectPoint, intersectNormal, COLOR, mat, (float) u01(rng) ,(float) u01(rng)); 
     //update struct
@@ -215,11 +215,12 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
   }
 }
 
-__global__ void compactRays(int* scanRays, rayState* rayList, int length){
+__global__ void compactRays(int* scanRays, rayState* rayList, int* validRays, int length){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if(index < length){
+  if(index >= length){
     return;
   }
+  validRays[index] = 0;
   if(index == 0){//first 
     return;
   }
@@ -227,6 +228,7 @@ __global__ void compactRays(int* scanRays, rayState* rayList, int length){
   __syncthreads();
   if(scanRays[index - 1] < scanRays[index]){
     rayList[scanRays[index]] = newRay;
+    validRays[scanRays[index]] = 1;
   }
 }
 
@@ -297,18 +299,30 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   int length = thrust::count(validRays.begin(), validRays.end(), 1);//count valid rays
   std::cout << length << "\n";
   thrust::device_vector<int> scanRay((int)renderCam->resolution.x * (int)renderCam->resolution.y, 0);
-  int* scanPointer = thrust::raw_pointer_cast( &validRays[0] );
+  int* scanPointer = thrust::raw_pointer_cast( &scanRay[0] );
+  int* scanFifty = new int[50];
   
   
   //depth trace with compaction
   for(int i = 0; i <= traceDepth; i++){
+    //do one step
     raytraceRay<<<(int)ceil((float)length/64.0f), 64>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, materialList, numberOfMaterials, rayList, i, thrustArray, length);
+    //build scan
+    thrust::exclusive_scan(validRays.begin(), validRays.end(), &scanRay[0]);
+    scanPointer = thrust::raw_pointer_cast( &scanRay[0] );
+    //compact rays
+    compactRays<<<(int)ceil((float)length/64.0f), 64 >>>(scanPointer, rayList, thrustArray, length);
+    //update length
     length = thrust::count(validRays.begin(), validRays.end(), 1);//count valid rays
-    thrust::exclusive_scan(validRays.begin(), validRays.end(), scanRay.begin());
-    compactRays<<<(int)ceil((float)length/64.0f), 64 >>>(scanPointer, rayList, length);
+    
+    
+    cudaMemcpy(scanFifty, scanPointer, 50 * sizeof(int), cudaMemcpyDeviceToHost);
+    
+    std::cout <<"scan=" << scanFifty[49] << " " << scanFifty[32] << "\n";
+    std::cout  << "\n";
     std::cout << length << "\n";
   }
-  std::cout  << "\n";
+
   //update visual
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
@@ -320,7 +334,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudageoms );
   cudaFree(materialList); //added
   cudaFree(rayList); //added
-
+  free(scanFifty);//added
   delete geomList;
 
   // make certain the kernel has completed
