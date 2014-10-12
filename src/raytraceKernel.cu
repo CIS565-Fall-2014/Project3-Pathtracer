@@ -21,7 +21,7 @@
 
 
 
-#define TRACE_DEPTH_LIMIT 1
+#define TRACE_DEPTH_LIMIT 5
 
 
 
@@ -142,7 +142,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 // NOTE: I believe I just need to ADD an argument or so for materials/lights (lights are just materials with emittance)
 
 // NOTE: this kernel represents "tracing ONE bounce" 
-__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
+__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors, ray* rays,
                             staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -156,10 +156,50 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
   */
   if((x<=resolution.x && y<=resolution.y)){
 
+	  glm::vec3 colorOfMinDistance(0, 0, 0);
+	  float minDistance = -1.f;
 
+	  for (int g = 0; g < numberOfGeoms; g++) {
+		  if (geoms[g].type == CUBE) {
+			  float test = boxIntersectionTest(geoms[g], rays[index], glm::vec3(), glm::vec3());
+			  if (test > -.5) { // so, positive
+				  if (minDistance < 0 || test < minDistance) { // if unset or new min
+					  minDistance = test;
+					  //light debug
+					  if (materials[geoms[g].materialid].emittance > 0) {
+						  colorOfMinDistance = glm::vec3(1,1,0);
+					  }
+					  else {
+						  colorOfMinDistance = materials[geoms[g].materialid].color;
+					  }
+				  }
+			  }
+		  }
+		  else if (geoms[g].type == SPHERE) {
+			  float test = sphereIntersectionTest(geoms[g], rays[index], glm::vec3(), glm::vec3());
+			  if (test > -.5) { // so, positive
+				  if (minDistance < 0 || test < minDistance) { // if unset or new min
+					  minDistance = test;
+					  colorOfMinDistance = materials[geoms[g].materialid].color;
+				  }
+			  }
+		  }
+	  }
+
+	  colors[index] += colorOfMinDistance;
 
 	  //colors[index] += generateRandomNumberFromThread(resolution, time, x, y);
   }
+}
+
+__global__ void initiateCameraRays(cameraData cam, ray* rays, float time) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * cam.resolution.x);
+
+	if((x<=cam.resolution.x && y<=cam.resolution.y)){
+		rays[index] = raycastFromCameraKernel(glm::vec2(cam.resolution.x, cam.resolution.y), time, x, y, cam.position, cam.view, cam.up, cam.fov);
+	}
 }
 
 // TODO: FINISH THIS FUNCTION ("Support passing materials and lights to CUDA")
@@ -215,10 +255,21 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
 
-  //std::cout << "\nKernel launches about to start\n" << std::endl;
-  //std::cout << "iterations is: " << iterations << std::endl;
+  // send rays array to GPU (very similar to cudaimage)
+  ray* cudarays = NULL;
+  cudaMalloc((void**)&cudarays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
+  // no memcpy required
+
   // kernel launches
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+
+  initiateCameraRays<<<fullBlocksPerGrid, threadsPerBlock>>>(cam, cudarays, (float)iterations);
+
+  while (traceDepth < TRACE_DEPTH_LIMIT) {
+	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth,
+														cudaimage, cudarays, cudageoms, numberOfGeoms, cudamaterials,
+														numberOfMaterials);
+	traceDepth++;
+  }
 
   //std::cout << "\nraytraceRay call is done\n" << std::endl;
 
@@ -234,6 +285,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudageoms );
   delete geomList;
   cudaFree( cudamaterials );
+  cudaFree( cudarays );
 
   // make certain the kernel has completed
   cudaThreadSynchronize();

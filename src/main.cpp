@@ -173,8 +173,8 @@ bool init(int argc, char* argv[]) {
       return false;
   }
 
-  width = 800;
-  height = 800;
+  width = 400;
+  height = 400;
   window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
   if (!window){
       glfwTerminate();

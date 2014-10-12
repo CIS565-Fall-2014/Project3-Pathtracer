@@ -107,8 +107,12 @@ and have them return the color of the first thing they intersect.
 I already have some ideas as to what this should look like, based on posts from
 other students on the forums.
 
+It works!
 
+![checkpoint 2](images/chkpt2.png)
 
+Note that since each iteration returns the same thing, there is no change if I
+leave the pathtracer to run for multiple iterations.
 
 
 
