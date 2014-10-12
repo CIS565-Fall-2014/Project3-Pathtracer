@@ -13,6 +13,7 @@
 //-------------MAIN--------------
 //-------------------------------
 
+
 int main(int argc, char** argv){
   // Set up pathtracer stuff
   bool loadedScene = false;
@@ -59,6 +60,8 @@ int main(int argc, char** argv){
 
   return 0;
 }
+
+bmp_texture tex;
 
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
@@ -107,7 +110,7 @@ void runCuda(){
     }
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(),&tex );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -158,6 +161,34 @@ void runCuda(){
   }
 }
 
+void readBMP(char* filename,bmp_texture &tex)
+{
+	int i;
+    FILE* f = fopen(filename, "rb");
+    unsigned char info[54];
+    fread(info, sizeof(unsigned char), 54, f); // read the 54-byte header
+
+    // extract image height and width from header
+    int width = *(int*)&info[18];
+    int height = *(int*)&info[22];
+
+    int size = 3 * width * height;
+    unsigned char* data = new unsigned char[size]; // allocate 3 bytes per pixel
+    fread(data, sizeof(unsigned char), size, f); // read the rest of the data at once
+    fclose(f);
+	glm::vec3 *color_data = new glm::vec3[size/3];
+    for(i = 0; i < size; i += 3)
+    {
+			color_data[i/3].r = (int)data[i+2]/255.0f;
+			color_data[i/3].g = (int)data[i+1]/255.0f;
+			color_data[i/3].b = (int)data[i]/255.0f;
+    }
+    delete []data;
+	tex.data = color_data;
+	tex.height = height;
+	tex.width = width;
+}
+
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
@@ -168,7 +199,7 @@ bool init(int argc, char* argv[]) {
   if (!glfwInit()) {
       return false;
   }
-
+  readBMP("texture.bmp",tex);
   width = 800;
   height = 800;
   window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
@@ -316,9 +347,31 @@ void deleteTexture(GLuint* tex){
 void errorCallback(int error, const char* description){
     fputs(description, stderr);
 }
+void clearScreen(){
+	iterations=0;
+	for(int i=0;i<renderCam->resolution.x*renderCam->resolution.y;i++)
+		renderCam->image[i]=glm::vec3(0,0,0);
 
+}
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
+    }
+
+	if(key == GLFW_KEY_RIGHT && action == GLFW_PRESS){
+        clearScreen();
+		renderCam->positions[0]+=glm::vec3(0.1f,0,0);
+    }
+	if(key == GLFW_KEY_UP && action == GLFW_PRESS){
+        clearScreen();
+		renderCam->positions[0]+=glm::vec3(0,0.1f,0);
+    }
+	if(key == GLFW_KEY_LEFT && action == GLFW_PRESS){
+        clearScreen();
+		renderCam->positions[0]+=glm::vec3(-0.1f,0,0);
+    }
+	if(key == GLFW_KEY_DOWN && action == GLFW_PRESS){
+        clearScreen();
+		renderCam->positions[0]+=glm::vec3(0,-0.1f,0);
     }
 }

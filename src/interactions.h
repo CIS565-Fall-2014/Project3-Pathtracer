@@ -77,7 +77,7 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
     } else {
       directionNotNormal = glm::vec3(0, 0, 1);
     }
-    
+
     // Use not-normal direction to generate two perpendicular directions
     glm::vec3 perpendicularDirection1 = glm::normalize(glm::cross(normal, directionNotNormal));
     glm::vec3 perpendicularDirection2 = glm::normalize(glm::cross(normal, perpendicularDirection1));
@@ -91,7 +91,19 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
 // non-cosine (uniform) weighted random direction generation.
 // This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
-  return glm::vec3(0,0,0);
+  // Crucial difference between this and calculateRandomDirectionInSphere: THIS IS COSINE WEIGHTED!
+    
+	float angle = (xi1-0.5f)*TWO_PI;
+    float up = cos(angle); // cos(theta)
+    float over = sin(angle); // sin(theta)
+    float around = xi2 * TWO_PI;
+
+	glm::vec3 u = glm::vec3(0,1,0);
+	glm::vec3 v = glm::vec3(0,0,1);
+	glm::vec3 w = glm::vec3(1,0,0);
+    
+    return up + ( cos(around) * over * v ) + ( sin(around) * over * w );
+    
 }
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION

@@ -229,7 +229,7 @@ int scene::loadMaterial(string materialid){
 		material newMaterial;
 	
 		//load static properties
-		for(int i=0; i<10; i++){
+		for(int i=0; i<11; i++){
 			string line;
             utilityCore::safeGetline(fp_in,line);
 			vector<string> tokens = utilityCore::tokenizeString(line);
@@ -256,7 +256,10 @@ int scene::loadMaterial(string materialid){
 				newMaterial.reducedScatterCoefficient = atof(tokens[1].c_str());					  
 			}else if(strcmp(tokens[0].c_str(), "EMITTANCE")==0){
 				newMaterial.emittance = atof(tokens[1].c_str());					  
-			
+			}else if(strcmp(tokens[0].c_str(), "TEXTURE")==0){
+				char*tmp =(char*)tokens[1].c_str();
+				for(int i=0;tmp[i]!='\0';i++)
+					newMaterial.texture[i] = tmp[i];					  
 			}
 		}
 		materials.push_back(newMaterial);

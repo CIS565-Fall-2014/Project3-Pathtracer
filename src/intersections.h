@@ -71,9 +71,111 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
-__host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+__host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec2& texCoord){
 
-    return -1;
+	glm::vec3 ro = multiplyMV(box.inverseTransform, glm::vec4(r.origin,1.0f));
+	glm::vec3 rd = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction,0.0f)));
+	
+	float tmin;
+	float minx, miny, minz, maxx, maxy, maxz;
+
+	float a = 1.0/rd.x;
+	if (a >= 0) {
+		minx = (-0.5 - ro.x)*a;
+		maxx = (0.5 - ro.x)*a;
+	}
+	else {
+		minx = (0.5 - ro.x)*a;
+		maxx = (-0.5 - ro.x)*a;
+	}
+	
+	float b = 1.0 / rd.y;
+	if (b >= 0) {
+		miny = (-0.5 - ro.y)*b;
+		maxy = (0.5 - ro.y)*b;
+	}
+	else {
+		miny = (0.5 - ro.y)*b;
+		maxy = (-0.5 - ro.y)*b;
+	}
+	
+	float c = 1.0 / rd.z;
+	if (c >= 0) {
+		minz = (-0.5 - ro.z) * c;
+		maxz = (0.5 - ro.z) * c;
+	}
+	else {
+		minz = (0.5 - ro.z) * c;
+		maxz = (-0.5 - ro.z) * c;
+	}
+
+	glm::vec3 normal_in,normal_out;
+	float t0, t1;
+	if (minx > miny){
+		t0 = minx;
+		normal_in = (a >= 0.0) ? glm::vec3(-1, 0, 0) : glm::vec3(1, 0, 0);
+	}
+	else {
+		t0 = miny;
+		normal_in = (b >= 0.0) ? (glm::vec3(0, -1, 0)) : glm::vec3(0, 1, 0);
+	}
+
+	if (minz > t0) {
+		t0 = minz;
+		normal_in = (c >= 0.0) ? glm::vec3(0, 0, -1) : glm::vec3(0, 0, 1);
+	}
+
+	if (maxx < maxy){
+		t1 = maxx;
+		normal_out = (a >= 0.0) ? glm::vec3(1, 0, 0) : glm::vec3(-1, 0, 0);
+	}
+	else {
+		t1 = maxy;
+		normal_out = (b >= 0.0) ? glm::vec3(0, 1, 0) : glm::vec3(0, -1, 0);
+	}
+
+	if (maxz < t1){
+		t1 = maxz;
+		normal_out = (c >= 0.0) ? glm::vec3(0, 0, 1) : glm::vec3(0, 0, -1);
+	}
+
+	
+
+	if (t0<t1 && t1 > 0.0001f) {  
+		if (t0 > 0.0001f){
+			tmin = t0;  
+			normal = normal_in;
+		}
+		else{
+			tmin = t1;	
+			normal = normal_out;
+		}
+	   
+		
+		ray rt; rt.origin = ro; rt.direction = rd;
+		glm::vec3 point = getPointOnRay(rt, tmin);
+		if(normal.x == 1||normal.x == -1)
+		{
+			texCoord.x = point.y+0.5f;
+			texCoord.y = point.z+0.5f;
+		}
+		else if(normal.y == 1||normal.y == -1)
+		{
+			texCoord.x = point.x+0.5f;
+			texCoord.y = point.z+0.5f;
+		}
+		else if(normal.z == 1||normal.z == -1)
+		{
+			texCoord.x = point.x+0.5f;
+			texCoord.y = point.y+0.5f;
+		}
+		normal = glm::normalize(multiplyMV(box.transform, glm::vec4(normal,0.0f)));
+		intersectionPoint = multiplyMV(box.transform, glm::vec4(point, 1.0));
+
+		return glm::length(r.origin - intersectionPoint);;
+	}
+	else
+		return -1;
 }
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
@@ -178,7 +280,21 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
 
-  return glm::vec3(0,0,0);
+  thrust::default_random_engine rng(hash(randomSeed));
+  thrust::uniform_real_distribution<float> xi1(0,1);
+  thrust::uniform_real_distribution<float> xi2(-0.5,0.5);
+
+  float angle = ((float)xi1(rng)-0.5f)*TWO_PI;
+  float up = cos(angle);
+  float over = sin(angle); 
+  float around = (float)xi2(rng) * TWO_PI;
+  glm::vec3 u = glm::vec3(0,1,0);
+  glm::vec3 v = glm::vec3(0,0,1);
+  glm::vec3 w = glm::vec3(1,0,0);
+    
+  glm::vec3 p = up + ( cos(around) * over * v ) + ( sin(around) * over * w );
+
+  return multiplyMV(sphere.transform, glm::vec4(p,1.0f));
 }
 
 #endif

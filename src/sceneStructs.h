@@ -47,6 +47,12 @@ struct cameraData {
 	glm::vec2 fov;
 };
 
+struct bmp_texture {
+	glm::vec3 *data;
+	int width;
+	int height;
+};
+
 struct camera {
 	glm::vec2 resolution;
 	glm::vec3* positions;
@@ -71,6 +77,7 @@ struct material{
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
+	char  texture[256];
 };
 
 #endif //CUDASTRUCTS_H
