@@ -162,6 +162,8 @@ int scene::loadCamera(){
 	vector<glm::vec3> positions;
 	vector<glm::vec3> views;
 	vector<glm::vec3> ups;
+	vector<float> DOFs;
+	vector<float> APERATUREs;
     while (!line.empty() && fp_in.good()){
 	    
 	    //check frame number
@@ -172,7 +174,7 @@ int scene::loadCamera(){
         }
 	    
 	    //load camera properties
-	    for(int i=0; i<3; i++){
+	    for(int i=0; i<5; i++){
             //glm::vec3 translation; glm::vec3 rotation; glm::vec3 scale;
             utilityCore::safeGetline(fp_in,line);
             tokens = utilityCore::tokenizeString(line);
@@ -182,6 +184,10 @@ int scene::loadCamera(){
                 views.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }else if(strcmp(tokens[0].c_str(), "UP")==0){
                 ups.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
+            }else if(strcmp(tokens[0].c_str(), "DOF")==0){
+                DOFs.push_back(atof(tokens[1].c_str()));
+            }else if(strcmp(tokens[0].c_str(), "APERATURE")==0){
+                APERATUREs.push_back(atof(tokens[1].c_str()));
             }
 	    }
 	    
@@ -194,10 +200,14 @@ int scene::loadCamera(){
 	newCamera.positions = new glm::vec3[frameCount];
 	newCamera.views = new glm::vec3[frameCount];
 	newCamera.ups = new glm::vec3[frameCount];
+	newCamera.DOF = new float[frameCount];
+	newCamera.APERATURE = new float[frameCount];
 	for(int i = 0; i < frameCount; i++){
 		newCamera.positions[i] = positions[i];
 		newCamera.views[i] = views[i];
 		newCamera.ups[i] = ups[i];
+		newCamera.DOF[i] = DOFs[i];
+		newCamera.APERATURE[i] = APERATUREs[i];
 	}
 
 	//calculate fov based on resolution

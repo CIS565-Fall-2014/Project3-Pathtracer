@@ -52,8 +52,10 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 ////////////////////////////////
 ///////////////////////////////
 // Function that does the initial raycast from the camera
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov, float DOF, float aperature){
   int index = x + (y * resolution.x);
+  
+  
   glm::vec3 alpha, beta, midPix, horizScale, vertScale, pixel;
   alpha  = glm::cross(view, up);
   beta   = glm::cross(alpha, view);
@@ -66,14 +68,24 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   thrust::default_random_engine rng(hash(index*time));
   thrust::uniform_real_distribution<float> u01(-0.5,0.5);
   thrust::uniform_real_distribution<float> u02(-0.01,0.01);
+
   
   pixel = midPix + horizScale * (float)((2.0 * (x + (float)u01(rng))/resolution.x) - 1.0) + vertScale * (float)((2.0 * (y + (float)u01(rng))/resolution.y) - 1.0);
   ray r;
+  
+  //COMMENT OUT FOR DOF
   r.origin = eye;
-  r.origin.x += (float)u02(rng);
-  r.origin.y += (float)u02(rng);
-  r.origin.z += (float)u02(rng);
   r.direction = glm::normalize(pixel - eye);
+  
+  /*   //UNCOMMENT FOR DOF
+  r.origin = pixel;
+  float aperatureOffsetX = (float)u01(rng) * aperature;//for DOF
+  float aperatureOffsetY = (float)u01(rng) * aperature;//for DOF
+  glm::vec3 focalDirection = glm::normalize(pixel - eye);
+  glm::vec3 focalPoint = eye + (focalDirection * DOF);//for depth of field
+  r.origin = r.origin + horizScale * (aperatureOffsetX/resolution.x) + vertScale * (aperatureOffsetY/resolution.y);
+  r.direction = glm::normalize(focalPoint - r.origin);
+  */
   return r;
 }
 
@@ -128,7 +140,7 @@ __global__ void initializeRay(glm::vec2 resolution, float time, cameraData cam, 
   int index = x + (y * resolution.x);
 
   if((x<=resolution.x && y<=resolution.y)){
-    ray thisRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+    ray thisRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov, cam.DOF, cam.APERATURE);
     rayList[index].RAY      = thisRay;
     rayList[index].isValid  = 1;
     rayList[index].color    = glm::vec3(1,1,1);
@@ -224,9 +236,10 @@ __global__ void compactRays(int* scanRays, rayState* rayList, int* validRays, in
   if(index == 0){//first 
     return;
   }
-  rayState newRay = rayList[index];
-  __syncthreads();
+
   if(scanRays[index - 1] < scanRays[index]){
+    rayState newRay = rayList[index];
+    __syncthreads();
     rayList[scanRays[index]] = newRay;
     validRays[scanRays[index]] = 1;
   }
@@ -278,6 +291,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.view = renderCam->views[frame];
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
+  cam.DOF = renderCam->DOF[frame];//new
+  cam.APERATURE = renderCam->APERATURE[frame];//new
   
   // package materials
   material* materialList = NULL;
@@ -297,10 +312,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   thrust::device_vector<int> validRays((int)renderCam->resolution.x * (int)renderCam->resolution.y, 1);
   int* thrustArray = thrust::raw_pointer_cast( &validRays[0] );
   int length = thrust::count(validRays.begin(), validRays.end(), 1);//count valid rays
-  std::cout << length << "\n";
   thrust::device_vector<int> scanRay((int)renderCam->resolution.x * (int)renderCam->resolution.y, 0);
   int* scanPointer = thrust::raw_pointer_cast( &scanRay[0] );
-  int* scanFifty = new int[50];
   
   
   //depth trace with compaction
@@ -314,13 +327,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     compactRays<<<(int)ceil((float)length/64.0f), 64 >>>(scanPointer, rayList, thrustArray, length);
     //update length
     length = thrust::count(validRays.begin(), validRays.end(), 1);//count valid rays
-    
-    
-    cudaMemcpy(scanFifty, scanPointer, 50 * sizeof(int), cudaMemcpyDeviceToHost);
-    
-    std::cout <<"scan=" << scanFifty[49] << " " << scanFifty[32] << "\n";
-    std::cout  << "\n";
-    std::cout << length << "\n";
   }
 
   //update visual
@@ -334,7 +340,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudageoms );
   cudaFree(materialList); //added
   cudaFree(rayList); //added
-  free(scanFifty);//added
   delete geomList;
 
   // make certain the kernel has completed

@@ -86,19 +86,82 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
     
 }
 
-		///////////////////////////////////
-		//////////////////////////////////
-		// TODO: IMPLEMENT THIS FUNCTION/
-		////////////////////////////////
-		///////////////////////////////
+
 // Now that you know how cosine weighted direction generation works, try implementing 
 // non-cosine (uniform) weighted random direction generation.
 // This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
+  float randomSeed = xi1 * xi2;
   //from method found at http://mathworld.wolfram.com/SpherePointPicking.html
+  thrust::default_random_engine rng(hash(randomSeed));
+  thrust::uniform_real_distribution<float> u01(-1,1);
+  //thrust::uniform_real_distribution<float> u02(-1,1);
+  float x_1 = 2;
+  float x_2 = 2;
+  float x_1_squared = 4;
+  float x_2_squared = 4;
+  while((x_1_squared + x_2_squared) >= 1){ //reject where sum of squares >= 1
+    x_1 = (float)u01(rng);
+    x_2 = (float)u01(rng);
+    x_1_squared = x_1 * x_1;
+    x_2_squared = x_2 * x_2;
+  }
+  float x, y, z;
+  x = 2 * x_1 + sqrt(1 - x_1_squared - x_2_squared);
+  y = 2 * x_2 + sqrt(1 - x_1_squared - x_2_squared);
+  z = 1 - 2 * (x_1_squared + x_2_squared);
   
+  return glm::vec3(x,y,z);
+}
+
+__host__ __device__ int calculateReflective(ray& thisRay, glm::vec3 intersect, glm::vec3 normal,
+                                       glm::vec3& color, material mat, float seed1, float seed2){
+   ray newRay;
+   //Perfect reflective
+    newRay.direction = glm::reflect(thisRay.direction, normal);
+    newRay.direction = glm::normalize(newRay.direction);
+    newRay.origin = intersect + .001f * newRay.direction;//nudge in direction
+    thisRay = newRay;
+    return 1;
+}
+
+__host__ __device__ int calculateRefractive(ray& thisRay, glm::vec3 intersect, glm::vec3 normal,
+                                       glm::vec3& color, material mat, float seed1, float seed2){
+  ray newRay;
+  //refraction angle
+  float cosIncident = - glm::dot(normal, thisRay.direction);
+  float N;
+  if (cosIncident < 0){
+    N = mat.indexOfRefraction;
+  }else{
+    N = 1.0f/mat.indexOfRefraction;
+  }
+  float sinTheta2 = N * N * (1.0f - cosIncident * cosIncident);
+  if (sinTheta2 > 1.0){
+    color = glm::vec3(0,0,0); //total internal reflection
+    return 2;
+  }
+  float cosTheta = sqrt(1.0f - sinTheta2);
+  newRay.direction = N * thisRay.direction + (N * cosIncident - cosTheta) * normal;
+  newRay.origin = intersect + .001f * newRay.direction; //nudge in direction
+  thisRay = newRay;
   
-  return glm::vec3(0,0,0);
+  return 2;
+}
+
+__host__ __device__ int calculateDiffuse(ray& thisRay, glm::vec3 intersect, glm::vec3 normal,
+                                       glm::vec3& color, material mat, float seed1, float seed2){
+    ray newRay;
+    //Diffuse
+    newRay.direction = calculateRandomDirectionInHemisphere(normal, seed1, seed2);
+    newRay.direction = glm::normalize(newRay.direction);
+    newRay.origin = intersect + .001f * newRay.direction; //nudge in direction
+    //get Cosine of new ray and normal
+    float cos = glm::dot(newRay.direction, normal);
+    //update COLOR
+    color = color * mat.color * cos;
+    thisRay = newRay;
+    return 0;
 }
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
@@ -113,31 +176,24 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
                                        glm::vec3& color, glm::vec3& unabsorbedColor, material m){ */
 __host__ __device__ int calculateBSDF(ray& thisRay, glm::vec3 intersect, glm::vec3 normal,
                                        glm::vec3& color, material mat, float seed1, float seed2){
-  ray newRay;
-  
-  if(seed1 < mat.hasReflective){ //reflect with probability of reflectance
-    
-    //Perfect reflective
-    newRay.direction = glm::reflect(thisRay.direction, normal);
-    newRay.direction = glm::normalize(newRay.direction);
-    newRay.origin = intersect + .001f * newRay.direction;//nudge in direction
-    //get Cosine of new ray and normal
-    //float cos = glm::dot(newRay.direction, normal);
-    //update COLOR
-    //color = color * mat.color * mat.hasReflective; //don't update color
-    thisRay = newRay;
-    return 1;
+  if(seed1 > seed2){
+    //check reflectance first
+    if(seed2 < mat.hasReflective){ 
+      return calculateReflective(thisRay, intersect, normal, color, mat, seed1, seed2);
+    }else if (seed2 < mat.hasRefractive){
+      return calculateRefractive(thisRay, intersect, normal, color, mat, seed1, seed2);
+    }else{
+      return calculateDiffuse(thisRay, intersect, normal, color, mat, seed1, seed2);
+    }
   }else{
-    //Diffuse
-    newRay.direction = calculateRandomDirectionInHemisphere(normal, seed1, seed2);
-    newRay.direction = glm::normalize(newRay.direction);
-    newRay.origin = intersect + .001f * newRay.direction; //nudge in direction
-    //get Cosine of new ray and normal
-    float cos = glm::dot(newRay.direction, normal);
-    //update COLOR
-    color = color * mat.color * cos;
-    thisRay = newRay;
-    return 0;
+    //check refractive first
+    if(seed1 < mat.hasRefractive){
+      return calculateRefractive(thisRay, intersect, normal, color, mat, seed1, seed2);
+    }else if (seed1 < mat.hasReflective){
+      return calculateReflective(thisRay, intersect, normal, color, mat, seed1, seed2);
+    }else{
+      return calculateDiffuse(thisRay, intersect, normal, color, mat, seed1, seed2);
+    }
   }
 };
 
