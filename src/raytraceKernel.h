@@ -8,12 +8,22 @@
 #ifndef RAYTRACEKERNEL_H
 #define RAYTRACEKERNEL_H
 
+
 #include <stdio.h>
 #include <thrust/random.h>
 #include <cuda.h>
 #include <cmath>
 #include "sceneStructs.h"
+#include <thrust/scan.h>
+#include <thrust/scatter.h>
+#include <thrust/execution_policy.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+#include <thrust/sequence.h>
+#include <thrust/transform.h>
+#include <thrust/functional.h>
+#include <thrust/remove.h>
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool isDOF);
 
 #endif
