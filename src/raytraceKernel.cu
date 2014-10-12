@@ -61,9 +61,9 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
     y += uhalf(rng);
 
     // Depth of field: jitter the origin and angle appropriately
-    //   (TODO: move these constants out of here)
-    const float blur_aper_rad = 0.00f;
-    const float blur_foc_dist = 12.f;
+    //   (TODO: move these constants into config)
+    const float blur_aper_rad = 0.001f;
+    const float blur_foc_dist = 6.f;
     float sqrtr = glm::sqrt(u01(rng) * blur_aper_rad);
     float theta = u01(rng) * TWO_PI;
     glm::vec3 lens = norX * sqrtr * glm::cos(theta) + norY * sqrtr * glm::sin(theta);
@@ -309,11 +309,11 @@ __global__ void pathray_step(struct pathray *pathrays,
     pathrays[index] = pr;
 }
 
-// TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
-    const int traceDepth = 16; //determines how many bounces the raytracer traces
+    // TODO: move traceDepth into config
+    const int traceDepth = 256; //determines how many bounces the raytracer traces
     const int pixelcount = ((int) renderCam->resolution.x) * ((int) renderCam->resolution.y);
 
     // set up crucial magic

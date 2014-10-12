@@ -51,7 +51,6 @@ __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm
   return glm::reflect(incident, normal);
 }
 
-// TODO: TEST THIS FUNCTION
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
   Fresnel fresnel;
 

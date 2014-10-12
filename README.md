@@ -113,6 +113,12 @@ This is a minor thing, but I fixed the provided code to use inverse transpose
 transformations to calculate the sphere normals.
 
 
+Parameter Comparison Renderings
+-------------------------------
+
+TODO (compare sample counts and iteration counts)
+
+
 Debug Renders
 -------------
 
