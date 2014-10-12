@@ -53,3 +53,10 @@ I implement fresnel transparency to make the glass material looks more realistic
 Depth of Field is implemneted by selecting a depth plane away from the camera and jittering the camera position during each iteration.
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project3-Pathtracer/master/screenShoots/dof.jpg)
 
+
+## PERFORMANCE ANALYSIS
+
+Here is a comparsion of path tracer using stream compaction and not using it. (running time with 10 iteration)
+![alt tag](https://raw.githubusercontent.com/XJMa/Project3-Pathtracer/master/screenShoots/p.jpg)
+
+We can see when the max depth is small the un SC version is more efficient because scan and scatter operation overhead our caculation. But when the max depth gets larger, the advantage of stream compaction shows up: by discarding redundant rays we can save a lot of computational costs in ray tracing since majority of rays will terminate after 10 bounce.
