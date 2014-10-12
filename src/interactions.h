@@ -22,7 +22,7 @@ struct AbsorptionAndScatteringProperties{
 __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2);
 __host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance);
-__host__ __device__ glm::vec3 calculateTransmissionDirection(const glm::vec3 &normal, const glm::vec3 &incident, float eta);
+__host__ __device__ glm::vec3 calculateTransmissionDirection(const glm::vec3 &normal, const glm::vec3 &incident, float incidentIOR, float transmittedIOR);
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2);
@@ -38,8 +38,8 @@ __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, Abs
   return false;
 }
 
-__host__ __device__ glm::vec3 calculateTransmissionDirection(const glm::vec3 &normal, const glm::vec3 &incident, float eta) {
-    glm::vec3 refr = glm::refract(incident, normal, eta);
+__host__ __device__ glm::vec3 calculateTransmissionDirection(const glm::vec3 &normal, const glm::vec3 &incident, float incidentIOR, float transmittedIOR) {
+    glm::vec3 refr = glm::refract(incident, normal, incidentIOR / transmittedIOR);
     if (glm::length(refr) < 0.0001f) {
         // Total internal reflection
         return calculateReflectionDirection(normal, incident);
@@ -51,13 +51,14 @@ __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm
   return glm::reflect(incident, normal);
 }
 
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+// TODO: TEST THIS FUNCTION
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
   Fresnel fresnel;
 
   float ratio = (incidentIOR - transmittedIOR) / (incidentIOR + transmittedIOR);
   float r0 = ratio * ratio;
-  float c = 1 - glm::cos(0.5f * glm::acos(glm::dot(incident, reflectionDirection)));
+  float theta = 0.5f * glm::acos(glm::dot(incident, -reflectionDirection));
+  float c = 1 - glm::cos(theta);
   float r = r0 + (1 - r0) * c*c*c*c*c;
 
   fresnel.reflectionCoefficient = r;

@@ -265,7 +265,8 @@ __global__ void pathray_step(struct pathray *pathrays,
     thrust::default_random_engine rng(hash(index * time) ^ hash(depth));
     thrust::uniform_real_distribution<float> u01(0, 1);
     float hasDiffuse = glm::length(mat.color) > 0.0001f ? 1 : 0;
-    float branchcount = hasDiffuse + mat.hasReflective + mat.hasRefractive;
+    float hasFresnel = glm::max(mat.hasReflective, mat.hasRefractive);
+    float branchcount = hasDiffuse + hasFresnel;
     float raytype = u01(rng) * branchcount;
     float branch = 0.f;
     glm::vec3 c(branchcount);
@@ -273,18 +274,28 @@ __global__ void pathray_step(struct pathray *pathrays,
         // Next bounce is diffuse
         c *= mat.color;
         pr.r.direction = calculateRandomDirectionInHemisphere(tmin_nor, u01(rng), u01(rng));
-    } else if (raytype < (branch += mat.hasReflective)) {
-        // Next bounce is specular
-        c *= mat.specularColor;
-        pr.r.direction = calculateReflectionDirection(tmin_nor, r.direction);
-    } else if (raytype < (branch += mat.hasRefractive)) {
-        // Next bounce is refractive
-        //   (color doesn't change)
-        float eta = mat.indexOfRefraction;
-        if (tmin_ext) {
-            eta = 1 / eta;
+    } else if (raytype < (branch += hasFresnel)) {
+        // Next bounce is reflective or refractive
+        glm::vec3 refldir = calculateReflectionDirection(tmin_nor, r.direction);
+
+        float ior = mat.indexOfRefraction;
+        glm::vec3 refrdir = calculateTransmissionDirection(tmin_nor, r.direction,
+                tmin_ext ? 1 : ior, tmin_ext ? ior : 1);
+
+        Fresnel f = calculateFresnel(tmin_nor, r.direction,
+                tmin_ext ? 1 : ior, tmin_ext ? ior : 1,
+                refldir, refrdir);
+
+        float fbranch = u01(rng);
+        //fbranch = 1; // HACK
+        if ((fbranch < f.reflectionCoefficient && mat.hasReflective && mat.hasRefractive) || !mat.hasRefractive) {
+            // Reflective
+            c *= mat.specularColor;
+            pr.r.direction = refldir;
+        } else {
+            // Refractive
+            pr.r.direction = refrdir;
         }
-        pr.r.direction = calculateTransmissionDirection(tmin_nor, r.direction, eta);
     }
     pr.r.origin = tmin_pos + pr.r.direction * 0.001f;
     pr.color *= c;
