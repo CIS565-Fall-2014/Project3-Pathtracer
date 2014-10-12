@@ -14,7 +14,7 @@ This is a GPU pathtracing project utilizing starter code providing much of the b
 
 ##Progress
 
-<img src="https://github.com/dkotfis/Project3-Pathtracer/master/images/CornellBoxesSimpleColoring.png" "Validation of Initial Raycasting">
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/CornellBoxesSimpleColoring.png" "Validation of Initial Raycasting">
 
 ##Performance Analysis
 
