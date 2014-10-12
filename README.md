@@ -4,12 +4,21 @@ CIS 565 Project 3: CUDA Pathtracer
 * Kai Ninomiya (Arch Linux/Windows 8, Intel i5-4670, GTX 750)
 
 
+Base Code Features
+------------------
+
+* Configuration file reading
+* Hemisphere sampling function (for diffuse)
+* Objects: sphere
+
+
 Features Implemented
 --------------------
 
-* Materials: diffuse, reflective
+* Pathtracing algorithms
+* Materials: diffuse, reflective, *refractive with Fresnel reflection*
 * Camera: *antialiasing*, *depth of field*
-* Objects: cube
+* Objects: cube, sphere *with correct normals when scaled*
 * Performance: ray-level stream compaction
 
 (Extras in *bold*.)

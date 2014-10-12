@@ -157,16 +157,15 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
         external = false;
     }
 
-    glm::vec3 realIntersectionPoint = multiplyMV(sphere.transform, glm::vec4(getPointOnRay(rt, t), 1.0));
-    glm::vec3 realOrigin = multiplyMV(sphere.transform, glm::vec4(0, 0, 0, 1));
+    glm::vec3 objspaceIntersection = getPointOnRay(rt, t);
 
-    intersectionPoint = realIntersectionPoint;
-    normal = glm::normalize(realIntersectionPoint - realOrigin);
+    intersectionPoint = multiplyMV(sphere.transform, glm::vec4(objspaceIntersection, 1.f));
+    normal = glm::normalize(multiplyMV(sphere.invTranspose, glm::vec4(objspaceIntersection, 0.f)));
     if (!external) {
         normal = -normal;
     }
 
-    return glm::length(r.origin - realIntersectionPoint);
+    return glm::length(r.origin - intersectionPoint);
 }
 
 // Returns x,y,z half-dimensions of tightest bounding box

@@ -27,6 +27,7 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+    cudaMat4* invTransposes;
 };
 
 struct staticGeom {
@@ -37,6 +38,7 @@ struct staticGeom {
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+    cudaMat4 invTranspose;
 };
 
 struct cameraData {
