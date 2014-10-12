@@ -203,17 +203,22 @@ __host__ __device__ float find_smallest_t( float* ptr, int length){
 
 //Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
-
-
-	//transform the ray into object space, r_OS = inverseT * r_WS
-	glm::vec3 P = multiplyMV ( box.inverseTransform, glm::vec4( r.origin, 1.0f ));
-	glm::vec3 V = glm::normalize( multiplyMV ( box.inverseTransform, glm::vec4( r.direction, 0.0f )) );
-	ray rt; rt.origin = P; rt.direction = V;   //transformed r
+	ray rt;  //transformed r
 	
 	glm::vec3 bounds[2];
-
-	bounds[0] = glm::vec3(-0.5f, -0.5f, -0.5f); // unit cube in OS with unit length on each edge
-	bounds[1] = glm::vec3(0.5f, 0.5f, 0.5f);
+	if(box.type == MESH){
+		bounds[0] = box.bBoxMin;
+		bounds[1] = box.bBoxMax;
+		rt.origin = r.origin;
+		rt.direction = r.direction;   //already transformed
+	}
+	else{
+		//transform the ray into object space, r_OS = inverseT * r_WS
+		rt.origin = multiplyMV ( box.inverseTransform, glm::vec4( r.origin, 1.0f ));
+		rt.direction  = glm::normalize( multiplyMV ( box.inverseTransform, glm::vec4( r.direction, 0.0f )) );
+		bounds[0] = glm::vec3(-0.5f, -0.5f, -0.5f); // unit cube in OS with unit length on each edge
+		bounds[1] = glm::vec3(0.5f, 0.5f, 0.5f);
+	}
 
 			
 	glm::vec3 invDir = getInverseDirectionOfRay(rt);
@@ -313,6 +318,98 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   return glm::length(r.origin - realIntersectionPoint);
 }
 
+__host__ __device__ float triangleIntersectionTest(triangle& tri, ray rt, glm::vec3& intersectionPoint, glm::vec3& normal){
+	
+	
+/*	glm::vec3 P = multiplyMV ( tri.inverseTransform, glm::vec4( r.origin, 1.0f ));
+	glm::vec3 V = glm::normalize( multiplyMV ( tri.inverseTransform, glm::vec4( r.direction, 0.0f )) );
+	ray rt; rt.origin = P; rt.direction = V;   //transformed r*/
+
+	// rt is already transformed
+	glm::vec3 p1 = tri.p1;
+	glm::vec3 p2 = tri.p2;
+	glm::vec3 p3 = tri.p3;
+	glm::vec3 e1 = p2 - p1;
+    glm::vec3 e2 = p3 - p1;
+	glm::vec3 n = glm::cross(e1, e2); 
+
+    if (glm::length(n) < EPSILON) //degenerate
+        return -1;   
+
+	glm::vec3 w0 = rt.origin - p1;  //ray origin test
+	float a = - glm::dot(n, w0);
+	float b = glm::dot(n, rt.direction);
+	if (fabs(b) < EPSILON)    // parallel 
+		return -1;
+    if (fabs(a) < EPSILON)   // in plane	      
+		return -1; 
+
+	float L = a/b;
+    if (L < 0)
+        return -1;   //no intersect
+
+	glm::vec3 p = rt.origin + L*rt.direction;   //intersect
+
+	float e11 = glm::dot(e1, e1);
+    float e12 = glm::dot(e1, e2);
+    float e22 = glm::dot(e2, e2);
+	glm::vec3 w = p - p1;
+    float we1 = glm::dot(w, e1);	
+    float we2 = glm::dot(w, e2);
+
+	float D = e12 * e12 - e11 * e22;
+    float s = (e12 * we2 - e22 * we1) / D;
+    float t = (e12 * we1 - e11 * we2) / D;
+
+	if(s < 0 || s > 1)            // P is outside T
+        return -1;
+    if (t < 0 || (s + t) > 1)  // P is outside T
+        return -1;
+	
+	normal = glm::normalize(n);
+	intersectionPoint = p;
+	return L;
+   
+}
+
+
+__host__ __device__ float polygonIntersectionTest(staticGeom polygon, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, triangle * cudatris){
+	
+	//transform the ray into object space, r_OS = inverseT * r_WS
+	glm::vec3 P = multiplyMV ( polygon.inverseTransform, glm::vec4( r.origin, 1.0f ));
+	glm::vec3 V = glm::normalize( multiplyMV ( polygon.inverseTransform, glm::vec4( r.direction, 0.0f )) );
+	ray rt; rt.origin = P; rt.direction = V;   //transformed r
+	//bounding box test
+	/*printf("bounding box:\n [%.2f, %.2f, %.2f]\n [%.2f, %.2f, %.2f]\n", polygon.bBoxMin.x, polygon.bBoxMin.y, polygon.bBoxMin.z,
+		polygon.bBoxMax.x, polygon.bBoxMax.y, polygon.bBoxMax.z);*/
+	float t = -1, tMin = -2;
+	glm::vec3 localIntersect, localNormal;
+	if(boxIntersectionTest(polygon, rt, intersectionPoint, normal) > 0){
+		//printf("intersect bounding box\n");
+		glm::vec3 tempIntersect, tempNormal;   //they are in local space
+		
+		for (int i=0; i<polygon.numOfTris; i++){   //for each triangle
+			/*printf("triangle: %d \n [%.2f, %.2f, %.2f]\n [%.2f, %.2f, %.2f]\n [%.2f, %.2f, %.2f]\n", i,
+				cudatris[i].p1.x, cudatris[i].p1.y, cudatris[i].p1.z,
+				cudatris[i].p2.x, cudatris[i].p2.y, cudatris[i].p2.z,
+				cudatris[i].p3.x, cudatris[i].p3.y, cudatris[i].p3.z);*/
+			t = triangleIntersectionTest(cudatris[i], rt, tempIntersect, tempNormal);
+			if( (tMin < 0 && t > -0.5f ) || ( tMin > -1 && t < tMin && t > -0.5f ) ){
+				tMin = t;   
+				localIntersect = tempIntersect;  
+				localNormal = tempNormal;   
+			}
+		}
+		intersectionPoint = multiplyMV(polygon.transform, glm::vec4(localIntersect, 1.0f));
+		glm::vec3 normalP_OS = intersectionPoint + localNormal;
+		glm::vec3 normalP_WS = multiplyMV(polygon.transform, glm::vec4(normalP_OS, 1.0f));
+		normal = glm::normalize(normalP_WS - intersectionPoint);
+		//printf("distance %.2f\n", tMin);
+		return tMin;
+	}
+	return -1;
+}
+	
 // Returns x,y,z half-dimensions of tightest bounding box
 __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
     glm::vec3 origin = multiplyMV(geom.transform, glm::vec4(0,0,0,1));

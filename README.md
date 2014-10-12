@@ -3,78 +3,128 @@ CIS 565 Project3 : CUDA Pathtracer
 
 
 ## INTRODUCTION
-Implemented a CUDA based pathtracer capable of
-generating pathtraced rendered images, including diffuse, reflection, refraction. 
+This is a CUDA based Monte-Carlo Path tracer that renders images of different objects(sphere, cube, obj file) 
+in various materials including diffuse, reflection, refraction, and more in the future. The render window will show 
+real-time rendering progress (like other renderers do:) ), and camera angle can be changed at real-time to allow interesting shots!
 
 ## BACIC FEATURES
 
 * Raycasting from a camera into a scene through a pixel grid
+	Using jittered coordinates to achieve Anti-Aliasing
 * Diffuse surfaces
-* Perfect specular reflective surfaces
-* Cube intersection testing
-* Sphere surface point sampling
-* Stream compaction optimization
+Using Hemi sphere sampling to cast secondary diffuse rays. I used Importance Sampling (cos weighted) to reduce noise and speed up convergence. 
+shading is done by simplest Lambert BRDF.
 
-My cube intersection(completed in previous CPU ray tracer) was based on the logic and algorithm given by 
+* Perfect specular reflective surfaces
+Calculating reflected secondary ray by vector calculation
+
+* Cube intersection testing
+My cube intersection based on 
 http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/ 
 
+* Sphere surface point sampling
+Monte-Carlo Sampling. 
 
-I have added some small things to make performance better, like Anti-Aliasing (using jitterred coordinates), 
-and Importance Sampling (cos weighted).
+* Stream compaction optimization
+Stream compaction was done by thrust, fast and reliable:)
+This can be turned on or off by defining "STREAM_COMPACTION" in "raytracerKernel.h"
+The maximum limit of ray depth impacts the rendered speed, and this limit can be set in "MAX_DEPTH" in "raytracerKernel.h"
+
 
 
 ## ADVANCED FEATURES
 
-
-“Measuring and Modeling Anisotropic Reflection” by Gregory J. Ward
-* Refraction, i.e. glass
+## Refraction, i.e. glass
 Refraction was done based on snell's law and fresnel equation.
-Both clear glass or colored glass can be handled here. Wondering doing some frosted glass...
+Using good index of refraction will produce beautiful refractions.
+Both clear glass or colored glass can be handled here. Wondering doing some frosted glass(play with transparency).
+The picture below shows three material - diffuse, highly reflective, and refractive glass.
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best6_Materials.bmp) 
 
-##Texture mapping 
+
 ##Depth of field
-in order to have to depth of field effects, specify camera aperture and focal length in scene txt file, 
-and turn on "DEPTH_OF_FIELD" in "raytracerKernel.h" and "scene.h"
+Depth of filed was achieved by offsetting initial pinhole ray origin based on camera aperture, and re-calculate the ray direction based on previous focal plane intersecting point.
+Thus, the ray casting mimics the lens-based camera and produces depth of field effect where objects out of focus is blurred.
+If not using depth of field turn off "DEPTH_OF_FIELD" in "raytracerKernel.h" and "scene.h", and take out camera aperture and focal length in scene txt file
+If want to use depth of field effects, turn on "DEPTH_OF_FIELD" in "raytracerKernel.h" and "scene.h", which is initially off, 
+and specify camera aperture and focal length in scene txt file, like illustrated below    
 
+CAMERA  
+RES         800 800  
+FOVY        35  
+ITERATIONS  5000  
+FILE        test.bmp  
+FOCAL 8.2  
+APERTURE 1.3  
+frame 0  
+EYE         0 4.5 8  
+VIEW        0 0 -1  
+UP          0 1 0    
+Choosing good focal length and aperture is essential to create realistic depth of field. I have three rendered image as below, first everything is in focus (without depth of field), 
+second with longer focal length, so further objects are in focus, the third with shorter focal length, hence nearer objects are in focus. 
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best0_Sharp.bmp)
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best1_DepthOfField.bmp)
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best2_DepthOfField.bmp)
 
 ##OBJ Mesh loading and rendering
+OBJ loading is possible with the help of "TinyObjLoader" by https://github.com/syoyo/tinyobjloader.
+The obj data is parsed "mesh" with both "indices" and "positions". This saved me a lot of time in reading the obj file.
+
+Then I created a structure "triangle" to handle face structure of mesh, and during intersection test, 
+each of triangle will only be tested if the bounding box is intersecting the ray. This is very important as it will take A LOT OF TIME without bounding box intersection.
+
+But, my renderer can only handle one obj instead of multiple obj, at current stage. (i.e only one objects in the scene can be specified by obj file, not more. 
+but with other basic shape like sphere or cube is okay.) As I failed in adding the list of triangle to the member of "geom" and readable by CUDA. 
+This can be solved by expanding my current global array of triangle to an array of triangle list. I should implement this in the near future.
+
+In order to load obj, speify the scene file as below  
+OBJECT 5  
+C:\Users\AppleDu\Documents\GitHub\Project3-Pathtracer\data\scenes\hexGem.obj  
+material 5  
+frame 0  
+TRANS       0 1.1 -0.5  
+ROTAT       0 0 0  
+SCALE       4 4 4  
+
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best4_Diamond.bmp)
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best5_Crystal.bmp)
+
 ##Interactive camera
 Interactive Camera is implemented to provide flexible in rendering angles, including pan, tilt, zoom, everything. 
 Play with camera like a camera man! :) Rendering will start fresh every time camera is changed.
 STEP_SIZE - step size of camera movements
-*W - move up
-*Q - move down
-*S - move left
-*D - move right
-*Q - move forward (zoom in)
-*E - move backward (zoom out)
-*up - rotate up
-*down - rotate down
-*left - rotate left
-*right - rotate right
-, - rotate CCW
-. - rotate CW
+* W - move up
+* Q - move down
+* S - move left
+* D - move right
+* Q - move forward (zoom in)
+* E - move backward (zoom out)
+* up - rotate up
+* down - rotate down
+* left - rotate left
+* right - rotate right
+* , - rotate CCW
+* . - rotate CW
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best3_Depth_and_Camera_moving.bmp)
 [![ScreenShot](windows/Project3-Pathtracer/Project3-Pathtracer/YoutubeThumbnail.png)] (http://www.youtube.com/embed/RtjJXwnUBZo)
-<iframe width="420" height="315" src="//www.youtube.com/embed/RtjJXwnUBZo" frameborder="0" allowfullscreen></iframe>
-
-* overview write up of the feature
-* performance impact of the feature
-* if you did something to accelerate the feature, why did you do what you did
-* compare your GPU version to a CPU version of this feature (you do NOT need to 
-  implement a CPU version)
-* how can this feature be further optimized (again, not necessary to implement it, but
-  should give a roadmap of how to further optimize and why you believe this is the next
-  step)
 
 
 
 ## SCENE FORMAT
 I have some scene files that are interesting to render:
-* sampleScene
+* sampleScene.txt
 I modified the original file and in current version, there is diffuse item, highly reflective item, glass item.
 WIHOUT depth of field.
-* myScene
-Everything same as "sampleScene" except this one is 
+* myScene.txt
+Everything same as "sampleScene" except this one INCLUDES depth of field. In order to render this one, remember to turn on "DEPTH_OF_FIELD" 
+in both "raytracerKernel.h" and "scene.h", and specify "FOCAL" and "APERTURE" before "frame" for camera in the scene txt file.
+* myScene2.txt
+Diamond obj with white glass material
+* myScene3.txt
+Crystal obj with blue glass material
+
+
+************************************************************
 This project uses a custom scene description format.
 Scene files are flat text files that describe all geometry, materials,
 lights, cameras, render settings, and animation frames inside of the scene.
@@ -132,20 +182,5 @@ Objects are defined in the following fashion:
 * TRANS (float transx) (float transy) (float transz)		//translation
 * ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
 * SCALE (float scalex) (float scaley) (float scalez)		//scale
-
-
-For meshes, note that the base code will only read in .obj files. For more 
-information on the .obj specification see http://en.wikipedia.org/wiki/Wavefront_.obj_file.
-
-An example of a mesh object is as follows:
-
-OBJECT 0
-mesh tetra.obj
-material 0
-frame 0
-TRANS       0 5 -5
-ROTAT       0 90 0
-SCALE       .01 10 10 
-
 
 

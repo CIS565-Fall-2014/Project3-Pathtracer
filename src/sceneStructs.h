@@ -6,10 +6,12 @@
 #ifndef CUDASTRUCTS_H
 #define CUDASTRUCTS_H
 
+#include <vector>
 #include "glm/glm.hpp"
 #include "cudaMat4.h"
 #include <cuda_runtime.h>
 #include <string>
+
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
@@ -22,7 +24,15 @@ struct ray {
 	glm::vec3 direction;
 };
 
+struct triangle{
+	glm::vec3 p1,p2,p3; 
+};
+
 struct geom {
+	glm::vec3 bBoxMax;
+	glm::vec3 bBoxMin;
+	triangle* tris;
+	int numOfTris;
 	enum GEOMTYPE type;
 	int materialid;
 	int frames;
@@ -34,6 +44,10 @@ struct geom {
 };
 
 struct staticGeom {
+	glm::vec3 bBoxMin;
+	glm::vec3 bBoxMax;
+	triangle* tris;
+	int numOfTris;
 	enum GEOMTYPE type;
 	int materialid;
 	glm::vec3 translation;
@@ -81,5 +95,7 @@ struct material{
 	float reducedScatterCoefficient;
 	float emittance;
 };
+
+
 
 #endif //CUDASTRUCTS_H

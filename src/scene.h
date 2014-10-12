@@ -16,7 +16,7 @@
 
 using namespace std;
 
-#define DEPTH_OF_FIELD 1
+#define DEPTH_OF_FIELD 0
 
 class scene{
 private:

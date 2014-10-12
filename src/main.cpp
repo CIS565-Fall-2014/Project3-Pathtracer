@@ -8,8 +8,6 @@
 #include "main.h"
 #define GLEW_STATIC
 
-
-
 __host__ __device__ glm::vec3 multiplyMVMain(cudaMat4 m, glm::vec4 v){
   glm::vec3 r(1,1,1);
   r.x = (m.x.x*v.x)+(m.x.y*v.y)+(m.x.z*v.z)+(m.x.w*v.w);
@@ -76,7 +74,10 @@ void mainLoop() {
     runCuda();
 
     string title = "CIS565 Render | " + utilityCore::convertIntToString(iterations) + " Iterations";
-		glfwSetWindowTitle(window, title.c_str());
+	glfwSetWindowTitle(window, title.c_str());
+	//char title[1000];
+	//sprintf(title, "GPU Path Tracer | %d iterations", iterations);
+	//glfwSetWindowTitle(window, title);
     
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
     glBindTexture(GL_TEXTURE_2D, displayImage);
@@ -199,8 +200,10 @@ bool init(int argc, char* argv[]) {
   // Initialize other stuff
   initVAO();
   initTextures();
+//initMesh();
   initCuda();
   initPBO();
+  
   
   GLuint passthroughProgram;
   passthroughProgram = initShader();
@@ -230,10 +233,17 @@ void initPBO(){
 }
 
 void initCuda(){
-  cudaGLSetGLDevice(0);
+	// Use device with highest Gflops/s
+ // cudaGLSetGLDevice( gpuGetMaxGflopsDeviceId() );
+	//initMesh();
+	//cudaDeviceSynchronize();  //Blocks until the device has completed all preceding requested tasks
+	//cudaDeviceReset(); //Explicitly destroys and cleans up all resources associated with the current device in the current process
+	//initMesh();
+	cudaGLSetGLDevice(0);  //Records the calling thread's current OpenGL context as the OpenGL context to use for OpenGL interoperability with the CUDA device
 
   // Clean up on program exit
   atexit(cleanupCuda);
+
 }
 
 void initTextures(){
@@ -294,6 +304,21 @@ GLuint initShader() {
   return program;
 }
 
+
+void initMesh(){   //intialize cuda memory for the triangle list in MESH objects
+
+	for(int i = 0; i < renderScene->objects.size(); i++){
+		if(renderScene->objects[i].type == MESH){   
+			triangle * cudatris = NULL;
+			cudaMalloc((void**)&cudatris, renderScene->objects[i].numOfTris *sizeof(triangle));
+			cudaMemcpy( cudatris, renderScene->objects[i].tris, renderScene->objects[i].numOfTris *sizeof(triangle), cudaMemcpyHostToDevice);
+			renderScene->objects[i].tris = cudatris;
+		}
+	}
+
+
+}
+
 //-------------------------------
 //---------CLEANUP STUFF---------
 //-------------------------------
@@ -301,6 +326,7 @@ GLuint initShader() {
 void cleanupCuda(){
   if(pbo) deletePBO(&pbo);
   if(displayImage) deleteTexture(&displayImage);
+  //deleteMesh();
 }
 
 void deletePBO(GLuint* pbo){
@@ -318,6 +344,14 @@ void deletePBO(GLuint* pbo){
 void deleteTexture(GLuint* tex){
     glDeleteTextures(1, tex);
     *tex = (GLuint)NULL;
+}
+
+void deleteMesh(){
+	for(int i = 0; i < renderScene->objects.size(); i++){
+		if(renderScene->objects[i].type == MESH){
+			cudaFree(renderScene->objects[i].tris);
+		}
+	}
 }
 
 //------------------------------

@@ -29,6 +29,10 @@
 
 #include "scene.h"
 
+//#include <helper_cuda.h>
+//#include <helper_cuda_gl.h>  //gpuGetMaxGflopsDeviceId()
+
+
 using namespace std;
 #define STEP_SIZE 0.6f   //step size of camera movement
 //-------------------------------
@@ -88,7 +92,7 @@ void initCuda();
 void initTextures();
 void initVAO();
 GLuint initShader();
-
+void initMesh();
 //-------------------------------
 //---------CLEANUP STUFF---------
 //-------------------------------
@@ -96,7 +100,7 @@ GLuint initShader();
 void cleanupCuda();
 void deletePBO(GLuint* pbo);
 void deleteTexture(GLuint* tex);
-
+void deleteMesh();
 //------------------------------
 //-------GLFW CALLBACKS---------
 //------------------------------

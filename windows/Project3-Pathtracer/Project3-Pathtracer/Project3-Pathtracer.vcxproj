@@ -42,7 +42,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(SolutionDir)/../../external/include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)/../../external/include/; Q:\CUDA5.5\include;Q:\CUDA5.5\common\inc; %(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -72,6 +72,7 @@
     </Link>
     <CudaCompile>
       <CodeGeneration>compute_30,sm_30</CodeGeneration>
+      <Include>$(SolutionDir)/../../external/include/;</Include>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -83,6 +84,7 @@
     <ClInclude Include="..\..\..\src\raytraceKernel.h" />
     <ClInclude Include="..\..\..\src\scene.h" />
     <ClInclude Include="..\..\..\src\sceneStructs.h" />
+    <ClInclude Include="..\..\..\src\tiny_obj_loader.h" />
     <ClInclude Include="..\..\..\src\utilities.h" />
   </ItemGroup>
   <ItemGroup>
@@ -92,6 +94,7 @@
     <ClCompile Include="..\..\..\src\image.cpp" />
     <ClCompile Include="..\..\..\src\main.cpp" />
     <ClCompile Include="..\..\..\src\scene.cpp" />
+    <ClCompile Include="..\..\..\src\tiny_obj_loader.cc" />
     <ClCompile Include="..\..\..\src\utilities.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -22,7 +22,7 @@
 #define MAX_DEPTH 8
 #define STREAM_COMPACT 1
 #define LIGHT_STRENGTH 4   //anything with emittance bigger than this is regarded as light
-#define DEPTH_OF_FIELD 1
+#define DEPTH_OF_FIELD 0
 
 void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
 

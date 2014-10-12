@@ -133,32 +133,32 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 
 // loop through all geometry to test ray intersection, returns the geoID that corresponds to intersected geometry
- __host__ __device__ int findHitGeo(ray r, glm::vec3& intersect, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms){
+ __host__ __device__ int findHitGeo(ray r, glm::vec3& intersect, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms, triangle * cudatris){
 	
 	 if(r.isDead)
 		 return -1;
 	 float distMin = -2, dist = -1;
-	 glm::vec3 tempIntersct(0.0f);
+	 glm::vec3 tempIntersect(0.0f);
 	 glm::vec3 tempNormal(0.0f);
 	 int ID = -1;
 	//geometry and ray intersect tesing
 	for (int g=0; g<numberOfGeoms; g++){
 		if(geoms[g].type == SPHERE){
-			dist = sphereIntersectionTest(geoms[g], r, tempIntersct, tempNormal);
+			dist = sphereIntersectionTest(geoms[g], r, tempIntersect, tempNormal);
 		}
 		else if(geoms[g].type == CUBE ){
-			dist = boxIntersectionTest(geoms[g], r, tempIntersct, tempNormal);
+			dist = boxIntersectionTest(geoms[g], r, tempIntersect, tempNormal);
 			
 		}
 		else if (geoms[g].type == MESH){
-
+			dist = polygonIntersectionTest(geoms[g], r, tempIntersect, tempNormal, cudatris);
 		}
 
 		//overwrite minimum distance if needed
 		if( (distMin < 0 && dist > -0.5f ) || ( distMin > -1 && dist < distMin && dist > -0.5f ) ){
 			distMin = dist;   //update minimum dist
 			ID = g;            //update ID of geometry
-			intersect = tempIntersct;  //update intersct point
+			intersect = tempIntersect;  //update intersct point
 			normal = tempNormal;   //update normal
 		}
 	}
@@ -166,12 +166,12 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
  //return true if there is direct lighting
- __host__ __device__ bool ShadowRayTest(ray sr, staticGeom* geoms, int numberOfGeoms, material* materials){
+ __host__ __device__ bool ShadowRayTest(ray sr, staticGeom* geoms, int numberOfGeoms, material* materials, triangle * cudatris){
 	glm::vec3 intersPoint(0.0f);
 	glm::vec3 intersNormal(0.0f);
 
 	//printf("shadow ray: [%f,%f,%f], [%f,%f,%f]\n", sr.origin.x,sr.origin.y,sr.origin.z,sr.direction.x,sr.direction.y,sr.direction.z);
-	int geoID = findHitGeo(sr, intersPoint, intersNormal, geoms, numberOfGeoms); 
+	int geoID = findHitGeo(sr, intersPoint, intersNormal, geoms, numberOfGeoms, cudatris); 
 	if( geoID>-1 && materials[geoms[geoID].materialid].emittance > 0){   //hit light soource
 		return true;
 	}
@@ -214,7 +214,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
  //calculates the direct lighting for a certain hit point and modify color of that hit
 __device__ __host__ void directLighting(float seed, glm::vec3& theColor, glm::vec3& theIntersect, glm::vec3& theNormal, int geoID, 
-	int* lights, int numOfLights, material* cudamats, staticGeom* geoms, int numOfGeoms){
+	int* lights, int numOfLights, material* cudamats, staticGeom* geoms, int numOfGeoms, triangle * cudatris){
 	ray shadowRay;
 	float rayLen,lightArea;
 	glm::vec3 lightNormal;
@@ -222,7 +222,7 @@ __device__ __host__ void directLighting(float seed, glm::vec3& theColor, glm::ve
 
 	// ****************** shading if direct illumination ****************** //
 	material curMat = cudamats[geoms[geoID].materialid];  //material of the hit goemetry
-	if(ShadowRayTest(shadowRay, geoms, numOfGeoms, cudamats)  ){
+	if(ShadowRayTest(shadowRay, geoms, numOfGeoms, cudamats, cudatris)  ){
 		float cosTerm = glm::clamp( glm::dot( theNormal, shadowRay.direction ), 0.0f, 1.0f);  //proportion of facing light
 		float cosTerm2 = glm::clamp( glm::dot( lightNormal, -shadowRay.direction ), 0.0f, 1.0f);  //proportion of incoming light
 		float areaSampling =  lightArea / (float) pow( rayLen, 2.0f) ;   // dA/r^2
@@ -237,7 +237,8 @@ __device__ __host__ void directLighting(float seed, glm::vec3& theColor, glm::ve
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
 __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* cudamats, int* lights, int numOfLights, cameraData cam){
+                            staticGeom* geoms, int numberOfGeoms, material* cudamats, int* lights, int numOfLights, 
+							cameraData cam, triangle* cudatris){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -251,7 +252,7 @@ __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, 
 
 	   glm::vec3 Pintersect(0.0f);
 	   glm::vec3 Pnormal(0.0f);
-		int hitGeoID = findHitGeo(r, Pintersect, Pnormal, geoms, numberOfGeoms);
+		int hitGeoID = findHitGeo(r, Pintersect, Pnormal, geoms, numberOfGeoms, cudatris);
 
 		if(hitGeoID!=-1){
 			material curMat = cudamats[geoms[hitGeoID].materialid];
@@ -330,7 +331,7 @@ __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, 
 					thrust::default_random_engine rng( hash( seed ) );
 					thrust::uniform_real_distribution<float> u01(0,1);
 					if((float) u01(rng) < 0.01f ){  //proportion to calculate direct lighting
-						directLighting(seed,r.color,Pintersect,Pnormal,hitGeoID,lights,numOfLights, cudamats,geoms, numberOfGeoms);
+						directLighting(seed,r.color,Pintersect,Pnormal,hitGeoID,lights,numOfLights, cudamats,geoms, numberOfGeoms, cudatris);
 					}
 					else{   //proportion to calculate indirect lighting
 						//cos weighted importance sampling
@@ -372,7 +373,7 @@ __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, 
 
 // establish parrallel ray pool
 __global__ void initialRayPool(ray * rayPool, cameraData cam, float iterations,glm::vec3 *colors, staticGeom* geoms, int numberOfGeoms, 
-	material* cudamats, int * lightIDs, int numberOfLights){
+	material* cudamats, int * lightIDs, int numberOfLights, triangle * cudatris){
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * cam.resolution.x);
@@ -397,10 +398,11 @@ __global__ void initialRayPool(ray * rayPool, cameraData cam, float iterations,g
 
 		glm::vec3 Pintersect(0.0f);
 		glm::vec3 Pnormal(0.0f);
-		int geoID = findHitGeo(r, Pintersect, Pnormal, geoms, numberOfGeoms);
+		int geoID = findHitGeo(r, Pintersect, Pnormal, geoms, numberOfGeoms, cudatris);
 		if( geoID > -1){
 				// cast shadow ray towards lights and calculate direct lighting
-				directLighting((float)index*iterations, colors[index], Pintersect, Pnormal,geoID, lightIDs, numberOfLights, cudamats, geoms, numberOfGeoms);
+				directLighting((float)index*iterations, colors[index], Pintersect, Pnormal,geoID, lightIDs, 
+					numberOfLights, cudamats, geoms, numberOfGeoms, cudatris);
 
 		}
 		rayPool[index] = r;
@@ -413,6 +415,7 @@ __global__ void initialRayPool(ray * rayPool, cameraData cam, float iterations,g
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
 	//frame: current frame number
 	//iterations: current iteration of rendering <  (cam.iterations)
+
 	// send image to GPU
   glm::vec3* cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
@@ -420,6 +423,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   
   // package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
+ // triangle* triList;
+  int meshID = -1;
+  triangle* cudatris = NULL;
   for(int i=0; i<numberOfGeoms; i++){
     staticGeom newStaticGeom;
     newStaticGeom.type = geoms[i].type;
@@ -429,9 +435,36 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     newStaticGeom.scale = geoms[i].scales[frame];
     newStaticGeom.transform = geoms[i].transforms[frame];
     newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+	if(geoms[i].type == MESH){
+		meshID = i;   // my code now only handles one obj load (unfortunately as I am not able to handle list of triangles well)
+		newStaticGeom.bBoxMax = geoms[i].bBoxMax;  //bBox is in local coordinates, dont change over frames.
+		newStaticGeom.bBoxMin = geoms[i].bBoxMin;
+		newStaticGeom.numOfTris = geoms[i].numOfTris;
+		cudaMalloc((void**)&cudatris, geoms[meshID].numOfTris*sizeof(triangle));
+		cudaMemcpy( cudatris, geoms[meshID].tris, geoms[meshID].numOfTris *sizeof(triangle), cudaMemcpyHostToDevice);
+		//printf("num of tris: %d\n",geoms[meshID].numOfTris);
+		/*if(iterations == 3){
+			for (int j=0; j<geoms[meshID].numOfTris; j++){
+				printf("geoms triangle %d: \n [%.2f, %.2f, %.2f]\n [%.2f, %.2f, %.2f]\n [%.2f, %.2f, %.2f]\n", j,
+					geoms[meshID].tris[j].p1.x, geoms[meshID].tris[j].p1.y, geoms[meshID].tris[j].p1.z,
+					geoms[meshID].tris[j].p2.x, geoms[meshID].tris[j].p2.y, geoms[meshID].tris[j].p2.z,
+					geoms[meshID].tris[j].p3.x, geoms[meshID].tris[j].p3.y, geoms[meshID].tris[j].p3.z);
+			}
+		}*/
+	/*	newStaticGeom.tris = cudatris;
+		if(iterations == 3){
+			for (int j=0; j<geoms[meshID].numOfTris; j++){
+				printf("StaticGeom triangle %d: \n [%.2f, %.2f, %.2f]\n [%.2f, %.2f, %.2f]\n [%.2f, %.2f, %.2f]\n", j,
+					newStaticGeom.tris[j].p1.x, newStaticGeom.tris[j].p1.y, newStaticGeom.tris[j].p1.z,
+					newStaticGeom.tris[j].p2.x, newStaticGeom.tris[j].p2.y, newStaticGeom.tris[j].p2.z,
+					newStaticGeom.tris[j].p3.x, newStaticGeom.tris[j].p3.y, newStaticGeom.tris[j].p3.z);
+			}
+		}*/
+	}
     geomList[i] = newStaticGeom;
   }
   
+	
   staticGeom* cudageoms = NULL;
   cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
   cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
@@ -483,7 +516,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	dim3 threadsPerBlock(tileSize, tileSize);
 	dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
 
-	initialRayPool<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays, cam, (float)iterations, cudaimage,cudageoms, numberOfGeoms, cudamats, cudalightIDs, numberOfLights);
+	initialRayPool<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays, cam, (float)iterations, cudaimage,cudageoms, numberOfGeoms, cudamats, cudalightIDs, numberOfLights, cudatris);
  
 	for(int k=0; k<MAX_DEPTH && numOfRays>0; k++){
 		if(STREAM_COMPACT){
@@ -496,7 +529,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		int yBlocks = (int) ceil( sqrt((float)numOfRays)/(float)(tileSize) );
 		dim3 newBlocksPerGrid(xBlocks,yBlocks);
 		
-		raytraceRay<<<newBlocksPerGrid, threadsPerBlock>>>(cudarays, (float)iterations, k, (int)numOfRays, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightIDs, numberOfLights, cam);
+		raytraceRay<<<newBlocksPerGrid, threadsPerBlock>>>(cudarays, (float)iterations, k, (int)numOfRays, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightIDs, numberOfLights, cam, cudatris);
 
 	}
 
@@ -511,7 +544,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudageoms );
   cudaFree( cudamats );
   cudaFree( cudarays );
-  cudaFree( cudalightIDs);
+  cudaFree( cudalightIDs );
+  if(meshID>-1){
+	cudaFree( cudatris );
+  }
+
   delete geomList;
   //delete matList;
   delete lightIDs;
