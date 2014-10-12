@@ -361,9 +361,9 @@ __host__ __device__ float triangleIntersectionTest(triangle& tri, ray rt, glm::v
     float s = (e12 * we2 - e22 * we1) / D;
     float t = (e12 * we1 - e11 * we2) / D;
 
-	if(s < 0 || s > 1)            // P is outside T
+	if(s < 0 || s > 1)       // outside triangle
         return -1;
-    if (t < 0 || (s + t) > 1)  // P is outside T
+    if (t < 0 || (s + t) > 1)  // outside triangle
         return -1;
 	
 	normal = glm::normalize(n);
