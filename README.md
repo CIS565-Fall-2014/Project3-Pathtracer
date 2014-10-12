@@ -37,7 +37,14 @@ Features Implemented
 Renderings
 ----------
 
-TODO
+Combined test render:
+![](images/22_brighter_d16s2000.png)
+
+Annotated:
+![](images/24_annotated.png)
+
+With depth of field:
+![](images/23_ultimate_d16s2000.png)
 
 
 Performance
@@ -75,6 +82,13 @@ Extras
 Samples are taken randomly from within each pixel.
 
 *Performance:* Very small impact. TODO
+
+Without:
+![](images/15_slightly_better_depth1.png)
+
+With:
+![](images/16_antialiasing_depth1.png)
+
 
 ### Depth of Field
 
@@ -116,16 +130,43 @@ transformations to calculate the sphere normals.
 Parameter Comparison Renderings
 -------------------------------
 
-TODO (compare sample counts and iteration counts)
+Higher iteration counts always improved image smoothness, since more samples
+were averaged over time. Higher path depths seem to correspond with bright
+spots which never get optimized out, for some reason.
+
+|              | Depth 16                         | Depth 256                         |
+| ------------:| -------------------------------- | --------------------------------- |
+|  500 samples | ![](images/22_ultimate_d16s500 ) | ![](images/22_ultimate_d256s500 ) |
+| 2000 samples | ![](images/22_ultimate_d16s2000) | ![](images/22_ultimate_d256s2000) |
 
 
 Debug Renders
 -------------
 
-TODO
+Normals:
+![](images/01_debug_nor.png)
+
+Positions:
+![](images/02_debug_pos.png)
+
+Materials/emittance:
+![](images/03_debug_emit.png)
+
+Direct lighting lit areas (not included in final version):
+![](images/14_direct_lighting_depth_1)
+
+Direct lighting (not included in final version):
+![](images/15_slightly_better_depth)
+
+Fresnel reflected light factor:
+![](images/20_fresnel_debug_d16s500.png)
 
 
 Bloopers
 --------
 
-TODO
+Seed error
+![](images/06_seed_error_500.png)
+
+Code refactoring error
+![](images/10_refactor_error.png)
