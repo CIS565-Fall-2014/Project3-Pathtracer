@@ -31,13 +31,13 @@ The effect of increasing the iteration number is obvious. However, the differenc
 * Depth: 10
 ![ResultImage](AntiAliasing_depth_10_iteration_5000_Cut.bmp)
 ![ResultImage](depth comparision.bmp)
-Conclusion: 
+Conclusion:  
 The difference between depth 3 and depth 5 is distinguishable, but the difference between depth 5 and depth 10 is almost nondistinctive. Since I provide a indirect influence coefficient 0.5 to do my path tracer. And this coefficient represents the influence rate from the indirect radiance to the direct radiance.
-Besides, our color RGB value is from 0~255, that means even the 5th depth has dramatical color change, it would only influence 4 of 256 color change in our result. 
+Besides, our color RGB value is from 0~255, that means even the 5th depth has dramatical color change from RGB(0,0,0) to RGB(255,255,255), it would only cause RGB(8,8,8) color change in our result. 
 
 
 ##Anti-aliasing effect:
-For the normal sampling, we cast ray from camera location through each pixel center.
+For the general sampling, we cast ray from camera location through each pixel center.
 For the anti-aliasing sampling, we still cast ray from camera locatin but not exactly through pixel center every time. Our ray will past through a random point with a given distance from the pixel center.
 If we are doing the simple ray tracer, the anti-aliasing will increase the computation loading dramatically because we need to cast multiple rays for each pixel compare to only cast a single ray. However, while we are doing the path tracer, we have to sample a pixel multiple times. We could almost get anti-aliasing effect for free.
 ![ResultImage](antialiasing description.bmp)
@@ -52,7 +52,7 @@ If we are doing the simple ray tracer, the anti-aliasing will increase the compu
 ![ResultImage](Material Comparision.bmp)
 
 ##Depth of field effect:
-* Description: 
+* Description:  
 The way that I used to create the depth of field effect is to set up a focal length and apperture radius. The first step is to cast the initial ray from camera position and past throught the pixel which we want to sample.
 Then, use the focal length to compute the focal point start from camera center along the initial ray. Following, generate random point on the circular plane which is centered on camera position. Lastly, cast ray from the random point and past through the focal point and use this ray to do the sampling.
 ![ResultImage](DOF Description.bmp)
@@ -83,12 +83,15 @@ In my program, user could easily control the camera with keyboard.
 ![ResultImage](change view direction_depth_5_iteration_1000_Cut.bmp)
 
 ##Texture mapping effect:
-I could read a bmp format image and store all the pixel colors in a color buffer. Then, when I am doing the path tracer, I could read the color according to the intersection point position. 
+This program could read a bmp format image and store all the pixel colors in a color buffer. Then, when I am doing the path tracer, I could read the color according to the intersection point position. 
 ![ResultImage](testure mapping_Cut.bmp)
 ![ResultImage](testure mapping2_Cut.bmp)
 
 ##Change light color:
 ![ResultImage](change color_depth_5_iteration_1000_Cut.bmp)
 
-Debug process
+##Debug process
+This is what I used to debug during my coding. I used different color to represent the normal vector of every point.
 ![ResultImage](normal vector_Cut.bmp)
+
+##Stream compaction
