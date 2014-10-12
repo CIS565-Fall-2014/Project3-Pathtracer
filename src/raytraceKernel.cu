@@ -21,9 +21,15 @@
 #include "interactions.h"
 
 //Render Settings
-#define TRACE_DEPTH 160
-#define RAY_STREAM_COMPACTION_ON 1
+#define TRACE_DEPTH 10
+#define RAY_STREAM_COMPACTION_ON 0
 #define ENABLE_ANTIALIASING 1
+
+//debug setting
+#define DEBUG_NORMAL 0
+#define DEBUG_DEPTH 0
+#define DEBUG_INTERSECTION 0
+#define DEBUG_MAX_DISTANCE 20
 
 //report kernel failure
 void checkCUDAError(const char *msg) {
@@ -181,8 +187,22 @@ __global__ void pathtraceRays(ray * raypool,glm::vec3* colors, int N, float iter
 			raypool[index].isActive = false;
 			return;
 		}
-		
+
 		material hitMaterial = materials[hitMatID];
+#if(DEBUG_DEPTH)
+		colors[raypool[index].pixelIndex] = glm::vec3(hitDistance/DEBUG_MAX_DISTANCE);
+		return;
+#endif
+		
+#if(DEBUG_NORMAL)
+		colors[raypool[index].pixelIndex] = normal;
+		return;
+#endif
+
+#if(DEBUG_INTERSECTION)
+		colors[raypool[index].pixelIndex] = hitMaterial.color;
+		return;
+#endif
 
 		//if hit light
 		if(hitMaterial.emittance > EPSILON)
