@@ -16,6 +16,7 @@
 const std::string SCENE_FILE_NAME = "sampleScene_02.txt";
 const std::string OUTPUT_IMAGE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\renders\\";
 //const std::string TEXTURE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\data\\textures\\world_map.bmp";
+const std::string SCENE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\data\\scenes\\sampleScene_02.txt";
 
 
 //image* BMPToImage( std::string filename )
@@ -136,29 +137,35 @@ int main(int argc, char** argv){
   targetFrame = 0;
   singleFrameMode = false;
 
-  // Load scene file
-  for(int i=1; i<argc; i++){
-    string header; string data;
-    istringstream liness(argv[i]);
-    getline(liness, header, '='); getline(liness, data, '=');
-    if(strcmp(header.c_str(), "scene")==0){
-		std::string full_scene_path = data + SCENE_FILE_NAME; // Danny was here.
-		renderScene = new scene(full_scene_path);
-		loadedScene = true;
+  //// Load scene file
+  //for(int i=1; i<argc; i++){
+  //  string header; string data;
+  //  istringstream liness(argv[i]);
+  //  getline(liness, header, '='); getline(liness, data, '=');
+  //  if(strcmp(header.c_str(), "scene")==0){
+		//std::string full_scene_path = data + SCENE_FILE_NAME; // Danny was here.
+		//renderScene = new scene(full_scene_path);
+		//loadedScene = true;
 
-		// TEST.
-		//std::vector<geom> geom_list = renderScene->objects;
-		//for ( int i = 0; i < geom_list.size(); ++i ) {
-		//	std::cout << "object " << i << ": texture id " <<  geom_list[i].texture_id << std::endl;
-		//}
-		//std::cout << "textures list length = " << renderScene->textures.size() << std::endl;
-		//std::cin.ignore();
+		//// TEST.
+		////std::vector<geom> geom_list = renderScene->objects;
+		////for ( int i = 0; i < geom_list.size(); ++i ) {
+		////	std::cout << "object " << i << ": texture id " <<  geom_list[i].texture_id << std::endl;
+		////}
+		////std::cout << "textures list length = " << renderScene->textures.size() << std::endl;
+		////std::cin.ignore();
 
-    }else if(strcmp(header.c_str(), "frame")==0){
-      targetFrame = atoi(data.c_str());
-      singleFrameMode = true;
-    }
-  }
+  //  }else if(strcmp(header.c_str(), "frame")==0){
+  //    targetFrame = atoi(data.c_str());
+  //    singleFrameMode = true;
+  //  }
+  //}
+
+	// TEST.
+	renderScene = new scene( SCENE_PATH );
+	loadedScene = true;
+	targetFrame = 0;
+	singleFrameMode = true;
 
   if(!loadedScene){
     cout << "Error: scene file needed!" << endl;

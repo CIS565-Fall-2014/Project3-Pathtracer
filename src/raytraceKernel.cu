@@ -41,7 +41,7 @@ void checkCUDAError( const char *msg )
 		fprintf( stderr, "Cuda error: %s: %s.\n", msg, cudaGetErrorString( err ) );
 		
 		// DEBUG.
-		std::cin.ignore();
+		//std::cin.ignore();
 
 		exit( EXIT_FAILURE );
 	}
@@ -351,8 +351,8 @@ void raytraceRay( ray *ray_pool,
 				  staticGeom *geoms,
 				  int num_geoms,
 				  material *materials,
-				  simpleTexture *textures,
-				  int num_textures )
+				  int *texture_info,
+				  glm::vec3 *texture_rgb )
 {
 	int ray_pool_index = ( blockIdx.x * blockDim.x ) + threadIdx.x;
 
@@ -399,56 +399,84 @@ void raytraceRay( ray *ray_pool,
 	material mat = materials[obj.materialid];
 
 	// Use Roussian Roulette to randomly kill the current ray.
-	// f is the color of the intersected material, and is used in the computations that follow.
-	glm::vec3 f = mat.color;
-	float p = ( f.x > f.y && f.x > f.z ) ? f.x : ( ( f.y > f.z ) ? f.y : f.z );
+	// rgb is the color of the intersected material, and is used in the computations that follow.
+	glm::vec3 rgb = mat.color;
+	float p = ( rgb.x > rgb.y && rgb.x > rgb.z ) ? rgb.x : ( ( rgb.y > rgb.z ) ? rgb.y : rgb.z );
     if ( raytrace_depth > 5 ) {
 		glm::vec3 rand = generateRandomNumberFromThread( resolution, ( current_iteration * raytrace_depth ), r.image_coords.x, r.image_coords.y );
         if ( rand.x < p ) {
-            f = f * ( 1.0f / p );
+            rgb = rgb * ( 1.0f / p );
         }
         else {
-			image_buffer[image_pixel_index] += ( r.color * f * mat.emittance );
+			image_buffer[image_pixel_index] += ( r.color * rgb * mat.emittance );
 			r.is_active = false;
 			ray_pool[ray_pool_index] = r;
 			return;
         }
     }
 
+
 	// Intersected object has a texture image.
+	//glm::vec3 foobar = rgb;
 	if ( obj.texture_id != -1 ) {
 		// Currently, only spheres support textures.
 		if ( obj.type == SPHERE ) {
 			glm::vec2 uv = computeSphereUVCoordinates( obj, intersection_point );
-			int texture_width = textures[obj.texture_id].dimensions.x;
-			int texture_height = textures[obj.texture_id].dimensions.y;
+			
+			// Extract texture info.
+			int texture_info_base_index = obj.texture_id * 3;
+			int texture_rgb_starting_index = texture_info[texture_info_base_index];
+			int texture_width = texture_info[texture_info_base_index + 1];
+			int texture_height = texture_info[texture_info_base_index + 2];
+
+			// Compute pixel coordinates within single texture.
 			int pixel_coord_x = ( int )( uv.x * texture_width );
 			int pixel_coord_y = ( int )( uv.y * texture_height );
 
 			if ( !( pixel_coord_x < 0 || pixel_coord_y < 0 || pixel_coord_x >= texture_width || pixel_coord_y >= texture_height ) ) {
-				int index = ( pixel_coord_y * texture_width ) + pixel_coord_x;
-				f = textures[obj.texture_id].rgb[index];
-				//f = glm::vec3( 1.0f, 1.0f, 1.0f );
+				// Compute texture RGB index.
+				int pixel_linear_index = ( pixel_coord_y * texture_width ) + pixel_coord_x;
+				int texture_rgb_index = texture_rgb_starting_index + pixel_linear_index;
+
+				if ( texture_rgb_index < texture_rgb_starting_index || texture_rgb_index >= ( texture_rgb_starting_index + texture_width * texture_height ) ) {
+					rgb = glm::vec3( 1.0f, 0.078f, 0.577f );
+					//rgb = mat.color;
+
+					//image_buffer[image_pixel_index] = glm::vec3( 1.0f, 0.078f, 0.577f );
+					//r.is_active = false;
+					//ray_pool[ray_pool_index] = r;
+					//return;
+
+				}
+				else {
+					rgb = texture_rgb[texture_rgb_index];
+					//rgb = mat.color;
+
+					//image_buffer[image_pixel_index] = texture_rgb[texture_rgb_index];
+					//r.is_active = false;
+					//ray_pool[ray_pool_index] = r;
+					//return;
+
+				}
 			}
 			else {
-				//f = glm::vec3( 1.0f, 0.078f, 0.577f );
-				f = glm::vec3( 0.0f, 0.0f, 0.0f );
-				//std::cout << "ERROR: Texture pixel coordinates computed from (u, v) are outside texture bounds: ( " << texture_pixel_coords.x << ", " << texture_pixel_coords.y << " )." << std::endl;
-				//std::cin.ignore();
-				//std::exit( 1 );
-			}
+				rgb = glm::vec3( 1.0f, 0.078f, 0.577f );
+				//rgb = mat.color;
+				//rgb = rgb * ( 1.0f / p );
 
-			// Test.
-			//image_buffer[image_pixel_index] = f;
-			//r.is_active = false;
-			//ray_pool[ray_pool_index] = r;
-			//return;
+				//image_buffer[image_pixel_index] = glm::vec3( 1.0f, 0.078f, 0.577f );
+				//r.is_active = false;
+				//ray_pool[ray_pool_index] = r;
+				//return;
+
+			}
 		}
 	}
 
+
 	// Ray hits light source. Add acculumated color contribution of ray. Kill ray.
 	if ( mat.emittance > 0.0f ) {
-		image_buffer[image_pixel_index] += ( r.color * f * mat.emittance );
+		image_buffer[image_pixel_index] += ( r.color * rgb * mat.emittance );
 		r.is_active = false;
 		ray_pool[ray_pool_index] = r;
 		return;
@@ -504,7 +532,7 @@ void raytraceRay( ray *ray_pool,
 		//	}
 		//}
 
-		r.color = r.color * f;			// Only add color contributions of this ray if it makes contact with a light source.
+		r.color = r.color * rgb;		// Only add color contributions of this ray if it makes contact with a light source.
 		r.origin = intersection_point;	// Set origin point for next ray.
 		ray_pool[ray_pool_index] = r;	// Update ray in ray pool.
 		return;
@@ -526,11 +554,11 @@ void raytraceRay( ray *ray_pool,
 		glm::vec3 refl_dir = calculateReflectionDirection( intersection_normal, r.direction );
 		glm::vec3 trans_dir = calculateTransmissionDirection( intersection_normal, r.direction, ior_incident, ior_transmitted );
 
-		Fresnel f = calculateFresnel( intersection_normal, r.direction, ior_incident, ior_transmitted, refl_dir, trans_dir );
+		Fresnel fres = calculateFresnel( intersection_normal, r.direction, ior_incident, ior_transmitted, refl_dir, trans_dir );
 
 		glm::vec3 rand = generateRandomNumberFromThread( resolution, ( current_iteration * raytrace_depth ), r.image_coords.x, r.image_coords.y );
 
-		if ( rand.x < f.reflectionCoefficient ) {
+		if ( rand.x < fres.reflectionCoefficient ) {
 			r.direction = refl_dir;
 			r.origin = intersection_point;
 			ray_pool[ray_pool_index] = r;
@@ -652,14 +680,66 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 				cudaMemcpyHostToDevice );
 
 	// Send textures to GPU.
-	simpleTexture *cuda_textures = NULL;
-	float size_texture_list = num_textures * sizeof( simpleTexture );
-	cudaMalloc( ( void** )&cuda_textures,
-				size_texture_list );
-	cudaMemcpy( cuda_textures,
-				textures,
-				size_texture_list,
+	//simpleTexture *cuda_textures = NULL;
+	//float size_texture_list = num_textures * sizeof( simpleTexture );
+	//cudaMalloc( ( void** )&cuda_textures,
+	//			size_texture_list );
+	//cudaMemcpy( cuda_textures,
+	//			textures,
+	//			size_texture_list,
+	//			cudaMemcpyHostToDevice );
+
+
+	// TODO: The below computations for textures only need to be done once.
+
+	// TODO: Create int *texture_info.
+	int *texture_info = new int[num_textures * 3]; // Starting index, width, height.
+	int starting_index = 0;
+	for ( int i = 0; i < num_textures; ++i ) {
+		int ti = i * 3;
+		texture_info[ti] = starting_index;
+		texture_info[ti + 1] = textures[i].width;
+		texture_info[ti + 2] = textures[i].height;
+		starting_index += ( textures[i].width * textures[i].height );
+	}
+
+	// TODO: Create glm::vec3 *texture_rgb.
+	int num_texture_pixels = starting_index;
+	glm::vec3 *texture_rgb = new glm::vec3[num_texture_pixels];
+	int rgb_index = 0;
+	for ( int i = 0; i < num_textures; ++i ) {
+		for ( int y = 0; y < textures[i].height; ++y ) {
+			for ( int x = 0; x < textures[i].width; ++x ) {
+				texture_rgb[rgb_index] = ( textures[i].rgb[( y * textures[i].width ) + x] );
+				++rgb_index;
+			}
+		}
+	}
+
+	// TODO: Send texture_info and texture_rgb to CUDA.
+	int *cuda_texture_info = NULL;
+	int size_texture_info = num_textures * 3 * sizeof( int );
+	cudaMalloc( ( void** )&cuda_texture_info,
+				size_texture_info );
+	cudaMemcpy( cuda_texture_info,
+				texture_info,
+				size_texture_info,
 				cudaMemcpyHostToDevice );
+
+	glm::vec3 *cuda_texture_rgb = NULL;
+	int size_texture_rgb = num_texture_pixels * sizeof( glm::vec3 );
+	cudaMalloc( ( void** )&cuda_texture_rgb,
+				size_texture_rgb );
+	cudaMemcpy( cuda_texture_rgb,
+				texture_rgb,
+				size_texture_rgb,
+				cudaMemcpyHostToDevice );
+
+	// TEST.
+	//std::cout << "SAFE!" << std::endl;
+	//std::cout << "num_texture_pixels = " << num_texture_pixels << std::endl;
+	//std::cin.ignore();
+
 
 	// DEBUG.
 	//for ( int i = 0; i < num_textures; ++i ) {
@@ -732,8 +812,8 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 																				 cuda_geoms,
 																				 num_geoms,
 																				 cuda_materials,
-																				 cuda_textures,
-																				 num_textures );
+																				 cuda_texture_info,
+																				 cuda_texture_rgb );
 
 		//// Note: Stream compaction is slow.
 		//thrust::device_ptr<ray> ray_pool_device_ptr( cuda_ray_pool );
@@ -762,8 +842,12 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 	cudaFree( cuda_geoms );
 	cudaFree( cuda_materials );
 	cudaFree( cuda_ray_pool );
-	cudaFree( cuda_textures );
-	delete geom_list;
+	//cudaFree( cuda_textures );
+	cudaFree( cuda_texture_info );
+	cudaFree( cuda_texture_rgb );
+	delete[] geom_list;
+	delete[] texture_info;
+	delete[] texture_rgb;
 
 	// Make certain the kernel has completed.
 	//cudaThreadSynchronize(); // Deprecated.

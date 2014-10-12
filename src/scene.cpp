@@ -426,10 +426,10 @@ int scene::loadTextures( std::string texture_id )
 
 		// Currently, textures are limited to images of at most 1024x1024 resolution.
 		// The number of pixels is hard-coded in the texture struct in sceneStructs.h.
-		if ( width > 1024 || height > 1024 ) {
-			std::cout << "ERROR: Texture is too large: ( " << width << ", " << height << " )" << std::endl;
-			return -1;
-		}
+		//if ( width > 1024 || height > 1024 ) {
+		//	std::cout << "ERROR: Texture is too large: ( " << width << ", " << height << " )" << std::endl;
+		//	return -1;
+		//}
 
 		//image texture_image( width, height );
 
@@ -445,7 +445,10 @@ int scene::loadTextures( std::string texture_id )
 		//}
 
 		simpleTexture texture_image;
-		texture_image.dimensions = glm::vec2( width, height );
+		texture_image.width = width;
+		texture_image.height = height;
+
+		texture_image.rgb = new glm::vec3[width * height];
 
 		for ( int y = 0; y < height; ++y ) {
 			for ( int x = 0; x < width; ++x ) {

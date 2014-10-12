@@ -89,9 +89,13 @@ struct material{
 };
 
 struct simpleTexture {
-	glm::vec2 dimensions;	// num_pixels = width x height.
-	//glm::vec3 rgb[8192];	// Limited to images of at most 1024x1024 resolution.
-	glm::vec3 rgb[32768];
+	int width;
+	int height;
+	glm::vec3 *rgb;
+
+	//glm::vec2 dimensions;	// num_pixels = width x height.
+	////glm::vec3 rgb[8192];	// Limited to images of at most 1024x1024 resolution.
+	//glm::vec3 rgb[32768];
 };
 
 #endif //CUDASTRUCTS_H

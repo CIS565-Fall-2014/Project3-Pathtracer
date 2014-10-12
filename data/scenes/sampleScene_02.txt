@@ -106,11 +106,11 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   15
 
-//TEXTURE 0
-//FILE world_map_medium.bmp
-
 TEXTURE 0
-FILE world_map_medium.bmp
+FILE world_map_256x128.bmp
+
+TEXTURE 1
+FILE stripes_256x128.bmp
 
 CAMERA
 RES         800 800
@@ -170,7 +170,7 @@ SCALE       .01 10 10
 OBJECT 5
 sphere
 material 3
-texture 0
+texture 1
 frame 0
 TRANS       0 2 0
 ROTAT       0 90 0
