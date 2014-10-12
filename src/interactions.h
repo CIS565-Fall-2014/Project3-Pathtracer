@@ -95,6 +95,8 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
 // non-cosine (uniform) weighted random direction generation.
 // This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
+  //from method found at http://mathworld.wolfram.com/SpherePointPicking.html
+  
   
   return glm::vec3(0,0,0);
 }
@@ -106,11 +108,26 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 		////////////////////////////////
 		///////////////////////////////
 // Returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
-__host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
+/*__host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
                                        AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
-                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m){
+                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m){ */
+__host__ __device__ int calculateBSDF(ray& thisRay, glm::vec3 intersect, glm::vec3 normal,
+                                       glm::vec3& color, material mat, float seed1, float seed2){
+  ray newRay;
+  newRay.direction = calculateRandomDirectionInHemisphere(normal, seed1, seed2);
+  newRay.direction = glm::normalize(newRay.direction);
+  newRay.origin = intersect + .001f * newRay.direction;
+  
+  //get Cosine of new ray and normal
+  float cos = glm::dot(newRay.direction, intersect);
+    
+  //update COLOR
+  color = color * mat.color * cos;
+  thisRay = newRay;
+  
+  
 
-  return 1;
+  return 0;
 };
 
 #endif

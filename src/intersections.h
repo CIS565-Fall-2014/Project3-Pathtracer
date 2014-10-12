@@ -12,6 +12,7 @@
 #include "sceneStructs.h"
 #include "cudaMat4.h"
 #include "utilities.h"
+//#include "interactions.h"
 
 // Some forward declarations
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
@@ -274,7 +275,7 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 		///////////////////////////////
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
-  glm::vec3 point = glm::vec3(1,1,1);
+  glm::vec3 point = glm::vec3(0,0,0);//getRandomDirectionInSphere(randomSeed);
   point = multiplyMV(sphere.transform, glm::vec4(point,1.0f));
   return point;
 }

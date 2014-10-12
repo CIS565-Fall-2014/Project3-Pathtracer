@@ -35,62 +35,7 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
   return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
 }
 
-//traces a ray (should move this to ray trace ray)
-__host__ __device__ glm::vec3 rayTraceDepth(ray thisRay, int depth, int maxDepth, staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
-  glm::vec3 COLOR = glm::vec3(1,1,1);//initialize to white
 
-  for(int j = 0; j < maxDepth; j++){
-    //intersection checks:
-    float distToIntersect = FLT_MAX;//infinite distance
-    float tmpDist;
-    glm::vec3 tmpIntersectPoint, tmpIntersectNormal, intersectPoint, intersectNormal;
-    material mat;
-    
-    for(int i = 0; i < numberOfGeoms; i++){
-      if (geoms[i].type == SPHERE){
-        tmpDist = sphereIntersectionTest(geoms[i], thisRay, tmpIntersectPoint, tmpIntersectNormal);
-      }else if (geoms[i].type == CUBE){
-        tmpDist = boxIntersectionTest(   geoms[i], thisRay, tmpIntersectPoint, tmpIntersectNormal);
-      }//insert triangles here for meshes
-      if (tmpDist != -1 && tmpDist < distToIntersect){ //hit is new closest
-        distToIntersect = tmpDist;
-        intersectNormal = tmpIntersectNormal;
-        intersectPoint  = tmpIntersectPoint;
-        mat = materials[geoms[i].materialid];
-      }
-    }
-    
-    //Did I intersect anything?
-    if(distToIntersect == FLT_MAX){//miss
-      return glm::vec3(1,0,0);
-    }
-    
-    //is this a light source?
-    if(mat.emittance > 0.001){
-      return COLOR * (mat.color * mat.emittance);
-    }
-    
-    //if not first intersection and not reflective
-    /*if( (j > 0) && (mat.hasReflective < 0.001) ){ 
-      return glm::vec3(0,0,0);
-    }*/ 
-    
-    //if Not a new light, pick new direction at random
-    ray newRay;
-    newRay.origin = intersectPoint;
-    // get two random numbers generate random direction, compare with normal and flip if necessary
-    //newRay.direction = 
-    newRay.direction = glm::reflect(thisRay.direction, intersectNormal); //perfect reflection
-    
-    //get Cosine of new ray and normal
-    float cos = glm::dot(newRay.direction, intersectNormal);
-    
-    //update COLOR
-    COLOR = COLOR * mat.color * cos;
-  }
-  //if I got here then depth ended without hitting a light
-  return glm::vec3(0,1,0);
-}
 
 ///////////////////////////////////
 //////////////////////////////////
@@ -99,17 +44,26 @@ __host__ __device__ glm::vec3 rayTraceDepth(ray thisRay, int depth, int maxDepth
 ///////////////////////////////
 // Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+  int index = x + (y * resolution.x);
   glm::vec3 alpha, beta, midPix, horizScale, vertScale, pixel;
   alpha  = glm::cross(view, up);
   beta   = glm::cross(alpha, view);
   midPix = eye + view;
 
-  vertScale  = glm::normalize(beta)  * glm::length(view) * tan(glm::radians(fov.y));
+  vertScale  = glm::normalize(beta)  * glm::length(view) * tan(glm::radians( - fov.y)); //had to flip this (it was upside down)
   horizScale = glm::normalize(alpha) * glm::length(view) * tan(glm::radians(fov.x));
   
-  pixel = midPix + horizScale * (float)((2.0 * x/resolution.x) - 1.0) + vertScale * (float)((2.0 * y/resolution.y) - 1.0);
+  //jitter the pixel
+  thrust::default_random_engine rng(hash(index*time));
+  thrust::uniform_real_distribution<float> u01(-0.5,0.5);
+  thrust::uniform_real_distribution<float> u02(-0.01,0.01);
+  
+  pixel = midPix + horizScale * (float)((2.0 * (x + (float)u01(rng))/resolution.x) - 1.0) + vertScale * (float)((2.0 * (y + (float)u01(rng))/resolution.y) - 1.0);
   ray r;
   r.origin = eye;
+  r.origin.x += (float)u02(rng);
+  r.origin.y += (float)u02(rng);
+  r.origin.z += (float)u02(rng);
   r.direction = glm::normalize(pixel - eye);
   return r;
 }
@@ -166,21 +120,64 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 ////////////////////////////////
 ///////////////////////////////
 // Core raytracer kernel
-__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
+__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int maxDepth, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
+  
+  thrust::default_random_engine rng(hash(index*time));
+  thrust::uniform_real_distribution<float> u01(0,1);
 
   if((x<=resolution.x && y<=resolution.y)){
     ray thisRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
-    glm::vec3 col = rayTraceDepth(thisRay, 0, rayDepth, geoms, numberOfGeoms, materials, numberOfMaterials);
+
+    glm::vec3 col = glm::vec3(-1,-1,-1);
     
-    //colors[index] = col;
+    glm::vec3 COLOR = glm::vec3(1,1,1);//initialize to white
+    
+    for(int j = 0; j < maxDepth; j++){
+      //intersection checks:
+      float distToIntersect = FLT_MAX;//infinite distance
+      float tmpDist;
+      glm::vec3 tmpIntersectPoint, tmpIntersectNormal, intersectPoint, intersectNormal;
+      material mat;
+      
+      for(int i = 0; i < numberOfGeoms; i++){
+        if (geoms[i].type == SPHERE){
+          tmpDist = sphereIntersectionTest(geoms[i], thisRay, tmpIntersectPoint, tmpIntersectNormal);
+        }else if (geoms[i].type == CUBE){
+          tmpDist = boxIntersectionTest(   geoms[i], thisRay, tmpIntersectPoint, tmpIntersectNormal);
+        }//insert triangles here for meshes
+        if (tmpDist != -1 && tmpDist < distToIntersect){ //hit is new closest
+          distToIntersect = tmpDist;
+          intersectNormal = tmpIntersectNormal;
+          intersectPoint  = tmpIntersectPoint;
+          mat = materials[geoms[i].materialid];
+        }
+      }
+      //Did I intersect anything?
+      if(distToIntersect == FLT_MAX){//miss
+        col = glm::vec3(0,0,0);
+        break;
+      }
+     //is this a light source?
+      if(mat.emittance > 0.001){
+        col = COLOR * (mat.color * mat.emittance);////////////////////////////
+        break;
+      }
+      calculateBSDF(thisRay, intersectPoint, intersectNormal, COLOR, mat, (float) u01(rng) ,(float) u01(rng));
+    }
+    //ran out of depth
+    if(col == glm::vec3(-1,-1,-1)){
+      col = glm::vec3(0,0,0);
+    }
+
     colors[index] = (colors[index] * (time - 1.0f)/time) + (col * 1.0f/time);
   }
 }
+
 
 ///////////////////////////////////
 //////////////////////////////////
@@ -232,6 +229,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   material* materialList = NULL;
   cudaMalloc((void**) &materialList,   numberOfMaterials * sizeof(material));
   cudaMemcpy( materialList, materials, numberOfMaterials * sizeof(material), cudaMemcpyHostToDevice);
+
+    //thrust::default_random_engine rng;
+    //thrust::uniform_real_distribution<float> u01;
+    //std::cout << (float)u01(rng) << "test" << (float)u01(rng) << "test" << (float)u01(rng) << "\n";
 
   // kernel launches
   raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, materialList, numberOfMaterials);
