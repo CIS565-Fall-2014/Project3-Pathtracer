@@ -95,6 +95,16 @@ In my program, user could easily control the camera with keyboard.
 * Compare with CPU version:  
 This feature in CPU will not be any different.
 
+##Mesh Object:
+* Bunny: 4968 faces  
+![ResultImage](Mesh Object_Cut.bmp)
+* Further improvement:  
+Although I have used a bounding sphere to reduce the computation loading, it is still a time consuming process. Find a good way to further reduce the rendering time would be extremely valuable. Besides,
+my program currently could only read one obj file. Modify the program to be able to load multiple obj files is also an important issue.
+* Compare with CPU version:  
+There is no difference to implement this feature in CPU version. The only concern is that the required rendering time would be crazy.
+
+
 ##Texture mapping effect:
 This program could read a bmp format image and store all the pixel colors in a color buffer. Then, when I am doing the path tracer, I could read the color according to the intersection point position. 
 ![ResultImage](testure mapping_Cut.bmp)
