@@ -27,8 +27,8 @@ Monte-Carlo Sampling.
 
 * Stream compaction optimization  
 Stream compaction was done by thrust, fast and reliable:)
-This can be turned on or off by defining "STREAM_COMPACTION" in "raytracerKernel.h"
-The maximum limit of ray depth impacts the rendered speed, and this limit can be set in "MAX_DEPTH" in "raytracerKernel.h"
+This can be turned on or off by defining "STREAM_COMPACTION" in "raytracerKernel.h"  
+The maximum limit of ray depth impacts the rendered speed, and this limit can be set in "MAX_DEPTH" in "raytracerKernel.h"  
 The comparison between using and not using stream compaction is shown below  
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Comparison.png)
 
@@ -38,18 +38,19 @@ The comparison between using and not using stream compaction is shown below
 ## Refraction, i.e. glass  
 Refraction was done based on snell's law and fresnel equation.
 Using good index of refraction will produce beautiful refractions.
-Both clear glass or colored glass can be handled here. Wondering doing some frosted glass(play with transparency).
+Both clear glass or colored glass can be handled here. Wondering doing some frosted glass(play with transparency)in the future.  
 The picture below shows three material - diffuse, highly reflective, and refractive glass.
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best6_Materials.bmp) 
 
 
 ##Depth of field  
 Depth of filed was achieved by offsetting initial pinhole ray origin based on camera aperture, and re-calculate the ray direction based on previous focal plane intersecting point.
-Thus, the ray casting mimics the lens-based camera and produces depth of field effect where objects out of focus is blurred.
-Turning on/off "DEPTH_OF_FIELD" in "raytracerKernel.h" will switch the effect on/off
-If want to use depth of field effects, turn on "DEPTH_OF_FIELD" in "raytracerKernel.h"
-and specify camera aperture and focal length in scene txt file, like illustrated below    
+Thus, the ray casting mimics the lens-based camera and produces depth of field effect where objects out of focus is blurred.  
 
+Turning on/off "DEPTH_OF_FIELD" in "raytracerKernel.h" will switch the effect on/off
+
+REMEMBER to specify camera aperture and focal length in scene txt file, like illustrated below, otherwise my program will have error in reading txt file lines  
+  
 CAMERA   
 RES         800 800  
 FOVY        35  
@@ -60,8 +61,10 @@ APERTURE 1.3
 frame 0  
 EYE         0 4.5 8  
 VIEW        0 0 -1  
-UP          0 1 0    
-Choosing good focal length and aperture is essential to create realistic depth of field. I have three rendered image as below, first everything is in focus (without depth of field), 
+UP          0 1 0  
+      
+Choosing good focal length and aperture is essential to create realistic depth of field.   
+I have three rendered image as below, first everything is in focus (without depth of field), 
 second with longer focal length, so further objects are in focus, the third with shorter focal length, hence nearer objects are in focus. 
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best0_Sharp.bmp)
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best1_DepthOfField.bmp)
@@ -76,9 +79,10 @@ each of triangle will only be tested if the bounding box is intersecting the ray
 
 But, my renderer can only handle one obj instead of multiple obj, at current stage. (i.e only one objects in the scene can be specified by obj file, not more. 
 but with other basic shape like sphere or cube is okay.) As I failed in adding the list of triangle to the member of "geom" and readable by CUDA. 
-This can be solved by expanding my current global array of triangle to an array of triangle list. I should implement this in the near future.
+This can be solved by expanding my current global array of triangle to an array of triangle list. I should implement this in the near future.  
 
 In order to load obj, speify the scene file as below  
+
 OBJECT 5  
 C:\Users\AppleDu\Documents\GitHub\Project3-Pathtracer\data\scenes\hexGem.obj  
 material 5  
@@ -92,8 +96,10 @@ SCALE       4 4 4
 
 ##Interactive camera  
 Interactive Camera is implemented to provide flexible in rendering angles, including pan, tilt, zoom, everything. 
-Play with camera like a camera man! :) Rendering will start fresh every time camera is changed.
-STEP_SIZE - step size of camera movements
+Play with camera like a camera man! :) Rendering will start fresh every time camera is changed.  
+
+"STEP_SIZE" specifies the step size of camera movements, and can be changed in "main.h".
+
 * W - move up
 * Q - move down
 * S - move left
@@ -115,7 +121,6 @@ There are tons of advantages this rendered has over the CPU raytracer, such as
 * Real-time Rendering  
 * Global Illumination ( Color Bleeding, Soft Shadow, & Caustics! )   
 * Realistic Rendering ( BRDF )  
-* 
 
 ## SCENE FORMAT  
 In order to use my program, "FOCAL" and "APERTURE" MUST be specified for camera in the scene file, 
@@ -123,15 +128,19 @@ though depth of field may not be turned on. This is to ensure correctness of rea
 I have some scene files that are interesting to render:  
 * sampleScene.txt  
 Original file  
+
 * myScene.txt  
 There is diffuse item, highly reflective item, glass item, depth of field.
 with only one cube for Anti-Aliasing test  
+
 * myScene1.txt  
-Demonstrating basic materials - diffuse, reflection, and refraction
+Demonstrating basic materials - diffuse, reflection, and refraction  
+
 * myScene2.txt  
-Diamond obj with white glass material
+Diamond obj with white glass material  
+
 * myScene3.txt  
-Crystal obj with blue glass material
+Crystal obj with blue glass material  
 
 
 ************************************************************
