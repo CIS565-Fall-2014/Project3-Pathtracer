@@ -3,55 +3,33 @@ CIS 565 Project3 : CUDA Pathtracer
 
 Fall 2014
 
-Due Wed, 10/8 (submit without penalty until Sun, 10/12)
 
-## INTRODUCTION
-In this project, you will implement a CUDA based pathtracer capable of
-generating pathtraced rendered images extremely quickly. Building a pathtracer can be viewed as a generalization of building a raytracer, so for those of you who have taken 460/560, the basic concept should not be very new to you. For those of you that have not taken
-CIS460/560, raytracing is a technique for generating images by tracing rays of
-light through pixels in an image plane out into a scene and following the way
-the rays of light bounce and interact with objects in the scene. More
-information can be found here:
-http://en.wikipedia.org/wiki/Ray_tracing_(graphics). Pathtracing is a generalization of this technique by considering more than just the contribution of direct lighting to a surface.
+## PROJECT DESCRIPTION
+In this project, I implement a CUDA based pathtracer capable of
+generating pathtraced rendered images extremely quickly. 
 
-Since in this class we are concerned with working in generating actual images
-and less so with mundane tasks like file I/O, this project includes basecode
-for loading a scene description file format, described below, and various other
-things that generally make up the render "harness" that takes care of
-everything up to the rendering itself. The core renderer is left for you to
-implement.  Finally, note that while this basecode is meant to serve as a
-strong starting point for a CUDA pathtracer, you are not required to use this
-basecode if you wish, and you may also change any part of the basecode
-specification as you please, so long as the final rendered result is correct.
+## FEATURES
+basic features:
+* Raycasting from a camera into a scene through a pixel grid
+* Diffuse surfaces
+* Perfect specular reflective surfaces
+* Cube&Sphere intersection testing
+* Sphere surface point sampling
+* Stream compaction optimization 
+* 
 
-## CONTENTS
-The Project3 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio
-  solution and the OSX and Linux makefiles reference this folder for all 
-  source; the base source code compiles on Linux, OSX and Windows without 
-  modification.  If you are building on OSX, be sure to uncomment lines 4 & 5 of
-  the CMakeLists.txt in order to make sure CMake builds against clang.
-* data/scenes/ contains an example scene description file.
-* renders/ contains an example render of the given example scene file. 
-* windows/ contains a Windows Visual Studio 2010 project and all dependencies
-  needed for building and running on Windows 7. If you would like to create a
-  Visual Studio 2012 or 2013 projects, there are static libraries that you can
-  use for GLFW that are in external/bin/GLFW (Visual Studio 2012 uses msvc110, 
-  and Visual Studio 2013 uses msvc120)
-* external/ contains all the header, static libraries and built binaries for
-  3rd party libraries (i.e. glm, GLEW, GLFW) that we use for windowing and OpenGL
-  extensions
+additional features:
+* Depth of field
+* Fresnel Refraction and Reflection
+* Supersampled antialiasing
 
 ## RUNNING THE CODE
+This project is tested in Visual Studio 2010 with CUDA 6.5.
 The main function requires a scene description file (that is provided in data/scenes). 
-The main function reads in the scene file by an argument as such :
-'scene=[sceneFileName]'
+You can change the scene file in command arguments section.
 
-If you are using Visual Studio, you can set this in the Debugging > Command Arguments section
-in the Project properties.
 
-## REQUIREMENTS
+## IMPLEMENTATION
 In this project, you are given code for:
 
 * Loading, reading, and storing the TAKUAscene scene description format
