@@ -240,20 +240,22 @@ Parameter Comparison Renderings
 -------------------------------
 
 Higher iteration counts always improved image smoothness, since more samples
-were averaged over time. Higher path depths seem to correspond with bright
-spots which never get optimized out, for some reason.
+were averaged over time. Higher path depths seem to cause fireflies, which
+seem to have a hard time getting reduced. This is (probably) due to randomly
+directly sampling the light more than nearby pixels (despite the very low
+probability of doing so; probably 1 sample instead of 0 or 2 instead of 1).
 
 Depth 16, 500 samples:
-![](images/22_ultimate_d16s500.jpg)
+![](images/23_ultimate_d16s500.jpg)
 
 Depth 16, 2000 samples:
-![](images/22_ultimate_d16s2000.jpg)
+![](images/23_ultimate_d16s2000.jpg)
 
 Depth 256, 500 samples:
-![](images/22_ultimate_d256s500.jpg)
+![](images/23_ultimate_d256s500.jpg)
 
 Depth 256, 2000 samples:
-![](images/22_ultimate_d256s2000.jpg)
+![](images/23_ultimate_d256s2000.jpg)
 
 
 Earlier Renders
