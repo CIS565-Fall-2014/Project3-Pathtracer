@@ -51,7 +51,7 @@ Thus, the ray casting mimics the lens-based camera and produces depth of field e
 
 Turning on/off "DEPTH_OF_FIELD" in "raytracerKernel.h" will switch the effect on/off
 
-REMEMBER to specify camera aperture and focal length in scene txt file, like illustrated below, otherwise my program will have error in reading txt file lines  
+REMEMBER to specify camera "FOCAL" and "APERTURE" in scene txt file no matter using Depth of Field or not, like illustrated below, otherwise my program will have error in reading txt file lines  
   
 CAMERA   
 RES         800 800  
