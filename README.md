@@ -44,9 +44,20 @@ The next feature that I added was refractive surfaces. I performed this calculat
 
 <img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/another blue sphere.png" "Blue Glass Sphere">
 
+Another interesting image is what the scene looks like with only 2 bounces per ray:
+
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/depth 2.png" "Max Depth 2">
+
+
 ##Performance Analysis
 
-Stream Compaction
+Stream Compaction - I compared the frame time difference between a brute force method of just no-oping in the kernel for all removed rays, and a compacted version with thrust that does not incur the overhead of starting up unneeded kernels. The scene for these tests was the Cornell blocks with 3 glossy spheres. The results show that past a depth of 4 bouncers per ray, the stream compaction starts to build a significant speed boost. At a depth of 2, however, the additional overhead of compacting the rays is not worthwhile, mostly because very few (if any) rays are terminated after the first bounce. Both methods start to cap off at 50 bounces, as most rays have likely left the scene by this point. The brute force method has less overhead than usual here since most warps have all threads go through the same early termination.
+
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/stream compaction performance.png" "Stream Compaction Impact">
+
+For a single iteration, I also captured the number of rays at each trace depth. The result appears to support my theory.
+
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/active rays.png" "Active Rays">
 
 Meshes
 

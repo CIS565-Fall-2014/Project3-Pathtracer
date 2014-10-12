@@ -158,14 +158,14 @@ SCALE       .01 10 10
 
 OBJECT 5
 sphere
-material 5
+material 4
 frame 0
 TRANS       0 2 0
 ROTAT       0 180 0
 SCALE       3 3 3
 
 OBJECT 6
-cube
+sphere
 material 3
 frame 0
 TRANS       2 5 -4

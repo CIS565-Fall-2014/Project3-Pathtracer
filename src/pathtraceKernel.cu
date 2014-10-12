@@ -17,6 +17,7 @@
 #include "pathtraceKernel.h"
 #include "intersections.h"
 #include "interactions.h"
+#include "timing_utils.h"
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -322,6 +323,10 @@ __global__ void pathtraceRays(float time, int rayDepth, int maxDepth, glm::vec3*
 	ray r = rays[index];
 	//int mask = rayMask[index];
 
+	/*if (r.remove) {
+		return;
+	}*/
+
 	// Initialize the normal vector of intersection
 	glm::vec3 normal;
 
@@ -425,12 +430,15 @@ void compactRaysThrust(ray* raysIn, int& num, ray* raysOut) {
 	thrust::device_ptr<ray> in = thrust::device_pointer_cast<ray>(raysIn);
 	thrust::device_ptr<ray> out = thrust::device_pointer_cast<ray>(raysOut);
 	num = thrust::copy_if(in, in+num, out, is_kept()) - out;
+	//num = thrust::copy(in, in + num, out) - out;
 }
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, geom* geoms, worldSizes ws){
   
-  int traceDepth = 20; //determines how many bounces the pathtracer traces
+  //startTiming();
+
+  int traceDepth = 1000; //determines how many bounces the pathtracer traces
 
   // set up crucial magic
   int tileSize = 16;
@@ -518,6 +526,8 @@ void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterati
 
   // loop over kernel launches
   for (int tr = 0; tr < traceDepth; tr++) {
+	//fprintf(stdout, "Num rays: %d\n", numRays);
+
 	//Pathtrace the current rays
 	pathtraceRays<<<rayBlocksPerGrid, rayThreadsPerBlock>>>((float)iterations, tr, traceDepth, cudaImage, cudaWorld, ws, raysIn, numRays/*, cudaRayMask*/);
 	cudaDeviceSynchronize();
@@ -561,4 +571,7 @@ void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterati
   cudaThreadSynchronize();
 
   checkCUDAError("Kernel failed!");
+
+  //float run_time = stopTiming();
+  //fprintf(stdout, "Frame time: %f\n", run_time);
 }
