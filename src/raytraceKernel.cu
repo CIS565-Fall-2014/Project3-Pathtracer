@@ -43,7 +43,7 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 }
 
 // Function that does the initial raycast from the camera
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int _x, int _y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
+__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int _x, int _y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov, float dof_dist, float dof_aper)
 {
     float x = _x, y = _y;
     std::cout << fov.x << " " << fov.y << std::endl;
@@ -61,16 +61,13 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
     y += uhalf(rng);
 
     // Depth of field: jitter the origin and angle appropriately
-    //   (TODO: move these constants into config)
-    const float blur_aper_rad = 0.001f;
-    const float blur_foc_dist = 6.f;
-    float sqrtr = glm::sqrt(u01(rng) * blur_aper_rad);
+    float sqrtr = glm::sqrt(u01(rng) * dof_aper);
     float theta = u01(rng) * TWO_PI;
     glm::vec3 lens = norX * sqrtr * glm::cos(theta) + norY * sqrtr * glm::sin(theta);
 
     glm::vec2 ndc = glm::vec2(1 - x / resolution.x * 2, 1 - y / resolution.y * 2);
     ray r;
-    r.origin = eye + lens * blur_foc_dist;
+    r.origin = eye + lens * dof_dist;
     r.direction = glm::normalize(dir - lens + norX * ndc.x + norY * ndc.y);
     return r;
 }
@@ -153,7 +150,7 @@ __global__ void init_pathrays(struct pathray *pathrays, float time, cameraData c
     if (x < cam.resolution.x && y < cam.resolution.y) {
         struct pathray pr ={
             ALIVE, index, glm::vec3(1, 1, 1),
-            raycastFromCameraKernel(cam.resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov),
+            raycastFromCameraKernel(cam.resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov, cam.dof_dist, cam.dof_aper),
         };
         pathrays[index] = pr;
     }
@@ -312,8 +309,7 @@ __global__ void pathray_step(struct pathray *pathrays,
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
-    // TODO: move traceDepth into config
-    const int traceDepth = 256; //determines how many bounces the raytracer traces
+    const int traceDepth = renderCam->traceDepth; //determines how many bounces the raytracer traces
     const int pixelcount = ((int) renderCam->resolution.x) * ((int) renderCam->resolution.y);
 
     // set up crucial magic
@@ -371,6 +367,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cam.view = renderCam->views[frame];
     cam.up = renderCam->ups[frame];
     cam.fov = renderCam->fov;
+    cam.dof_dist = renderCam->dof_dist;
+    cam.dof_aper = renderCam->dof_aper;
 
     // kernel launches
     const int TPB = 64;

@@ -47,6 +47,8 @@ struct cameraData {
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+    float dof_dist;
+    float dof_aper;
 };
 
 struct camera {
@@ -57,6 +59,9 @@ struct camera {
 	int frames;
 	glm::vec2 fov;
 	unsigned int iterations;
+    int traceDepth;
+    float dof_dist;
+    float dof_aper;
 	glm::vec4* image;
 	ray* rayList;
 	std::string imageName;

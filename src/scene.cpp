@@ -142,7 +142,7 @@ int scene::loadCamera(){
 	float fovy;
 	
 	//load static properties
-	for(int i=0; i<4; i++){
+	for(int i=0; i<7; i++){
 		string line;
         utilityCore::safeGetline(fp_in,line);
 		vector<string> tokens = utilityCore::tokenizeString(line);
@@ -154,7 +154,13 @@ int scene::loadCamera(){
 			newCamera.iterations = atoi(tokens[1].c_str());
 		}else if(strcmp(tokens[0].c_str(), "FILE")==0){
 			newCamera.imageName = tokens[1];
-		}
+		}else if(strcmp(tokens[0].c_str(), "DEPTH")==0){
+            newCamera.traceDepth = atoi(tokens[1].c_str());
+		}else if(strcmp(tokens[0].c_str(), "DOF_DIST")==0){
+            newCamera.dof_dist = atof(tokens[1].c_str());
+		}else if(strcmp(tokens[0].c_str(), "DOF_APER")==0){
+            newCamera.dof_aper = atof(tokens[1].c_str());
+        }
 	}
         
 	//load time variable properties (frames)
