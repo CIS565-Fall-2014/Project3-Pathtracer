@@ -6,6 +6,8 @@ CIS 565 Project3 : CUDA Pathtracer
 This is a CUDA based Monte-Carlo Path tracer that renders images of different objects(sphere, cube, obj file) 
 in various materials including diffuse, reflection, refraction, and more in the future. The render window will show 
 real-time rendering progress (like other renderers do:) ), and camera angle can be changed at real-time to allow interesting shots!
+To run my code in visual studio, press "ctrl+F5 ", sometimes, the renderer will stuck at 46 frame for certain scene (for instance, myScene.txt) but sometimes it works perfectly if restart the rendering without changing anything. So just keep trying.
+I definitely need to fix this in the future.
 
 ## BACIC FEATURES
 
@@ -83,7 +85,9 @@ But, my renderer can only handle one obj instead of multiple obj, at current sta
 but with other basic shape like sphere or cube is okay.) As I failed in adding the list of triangle to the member of "geom" and readable by CUDA. 
 This can be solved by expanding my current global array of triangle to an array of triangle list. I should implement this in the near future.  
 
-In order to load obj, speify the scene file as below. REMEMBER to include FULL PATH for the obj file, so that TinyObjLoader can correctly finds the file.    
+In order to load obj, speify the scene file as below. REMEMBER to include FULL PATH for the obj file, so that TinyObjLoader can correctly finds the file.  
+I have two renders below, 166 and 437 triangle faces respectively, each took 40 minutes, and 80 minutes to render, which is still too slow for a renderer. 
+In the future, I should implement Kd tree to speed up the rendering for polygonal meshes.     
 
 OBJECT 5  
 C:\Users\AppleDu\Documents\GitHub\Project3-Pathtracer\data\scenes\hexGem.obj  

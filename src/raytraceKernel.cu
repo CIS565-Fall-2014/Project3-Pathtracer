@@ -256,7 +256,7 @@ __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, 
 
 		if(hitGeoID!=-1){
 			material curMat = cudamats[geoms[hitGeoID].materialid];
-			if( curMat.emittance > LIGHT_STRENGTH ){   //end when hit light source
+			if( curMat.emittance > 0 ){   //end when hit light source
 				if(glm::length(r.color)>0.6f){
 			//	printf("ray color:[%f, %f, %f]", r.color.r,r.color.g,r.color.b);
 				}
