@@ -1,4 +1,4 @@
-// CIS565 CUDA Raytracer: A parallel raytracer for Patrick Cozzi's CIS565: GPU Computing at the University of Pennsylvania
+// CIS565 CUDA Pathtracer: A parallel pathtracer for Patrick Cozzi's CIS565: GPU Computing at the University of Pennsylvania
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 // This file includes code from:
 //       Rob Farber for CUDA-GL interop, from CUDA Supercomputing For The Masses: http://www.drdobbs.com/architecture-and-design/cuda-supercomputing-for-the-masses-part/222600097
@@ -14,6 +14,6 @@
 #include <cmath>
 #include "sceneStructs.h"
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+void cudaPathtraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, geom* geoms, mesh* meshes, worldSizes ws);
 
 #endif

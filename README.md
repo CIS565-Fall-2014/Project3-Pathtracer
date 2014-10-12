@@ -3,271 +3,70 @@ CIS 565 Project3 : CUDA Pathtracer
 
 Fall 2014
 
-Due Wed, 10/8 (submit without penalty until Sun, 10/12)
+Author: Dave Kotfis
 
-## INTRODUCTION
-In this project, you will implement a CUDA based pathtracer capable of
-generating pathtraced rendered images extremely quickly. Building a pathtracer can be viewed as a generalization of building a raytracer, so for those of you who have taken 460/560, the basic concept should not be very new to you. For those of you that have not taken
-CIS460/560, raytracing is a technique for generating images by tracing rays of
-light through pixels in an image plane out into a scene and following the way
-the rays of light bounce and interact with objects in the scene. More
-information can be found here:
-http://en.wikipedia.org/wiki/Ray_tracing_(graphics). Pathtracing is a generalization of this technique by considering more than just the contribution of direct lighting to a surface.
+##Overview
 
-Since in this class we are concerned with working in generating actual images
-and less so with mundane tasks like file I/O, this project includes basecode
-for loading a scene description file format, described below, and various other
-things that generally make up the render "harness" that takes care of
-everything up to the rendering itself. The core renderer is left for you to
-implement.  Finally, note that while this basecode is meant to serve as a
-strong starting point for a CUDA pathtracer, you are not required to use this
-basecode if you wish, and you may also change any part of the basecode
-specification as you please, so long as the final rendered result is correct.
+This is a GPU pathtracing project utilizing starter code providing much of the backend (scene file loading, CUDA/OpenGL interop, etc). Some of the features include:
+- Shapes (Boxes, Spheres, Meshes w/ limited support)
+- Materials (Diffuse, Specular, Refractive)
+- Stream Compaction (Thrust, Scan+Fan w/ limited support)
 
-## CONTENTS
-The Project3 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio
-  solution and the OSX and Linux makefiles reference this folder for all 
-  source; the base source code compiles on Linux, OSX and Windows without 
-  modification.  If you are building on OSX, be sure to uncomment lines 4 & 5 of
-  the CMakeLists.txt in order to make sure CMake builds against clang.
-* data/scenes/ contains an example scene description file.
-* renders/ contains an example render of the given example scene file. 
-* windows/ contains a Windows Visual Studio 2010 project and all dependencies
-  needed for building and running on Windows 7. If you would like to create a
-  Visual Studio 2012 or 2013 projects, there are static libraries that you can
-  use for GLFW that are in external/bin/GLFW (Visual Studio 2012 uses msvc110, 
-  and Visual Studio 2013 uses msvc120)
-* external/ contains all the header, static libraries and built binaries for
-  3rd party libraries (i.e. glm, GLEW, GLFW) that we use for windowing and OpenGL
-  extensions
+##Progress
 
-## RUNNING THE CODE
-The main function requires a scene description file (that is provided in data/scenes). 
-The main function reads in the scene file by an argument as such :
-'scene=[sceneFileName]'
+The first feature that I supported was generation of the original set of rays, and casting them into the screen once. I then colored the pixel according to whatever material was hit. This is a good starting place and sanity check for any raytracing work. This helped me work out many small bugs such as discrepancy in units between my work and the starter code (degrees/radians, etc.). The result is shown here:
 
-If you are using Visual Studio, you can set this in the Debugging > Command Arguments section
-in the Project properties.
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/CornellBoxesSimpleColoring.png" "Validation of Initial Raycasting">
 
-## REQUIREMENTS
-In this project, you are given code for:
+The next step was to validate all of my collision calculations. I now rendered to the screen a grayscale image the was colored by the depth of the initial ray hit. Note: my collision calculations are based upon methods in "Real-Time Collision Detection" by Christer Ericson.
 
-* Loading, reading, and storing the scene scene description format
-* Example functions that can run on both the CPU and GPU for generating random
-  numbers, spherical intersection testing, and surface point sampling on cubes
-* A class for handling image operations and saving images
-* Working code for CUDA-GL interop
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/Depth Cube Intersection.png" "Collision Depth Evaluation">
 
-You will need to implement the following features:
+I then started to evaluate path-tracing with a few iterations. The initial results seemed dim, and there were strange artifacts where I could see through some of the shapes in the foreground.
 
-* Raycasting from a camera into a scene through a pixel grid
-* Diffuse surfaces
-* Perfect specular reflective surfaces
-* Cube intersection testing
-* Sphere surface point sampling
-* Stream compaction optimization
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/Increased Light.png" "Initial Pathtracing - Many Bugs">
 
-You are also required to implement at least 2 of the following features:
+One of the issues that I tracked down in this implementation was that the collision detection was returning with the first hit, and not the closest hit. This made the result dependent on the ordering of the objects in the config files. This was causing a large number of rays to escape the box and make the scene look dim. Fixing this made the impact shown here (notice still strange artifacts):
 
-* Texture mapping 
-* Bump mapping
-* Depth of field
-* Refraction, i.e. glass
-* OBJ Mesh loading and rendering
-* Interactive camera
-* Motion blur
-* Subsurface scattering
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/Fixed Bug with Ordering.png" "Pathtracing - Corrected Collision Ordering">
 
-The 'extra features' list is not comprehensive.  If you have a particular feature
-you would like to implement (e.g. acceleration structures, etc.) please contact us 
-first!
+Next, I found another issue that the normal used from the collision check was the most recent collision normal, not the one corresponding to the closest collision. Fixing this issue made this result:
 
-For each 'extra feature' you must provide the following analysis :
-* overview write up of the feature
-* performance impact of the feature
-* if you did something to accelerate the feature, why did you do what you did
-* compare your GPU version to a CPU version of this feature (you do NOT need to 
-  implement a CPU version)
-* how can this feature be further optimized (again, not necessary to implement it, but
-  should give a roadmap of how to further optimize and why you believe this is the next
-  step)
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/Cleaned up normal calculation.png" "Pathtracing - Corrected Normal Ordering">
 
-## BASE CODE TOUR
-You will be working in three files: raytraceKernel.cu, intersections.h, and
-interactions.h. Within these files, areas that you need to complete are marked
-with a TODO comment. Areas that are useful to and serve as hints for optional
-features are marked with TODO (Optional). Functions that are useful for
-reference are marked with the comment LOOK.
+At this point, the diffuse and specular materials were both looking pretty good. However, the top of the scene looks much brighter than I would have expected. I found one last bug where I was getting incorrect normals from my box intersections when the intersection was near an edge. Tightening up the bounds, and enforcing the collision to be associated with only a single face resulted in the following:
 
-* raytraceKernel.cu contains the core raytracing CUDA kernel. You will need to
-  complete:
-    * cudaRaytraceCore() handles kernel launches and memory management; this
-      function already contains example code for launching kernels,
-      transferring geometry and cameras from the host to the device, and transferring
-      image buffers from the host to the device and back. You will have to complete
-      this function to support passing materials and lights to CUDA.
-    * raycastFromCameraKernel() is a function that you need to implement. This
-      function once correctly implemented should handle camera raycasting. 
-    * raytraceRay() is the core raytracing CUDA kernel; all of your pathtracing
-      logic should be implemented in this CUDA kernel. raytraceRay() should
-      take in a camera, image buffer, geometry, materials, and lights, and should
-      trace a ray through the scene and write the resultant color to a pixel in the
-      image buffer.
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/fixed bug with normals.png" "Functional Pathtracing">
 
-* intersections.h contains functions for geometry intersection testing and
-  point generation. You will need to complete:
-    * boxIntersectionTest(), which takes in a box and a ray and performs an
-      intersection test. This function should work in the same way as
-      sphereIntersectionTest().
-    * getRandomPointOnSphere(), which takes in a sphere and returns a random
-      point on the surface of the sphere with an even probability distribution.
-      This function should work in the same way as getRandomPointOnCube(). You can
-      (although do not necessarily have to) use this to generate points on a sphere
-      to use a point lights, or can use this for area lighting.
+Stream Compaction - I have a custom stream compaction algorithm utilizing scan-then-fan (described in "The CUDA Handbook" by Nicholas Wilt, Chapter 13.4) that I attempted to utilize for throwing out terminated rays at each iteration. However, I found that this method needs to be written to utilize multiple blocks correctly. Thus, it only seems to work on one block. To get something working, I hooked up the copy_if method provided in Thrust for stream compaction. The performance impact is analyzed below. 
 
-* interactions.h contains functions for ray-object interactions that define how
-  rays behave upon hitting materials and objects. You will need to complete:
-    * getRandomDirectionInSphere(), which generates a random direction in a
-      sphere with a uniform probability. This function works in a fashion
-      similar to that of calculateRandomDirectionInHemisphere(), which generates a
-      random cosine-weighted direction in a hemisphere.
-    * calculateBSDF(), which takes in an incoming ray, normal, material, and
-      other information, and returns an outgoing ray. You can either implement
-      this function for ray-surface interactions, or you can replace it with your own
-      function(s).
+The next feature that I added was refractive surfaces. I performed this calculation with basic Snell's law, and only allowed materials to be fully refractive with no reflection. Here is an example of a blue glass sphere using this:
 
-You will also want to familiarize yourself with:
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/another blue sphere.png" "Blue Glass Sphere">
 
-* sceneStructs.h, which contains definitions for how geometry, materials,
-  lights, cameras, and animation frames are stored in the renderer. 
-* utilities.h, which serves as a kitchen-sink of useful functions
+Another interesting image is what the scene looks like with only 2 bounces per ray:
 
-## NOTES ON GLM
-This project uses GLM, the GL Math library, for linear algebra. You need to
-know two important points on how GLM is used in this project:
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/depth 2.png" "Max Depth 2">
 
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed
-  via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is
-  used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but
-  pre-Fermi cards do not play nice with GLM matrices. As such, in this project,
-  GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found
-  in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is
-  provided as multiplyMV() in intersections.h.
 
-## SCENE FORMAT
-This project uses a custom scene description format.
-Scene files are flat text files that describe all geometry, materials,
-lights, cameras, render settings, and animation frames inside of the scene.
-Items in the format are delimited by new lines, and comments can be added at
-the end of each line preceded with a double-slash.
+##Performance Analysis
 
-Materials are defined in the following fashion:
+Stream Compaction - I compared the frame time difference between a brute force method of just no-oping in the kernel for all removed rays, and a compacted version with thrust that does not incur the overhead of starting up unneeded kernels. The scene for these tests was the Cornell blocks with 3 glossy spheres. The results show that past a depth of 4 bouncers per ray, the stream compaction starts to build a significant speed boost. At a depth of 2, however, the additional overhead of compacting the rays is not worthwhile, mostly because very few (if any) rays are terminated after the first bounce. Both methods start to cap off at 50 bounces, as most rays have likely left the scene by this point. The brute force method has less overhead than usual here since most warps have all threads go through the same early termination.
 
-* MATERIAL (material ID)								//material header
-* RGB (float r) (float g) (float b)					//diffuse color
-* SPECX (float specx)									//specular exponent
-* SPECRGB (float r) (float g) (float b)				//specular color
-* REFL (bool refl)									//reflectivity flag, 0 for
-  no, 1 for yes
-* REFR (bool refr)									//refractivity flag, 0 for
-  no, 1 for yes
-* REFRIOR (float ior)									//index of refraction
-  for Fresnel effects
-* SCATTER (float scatter)								//scatter flag, 0 for
-  no, 1 for yes
-* ABSCOEFF (float r) (float b) (float g)				//absorption
-  coefficient for scattering
-* RSCTCOEFF (float rsctcoeff)							//reduced scattering
-  coefficient
-* EMITTANCE (float emittance)							//the emittance of the
-  material. Anything >0 makes the material a light source.
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/stream compaction performance.png" "Stream Compaction Impact">
 
-Cameras are defined in the following fashion:
+For a single iteration, I also captured the number of rays at each trace depth. The result appears to support my theory.
 
-* CAMERA 												//camera header
-* RES (float x) (float y)								//resolution
-* FOVY (float fovy)										//vertical field of
-  view half-angle. the horizonal angle is calculated from this and the
-  reslution
-* ITERATIONS (float interations)							//how many
-  iterations to refine the image, only relevant for supersampled antialiasing,
-  depth of field, area lights, and other distributed raytracing applications
-* FILE (string filename)									//file to output
-  render to upon completion
-* frame (frame number)									//start of a frame
-* EYE (float x) (float y) (float z)						//camera's position in
-  worldspace
-* VIEW (float x) (float y) (float z)						//camera's view
-  direction
-* UP (float x) (float y) (float z)						//camera's up vector
+<img src="https://raw.github.com/dkotfis/Project3-Pathtracer/master/images/active rays.png" "Active Rays">
 
-Objects are defined in the following fashion:
-* OBJECT (object ID)										//object header
-* (cube OR sphere OR mesh)								//type of object, can
-  be either "cube", "sphere", or "mesh". Note that cubes and spheres are unit
-  sized and centered at the origin.
-* material (material ID)									//material to
-  assign this object
-* frame (frame number)									//start of a frame
-* TRANS (float transx) (float transy) (float transz)		//translation
-* ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
-* SCALE (float scalex) (float scaley) (float scalez)		//scale
+##Future
 
-An example scene file setting up two frames inside of a Cornell Box can be
-found in the scenes/ directory.
+I have implemented triangle intersection tests, and loading obj files. However, I cannot show off any results from this because I ran out of time before working out the bugs in how I was packaging the mesh data to send to the GPU.
 
-For meshes, note that the base code will only read in .obj files. For more 
-information on the .obj specification see http://en.wikipedia.org/wiki/Wavefront_.obj_file.
+My original intention was to extend the mesh representation to use an octree for spatial subdivision. Due to lack of time, I did not implement this (it required working tri-meshes first in order to show benefit). I will likely come back to implementing this on a later project.
 
-An example of a mesh object is as follows:
+Some of the research that this will/would draw upon include:
+- "Out-of-Core Construction of Sparse Voxel Octrees" - Baert, Lagae, and Dutre. This is a method that can build octrees from tri-meshes of arbitrary size, and can utilize the GPU. 
+- "An Efficient Parametric Algorithm for Octree Traversal" - Revelles, Urena, and Lastra. This investigates methods for getting the leaves intersecting a ray.
+- "GigaVoxels: Ray-Guided Streaming for Efficient and Detailed Voxel Rendering" - Crassin et. al. This is an impressive GPU based approach to raycasting large N^3 trees.
 
-OBJECT 0
-mesh tetra.obj
-material 0
-frame 0
-TRANS       0 5 -5
-ROTAT       0 90 0
-SCALE       .01 10 10 
-
-Check the Google group for some sample .obj files of varying complexity.
-
-## THIRD PARTY CODE POLICY
-* Use of any third-party code must be approved by asking on our Google Group.  
-  If it is approved, all students are welcome to use it.  Generally, we approve 
-  use of third-party code that is not a core part of the project.  For example, 
-  for the ray tracer, we would approve using a third-party library for loading 
-  models, but would not approve copying and pasting a CUDA function for doing 
-  refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another
-  student's code, is an academic integrity violation, and will result in you
-  receiving an F for the semester.
-
-## SELF-GRADING
-* On the submission date, email your grade, on a scale of 0 to 100, to Harmony,
-  harmoli+cis565@seas.upenn.com, with a one paragraph explanation.  Be concise and
-  realistic.  Recall that we reserve 30 points as a sanity check to adjust your
-  grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We
-  hope to only use this in extreme cases when your grade does not realistically
-  reflect your work - it is either too high or too low.  In most cases, we plan
-  to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as
-  the path tracer.  We will determine the weighting at the end of the semester
-  based on the size of each project.
-
-## SUBMISSION
-Please change the README to reflect the answers to the questions we have posed
-above.  Remember:
-* this is a renderer, so include images that you've made!
-* be sure to back your claims for optimization with numbers and comparisons
-* if you reference any other material, please provide a link to it
-* you wil not e graded on how fast your path tracer runs, but getting close to
-  real-time is always nice
-* if you have a fast GPU renderer, it is good to show case this with a video to
-  show interactivity.  If you do so, please include a link.
-
-Be sure to open a pull request and to send Harmony your grade and why you
-believe this is the grade you should get.

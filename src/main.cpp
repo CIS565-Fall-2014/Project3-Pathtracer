@@ -1,4 +1,4 @@
-// CIS565 CUDA Raytracer: A parallel raytracer for Patrick Cozzi's CIS565: GPU Computing at the University of Pennsylvania
+// CIS565 CUDA Pathtracer: A parallel pathtracer for Patrick Cozzi's CIS565: GPU Computing at the University of Pennsylvania
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 // This file includes code from:
 //       Rob Farber for CUDA-GL interop, from CUDA Supercomputing For The Masses: http://www.drdobbs.com/architecture-and-design/cuda-supercomputing-for-the-masses-part/222600097
@@ -21,6 +21,7 @@ int main(int argc, char** argv){
   targetFrame = 0;
   singleFrameMode = false;
 
+  /*
   // Load scene file
   for(int i=1; i<argc; i++){
     string header; string data;
@@ -34,6 +35,11 @@ int main(int argc, char** argv){
       singleFrameMode = true;
     }
   }
+  */
+
+  string data = std::string("C:\\\\Users\\Dave\\Documents\\Github\\Project3-Pathtracer\\data\\scenes\\sampleScene.txt");
+  renderScene = new scene(data);
+  loadedScene = true;
 
   if(!loadedScene){
     cout << "Error: scene file needed!" << endl;
@@ -98,6 +104,7 @@ void runCuda(){
     // pack geom and material arrays
     geom* geoms = new geom[renderScene->objects.size()];
     material* materials = new material[renderScene->materials.size()];
+	mesh* meshes = new mesh[renderScene->meshes.size()];
     
     for (int i=0; i < renderScene->objects.size(); i++) {
       geoms[i] = renderScene->objects[i];
@@ -105,9 +112,16 @@ void runCuda(){
     for (int i=0; i < renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
-  
+	for (int i = 0; i < renderScene->meshes.size(); i++) {
+		meshes[i] = renderScene->meshes[i];
+	}
+	worldSizes ws;
+	ws.numberOfGeoms = renderScene->objects.size();
+	ws.numberOfMaterials = renderScene->materials.size();
+	ws.numberOfMeshes = renderScene->meshes.size();
+
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaPathtraceCore(dptr, renderCam, targetFrame, iterations, materials, geoms, meshes, ws);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);

@@ -34,6 +34,13 @@ scene::scene(string filename){
 	}
 }
 
+scene::~scene() {
+	for (int i = 0; i < meshes.size(); i++) {
+		delete meshes[i].vertices;
+		delete meshes[i].indices;
+	}
+}
+
 int scene::loadObject(string objectid){
     int id = atoi(objectid.c_str());
     if(id!=objects.size()){
@@ -64,6 +71,7 @@ int scene::loadObject(string objectid){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
 		    		newObject.type = MESH;
+					newObject.meshid = loadMesh(objline);
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
@@ -102,7 +110,7 @@ int scene::loadObject(string objectid){
             if(strcmp(tokens[0].c_str(), "TRANS")==0){
                 translations.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }else if(strcmp(tokens[0].c_str(), "ROTAT")==0){
-                rotations.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
+                rotations.push_back(glm::vec3(atof(tokens[1].c_str())*PI/180.0, atof(tokens[2].c_str())*PI/180.0, atof(tokens[3].c_str())*PI/180.0));
             }else if(strcmp(tokens[0].c_str(), "SCALE")==0){
                 scales.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }
@@ -132,6 +140,55 @@ int scene::loadObject(string objectid){
 	cout << "Loaded " << frameCount << " frames for Object " << objectid << "!" << endl;
         return 1;
     }
+}
+
+int scene::loadMesh(string filename) {
+	cout << "Loading Mesh: " << filename << " ... " << endl;
+	mesh m;
+	vector<glm::vec3> verts;
+	vector<int> inds;
+
+	// Open the file
+	ifstream fp;
+	char* fname = (char*)filename.c_str();
+	fp.open(fname);
+	if (!fp.is_open()) {
+		fprintf(stderr, "Failed to open file: %s.", filename.c_str());
+		return -1;
+	}
+
+	string line;
+	while (fp.good()){
+		utilityCore::safeGetline(fp, line);
+		vector<string> tokens = utilityCore::tokenizeString(line);
+		if (tokens.size() == 0) {
+			continue;
+		}
+		if (strcmp(tokens[0].c_str(), "v") == 0) {
+			verts.push_back(glm::vec3(atof(tokens[1].c_str()),atof(tokens[2].c_str()),atof(tokens[3].c_str())));
+		}
+		else if (strcmp(tokens[0].c_str(), "f") == 0) {
+			inds.push_back(atoi(tokens[1].c_str()));
+			inds.push_back(atoi(tokens[2].c_str()));
+			inds.push_back(atoi(tokens[3].c_str()));
+		}
+	}
+
+	m.numberOfVertices = verts.size();
+	m.numberOfTriangles = inds.size() / 3;
+
+	m.vertices = (glm::vec3*) malloc(m.numberOfVertices*sizeof(glm::vec3));
+	for (int i = 0; i < m.numberOfVertices; i++) {
+		m.vertices[i] = verts[i];
+	}
+
+	m.indices = (int*) malloc(m.numberOfTriangles*3*sizeof(int));
+	for (int i = 0; i < m.numberOfTriangles * 3; i++) {
+		m.indices[i] = inds[i];
+	}
+
+	meshes.push_back(m);
+	return meshes.size() - 1;
 }
 
 int scene::loadCamera(){
