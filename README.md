@@ -38,7 +38,7 @@ Renderings
 ----------
 
 Combined test render:
-![](images/22_brighter_d16s2000.png)
+![](images/22_brighter_d256s2000.png)
 
 Annotated:
 ![](images/24_annotated.png)
@@ -138,6 +138,8 @@ spots which never get optimized out, for some reason.
 | ------------:| -------------------------------- | --------------------------------- |
 |  500 samples | ![](images/22_ultimate_d16s500 ) | ![](images/22_ultimate_d256s500 ) |
 | 2000 samples | ![](images/22_ultimate_d16s2000) | ![](images/22_ultimate_d256s2000) |
+
+// TODO fix this it didn't work
 
 
 Debug Renders
