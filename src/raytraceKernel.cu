@@ -125,7 +125,11 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec4* 
 }
 
 
-enum pathray_status { ALIVE, DEAD, CULLED };
+enum pathray_status {
+    ALIVE,
+    DEAD,
+    //CULLED,
+};
 
 struct pathray {
     enum pathray_status status;
