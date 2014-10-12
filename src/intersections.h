@@ -13,6 +13,7 @@
 #include "cudaMat4.h"
 #include "utilities.h"
 
+
 // Some forward declarations
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
@@ -69,12 +70,191 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
+__host__ __device__ glm::vec3 const& getNearPoint(glm::vec3 const& P0)
+{
+	glm::vec3* a = new glm::vec3[8];
+	glm::vec3* v = new glm::vec3[8];
+	a[0] = glm::vec3(0.5, 0.5, 0.5); a[1] = glm::vec3(0.5, 0.5, -0.5); a[2] = glm::vec3(-0.5, 0.5, -0.5); a[3] = glm::vec3(-0.5, 0.5, 0.5);
+	a[4] = glm::vec3(0.5, -0.5, 0.5); a[5] = glm::vec3(0.5, -0.5, -0.5); a[6] = glm::vec3(-0.5, -0.5, -0.5); a[7] = glm::vec3(-0.5, -0.5, 0.5);
+
+	v[0] = glm::vec3(0.5, 0.5, 0.5) - P0; v[1] = glm::vec3(0.5, 0.5, -0.5)- P0; v[2] = glm::vec3(-0.5, 0.5, -0.5)- P0; v[3] = glm::vec3(-0.5, 0.5, 0.5)- P0;
+	v[4] = glm::vec3(0.5, -0.5, 0.5)- P0; v[5] = glm::vec3(0.5, -0.5, -0.5)- P0; v[6] = glm::vec3(-0.5, -0.5, -0.5)- P0; v[7] = glm::vec3(-0.5, -0.5, 0.5)- P0;
+	
+	float* dis = new float[8];
+	for(int i = 0; i<8; i++)
+	{
+		dis[i] = glm::dot(v[i], v[i]);
+	}
+
+	float min = dis[0];
+	int minNum = 0;
+	for(int i = 1; i< 8; i++)
+	{
+		if(dis[i] < min) 
+		{
+			min = dis[i];
+			minNum = i;
+		}
+	}
+	return a[minNum];
+}
+
+__host__ __device__ glm::vec3 const& getFarPoint(glm::vec3 const& P0)
+{
+	glm::vec3* a = new glm::vec3[8];
+	glm::vec3* v = new glm::vec3[8];
+	a[0] = glm::vec3(0.5, 0.5, 0.5); a[1] = glm::vec3(0.5, 0.5, -0.5); a[2] = glm::vec3(-0.5, 0.5, -0.5); a[3] = glm::vec3(-0.5, 0.5, 0.5);
+	a[4] = glm::vec3(0.5, -0.5, 0.5); a[5] = glm::vec3(0.5, -0.5, -0.5); a[6] = glm::vec3(-0.5, -0.5, -0.5); a[7] = glm::vec3(-0.5, -0.5, 0.5);
+
+	v[0] = glm::vec3(0.5, 0.5, 0.5) - P0; v[1] = glm::vec3(0.5, 0.5, -0.5)- P0; v[2] = glm::vec3(-0.5, 0.5, -0.5)- P0; v[3] = glm::vec3(-0.5, 0.5, 0.5)- P0;
+	v[4] = glm::vec3(0.5, -0.5, 0.5)- P0; v[5] = glm::vec3(0.5, -0.5, -0.5)- P0; v[6] = glm::vec3(-0.5, -0.5, -0.5)- P0; v[7] = glm::vec3(-0.5, -0.5, 0.5)- P0;
+	
+	float* dis = new float[8];
+	for(int i = 0; i<8; i++)
+	{
+		dis[i] = glm::dot(v[i],v[i]);
+	}
+
+	float max = dis[0]; 
+	int maxNum = 0;
+	for(int i = 1; i< 8; i++)
+	{
+		if(dis[i] > max) 
+		{
+			max = dis[i];
+			maxNum = i;
+		}
+	}
+	return a[maxNum];
+}
+
 // TODO: IMPLEMENT THIS FUNCTION
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+	
+	glm::vec3 P0 = r.origin;
+	glm::vec3 V0 = r.direction;
+	glm::vec3 newP0 = multiplyMV(box.inverseTransform, glm::vec4(P0, 1.0f));
+	glm::vec3 newV0 = multiplyMV(box.inverseTransform, glm::vec4(V0, 0.0f));
 
-    return -1;
+	float t1, t2, tnear = -1000000.0f, tfar = 1000000.0f, temp, t;
+	//glm::vec3 b1 = getNearPoint(newP0);
+	//glm::vec3 b2 = getFarPoint(newP0);
+	glm::vec3 b1 = glm::vec3(-0.5f, -0.5f, -0.5f);
+	glm::vec3 b2 = glm::vec3(0.5f, 0.5f, 0.5f);
+
+	bool intersectFlag = true;
+
+	//x plane
+//	for(int i =0 ;i < 3; i++)
+//	{
+		if(epsilonCheck(abs(newV0.y), 0)) //parallel to xplane
+		{
+			if(abs(newP0.y) > 0.5  || epsilonCheck(abs(newP0.y), 0.5)) return -1;
+		}else  //not parallel
+		{
+			t1 = (b1.y - newP0.y)/newV0.y;
+			t2 = (b2.y - newP0.y)/newV0.y;
+			if(t1 > t2)
+			{
+				temp = t1;
+				t1 = t2;
+				t2 = temp;
+			}
+			if(t1 > tnear)	tnear = t1;
+			if(t2 < tfar)   tfar = t2;
+			if(tnear > tfar) 
+				{
+					intersectFlag = false; 
+					return -1;
+				}
+			if(tfar < 0)  { intersectFlag = false; return -1;}
+		}
+
+			if(epsilonCheck(abs(newV0.x), 0)) //parallel to xplane
+		{
+			if(abs(newP0.x) > 0.5  || epsilonCheck(abs(newP0.x), 0.5)) return -1;
+		}else  //not parallel
+		{
+			t1 = (b1.x - newP0.x)/newV0.x;
+			t2 = (b2.x - newP0.x)/newV0.x;
+			if(t1 > t2)
+			{
+				temp = t1;
+				t1 = t2;
+				t2 = temp;
+			}
+			if(t1 > tnear)	tnear = t1;
+			if(t2 < tfar)   tfar = t2;
+			if(tnear > tfar) 
+				{
+					intersectFlag = false; 
+					return -1;
+				}
+			if(tfar < 0)  { intersectFlag = false; return -1;}
+		}
+//	}
+		if(epsilonCheck(abs(newV0.z), 0)) //parallel to xplane
+		{
+			if(abs(newP0.z) > 0.5  || epsilonCheck(abs(newP0.z), 0.5)) return -1;
+		}else  //not parallel
+		{
+			t1 = (b1.z - newP0.z)/newV0.z;
+			t2 = (b2.z - newP0.z)/newV0.z;
+			if(t1 > t2)
+			{
+				temp = t1;
+				t1 = t2;
+				t2 = temp;
+			}
+			if(t1 > tnear)	tnear = t1;
+			if(t2 < tfar)   tfar = t2;
+			if(tnear > tfar) 
+				{
+					intersectFlag = false; 
+					return -1;
+				}
+			if(tfar < 0)  { intersectFlag = false; return -1;}
+		}
+
+
+	if(intersectFlag == false) return -1;
+    else   t = tnear;
+	if( t < 0 || epsilonCheck(t,0)) return -1;
+	if(!epsilonCheck(t, -1))
+	{
+		//intersection point - local
+		glm::vec4 intsct = glm::vec4(newP0.x + t*newV0.x, newP0.y + t*newV0.y, newP0.z + t*newV0.z, 1.0f);
+		//normal - local
+		glm::vec4 norm = glm::vec4(0,0,0,0);
+		float nx = abs(intsct.x);
+		float ny = abs(intsct.y);
+		float nz = abs(intsct.z);
+		if (nx > ny)
+		{
+			if(nz > nx) norm.z = intsct.z;
+			else norm.x = intsct.x;
+		}else
+		{
+			if(nz > ny) norm.z = intsct.z;
+			else norm.y = intsct.y;
+		}
+		norm = glm::normalize(norm);
+		//in world
+		intersectionPoint = multiplyMV(box.transform, intsct);
+		normal = multiplyMV(box.transform, norm);
+		normal = glm::normalize(normal);
+
+		//t = sqrt((intersectionPoint.x - P0.x)*(intersectionPoint.x - P0.x)+(intersectionPoint.y - P0.y)*(intersectionPoint.y - P0.y)+(intersectionPoint.z - P0.z)*(intersectionPoint.z - P0.z))/ sqrt(V0.x*V0.x + V0.y*V0.y + V0.z*V0.z);
+		t = glm::length(r.origin - intersectionPoint);
+	}
+	
+	return t;
+
+//    return -1;
 }
+
+
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
 // Sphere intersection test, return -1 if no intersection, otherwise, distance to intersection
@@ -178,7 +358,22 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
 
-  return glm::vec3(0,0,0);
+	thrust::default_random_engine rng(hash(randomSeed));
+	thrust::uniform_real_distribution<float> u01(-1,1);
+	thrust::uniform_real_distribution<float> u02(0,TWO_PI);
+
+	float radius = 0.5f;
+	
+	float sinx = (float)u01(rng);
+	float cosx = sqrt(1 - sinx*sinx);
+	float angley = (float)u02(rng);
+
+	glm::vec3 point = radius*glm::vec3(sinx*cos(angley), sinx*sin(angley), cosx);
+	
+	glm::vec3 randPoint = multiplyMV(sphere.transform, glm::vec4(point,1.0f));
+
+	return randPoint;
+ // return glm::vec3(0,0,0);
 }
 
 #endif
