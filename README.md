@@ -26,19 +26,19 @@ Features Implemented
 --------------------
 
 * Pathtracing algorithms
-* Materials: diffuse, reflective, *refractive with Fresnel reflection*
-* Camera: *movement* (controls above), *antialiasing*, *depth of field*
-* Objects: cube, sphere *with correct normals when scaled*
+* Materials: diffuse, reflective, **refractive with Fresnel reflection**
+* Camera: **movement** (controls above), **antialiasing**, **depth of field**
+* Objects: cube, sphere **with correct normals when scaled**
 * Performance: ray-level stream compaction
 
-(Extras in *bold*.)
+(Extras in **bold**.)
 
 
 Renderings
 ----------
 
 Combined test render:
-![](images/22_brighter_d256s2000.png)
+![](images/22_brighter_d16s2000.png)
 
 Annotated:
 ![](images/24_annotated.png)
@@ -81,7 +81,7 @@ Extras
 
 Samples are taken randomly from within each pixel.
 
-*Performance:* Very small impact. TODO
+**Performance:** Very small impact. TODO
 
 Without:
 ![](images/15_slightly_better_depth1.png)
@@ -95,7 +95,7 @@ With:
 Origin and direction of camera rays is varied randomly (in a uniform circular
 distribution) to emulate a physical aperture.
 
-*Performance:* Very small impact per-sample, but increases the number of
+**Performance:** Very small impact per-sample, but increases the number of
 samples needed for visual smoothness due to the extreme variation between
 samples. Implementation-wise, this is identical to analogous CPU code. TODO
 
@@ -113,7 +113,7 @@ dot products with that, but this is more readable.)
 
 TODO: debug render here
 
-*Performance:* TODO
+**Performance:** TODO
 
 ### Camera movement
 
@@ -142,6 +142,22 @@ spots which never get optimized out, for some reason.
 // TODO fix this it didn't work
 
 
+Earlier Renders
+---------------
+
+Diffuse-only:
+![](images/08_diffuse_5000.png)
+
+Diffuse + Reflective:
+![](images/12_refactored.png)
+
+With Direct Lighting, depth=1 (not included in final version):
+![](images/15_slightly_better_depth1.png)
+
+With Direct Lighting, depth=8
+![](images/15_slightly_better_depth8.png)
+
+
 Debug Renders
 -------------
 
@@ -156,9 +172,6 @@ Materials/emittance:
 
 Direct lighting lit areas (not included in final version):
 ![](images/14_direct_lighting_depth_1)
-
-Direct lighting (not included in final version):
-![](images/15_slightly_better_depth)
 
 Fresnel reflected light factor:
 ![](images/20_fresnel_debug_d16s500.png)
