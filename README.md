@@ -38,13 +38,13 @@ Renderings
 ----------
 
 Combined test render:
-![](images/22_brighter_d16s2000.png)
+![](images/22_brighter_d16s2000.jpg)
 
 Annotated:
-![](images/24_annotated.png)
+![](images/24_annotated.jpg)
 
 With depth of field:
-![](images/23_ultimate_d16s2000.png)
+![](images/23_ultimate_d16s2000.jpg)
 
 
 Performance
@@ -244,65 +244,65 @@ were averaged over time. Higher path depths seem to correspond with bright
 spots which never get optimized out, for some reason.
 
 Depth 16, 500 samples:
-![](images/22_ultimate_d16s500.png)
+![](images/22_ultimate_d16s500.jpg)
 
 Depth 16, 2000 samples:
-![](images/22_ultimate_d16s2000.png)
+![](images/22_ultimate_d16s2000.jpg)
 
 Depth 256, 500 samples:
-![](images/22_ultimate_d256s500.png)
+![](images/22_ultimate_d256s500.jpg)
 
-Depth 256, 2000 samples;
-![](images/22_ultimate_d256s2000.png)
+Depth 256, 2000 samples:
+![](images/22_ultimate_d256s2000.jpg)
 
 
 Earlier Renders
 ---------------
 
 Diffuse-only:
-![](images/08_diffuse_5000.png)
+![](images/08_diffuse_5000.jpg)
 
 Diffuse + Reflective:
-![](images/12_refactored.png)
+![](images/12_refactored.jpg)
 
 With Direct Lighting, depth=8 (not included in final version):
-![](images/15_slightly_better_depth8.png)
+![](images/15_slightly_better_depth8.jpg)
 
 With Direct Lighting, depth=1 (not included in final version):
-![](images/15_slightly_better_depth1.png)
+![](images/15_slightly_better_depth1.jpg)
 
 Same image with antialiasing:
-![](images/16_antialiasing_depth1.png)
+![](images/16_antialiasing_depth1.jpg)
 
 
 Debug Renders
 -------------
 
 Normals:
-![](images/01_debug_nor.png)
+![](images/01_debug_nor.jpg)
 
 Positions:
-![](images/02_debug_pos.png)
+![](images/02_debug_pos.jpg)
 
 Materials/emittance:
-![](images/04_debug_emit.png)
+![](images/04_debug_emit.jpg)
 
 Direct lighting lit areas (not included in final version):
-![](images/14_direct_lighting_depth1.png)
+![](images/14_direct_lighting_depth1.jpg)
 
 Fresnel reflected light factor (shown here for all reflective surfaces, but to
 be only applied to refractive surfaces):
-![](images/20_fresnel_debug_d16s500.png)
+![](images/20_fresnel_debug_d16s500.jpg)
 
 
 Bloopers
 --------
 
 Seed error:
-![](images/06_seed_error_500.png)
+![](images/06_seed_error_500.jpg)
 
 Code refactoring error:
-![](images/10_refactor_error.png)
+![](images/10_refactor_error.jpg)
 
 Sphere normal error (from provided code):
-![](images/22_bad_sphere_scaling_d16s500.png)
+![](images/22_bad_sphere_scaling_d16s500.jpg)
