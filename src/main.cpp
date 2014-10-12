@@ -9,6 +9,9 @@
 #include <cstring>
 #define GLEW_STATIC
 
+static bool camchanged = 0;
+static float theta = 0, phi = 0;
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -86,6 +89,20 @@ void mainLoop() {
 //-------------------------------
 
 void runCuda(){
+    
+    if (camchanged) {
+        iterations = 0;
+        for (int i = 0; i < renderCam->frames; ++i) {
+            glm::vec3 v = renderCam->views[i];
+            glm::vec3 u = renderCam->ups[i];
+            glm::vec3 r = glm::cross(v, u);
+            glm::mat4 rotmat = glm::rotate(theta, r) * glm::rotate(phi, u);
+            renderCam->views[i] = glm::vec3(rotmat * glm::vec4(v, 0.f));
+            renderCam->ups  [i] = glm::vec3(rotmat * glm::vec4(u, 0.f));
+        }
+        theta = phi = 0;
+        camchanged = false;
+    }
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
@@ -319,7 +336,14 @@ void errorCallback(int error, const char* description){
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
-    if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
-        glfwSetWindowShouldClose(window, GL_TRUE);
+    if (action = GLFW_PRESS) {
+        switch (key) {
+            break; case GLFW_KEY_ESCAPE:
+                glfwSetWindowShouldClose(window, GL_TRUE);
+            break; case GLFW_KEY_DOWN: theta = -0.1f; camchanged = true;
+            break; case GLFW_KEY_UP:   theta = +0.1f; camchanged = true;
+            break; case GLFW_KEY_RIGHT:  phi = -0.1f; camchanged = true;
+            break; case GLFW_KEY_LEFT:   phi = +0.1f; camchanged = true;
+        }
     }
 }

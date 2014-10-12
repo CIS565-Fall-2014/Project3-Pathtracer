@@ -309,7 +309,7 @@ __global__ void pathray_step(struct pathray *pathrays,
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
-    const int traceDepth = 256; //determines how many bounces the raytracer traces
+    const int traceDepth = 16; //determines how many bounces the raytracer traces
     const int pixelcount = ((int) renderCam->resolution.x) * ((int) renderCam->resolution.y);
 
     // set up crucial magic
@@ -352,8 +352,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
         cudaMalloc((void**)&pathrays[0], pixelcount * sizeof(struct pathray));
         cudaMalloc((void**)&pathrays[1], pixelcount * sizeof(struct pathray));
     }
+    if (iterations == 1) {
+        cudaMemset(cudaimage, 0, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec4));
+    }
 
-    cudaMemcpy(cudaimage, renderCam->image, (int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(glm::vec4), cudaMemcpyHostToDevice);
     cudaMemcpy(cudageoms, geomList, numberOfGeoms * sizeof(staticGeom), cudaMemcpyHostToDevice);
     cudaMemcpy(cudalights, lightList, numberOfLights * sizeof(staticGeom), cudaMemcpyHostToDevice);
     cudaMemcpy(cudamats, materials, numberOfMaterials * sizeof(material), cudaMemcpyHostToDevice);
