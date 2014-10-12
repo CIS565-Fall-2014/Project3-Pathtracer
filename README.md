@@ -72,6 +72,8 @@ longer use kernel threads.
 |       1024 | 660.xx ms | 300.23 ms |
 
 ![](plots/compaction.png)
+![](plots/compaction_depth_mirror.png)
+![](plots/compaction_depth_nomirror.png)
 
 ### Block sizes (with compaction)
 
@@ -110,10 +112,10 @@ Initially I did cube intersection naively, but this turned out to use
 many GPU registers and had very bad performance. Rewriting based on Kay and
 Kayjia's slab method increased performance significantly:
 
-|             | Naive    |    Slabs |
-|:----------- | --------:| --------:|
-| Registers   |      102 |       95 |
-| Render time | 83.21 ms | 66.54 ms |
+|    Naive |    Slabs |
+| --------:| --------:|
+|  102 reg |   95 reg |
+| 83.21 ms | 66.54 ms |
 
 
 Features
@@ -121,9 +123,37 @@ Features
 
 ### Diffuse materials
 
-Rays bounced according to provided hemisphere sampling method.
+Rays bounced randomly according to provided hemisphere sampling method.
 
-**Performance:** TODO
+**Performance:**
+
+|   Before |    After |
+| --------:| --------:|
+|   55 reg |  103 reg |
+| 16.55 ms | 66.55 ms |
+
+### Reflective materials (non-Fresnel)
+
+Rays always reflected perfectly.
+
+**Performance:**
+
+|   Before |    After |
+| --------:| --------:|
+|  103 reg |  102 reg |
+| 66.55 ms | 66.55 ms |
+
+### Refractive materials (non-Fresnel)
+
+Rays always refracted perfectly. Required some additions to the intersection
+code
+
+**Performance:**
+
+|   Before |    After |
+| --------:| --------:|
+|  102 reg |  101 reg |
+| 66.55 ms | 99.88 ms |
 
 
 Extras
@@ -131,7 +161,8 @@ Extras
 
 ### Antialiasing
 
-Samples are taken randomly from within each pixel.
+Samples are taken randomly from within each pixel. See Earlier Renders section
+for comparison.
 
 **Performance:** Negligible impact.
 
@@ -139,13 +170,8 @@ Samples are taken randomly from within each pixel.
 
 |   Before |    After |
 | --------:| --------:|
+|   95 reg |   95 reg |
 | 33.19 ms | 33.19 ms |
-
-Without:
-![](images/15_slightly_better_depth1.png)
-
-With:
-![](images/16_antialiasing_depth1.png)
 
 
 ### Depth of Field
@@ -153,7 +179,9 @@ With:
 Origin and direction of camera rays is varied randomly (in a uniform circular
 distribution) to emulate a physical aperture.
 
-**Performance:** Negligible impact per-sample. However, it increases the number
+**Performance:** Some impact per-sample when adding the implementation.
+This is due to additional randomness calculations and vector math for computing
+random rays.  Depth of field also increases the number
 of samples needed for visual smoothness due to the extreme variation between
 samples. Implementation-wise, this is identical to analogous CPU code.
 
@@ -161,7 +189,8 @@ samples. Implementation-wise, this is identical to analogous CPU code.
 
 |   Before |    After |
 | --------:| --------:|
-| 98.6  ms | 97.5  ms |
+|   95 reg |   95 reg |
+| 49.87 ms | 61.6x ms |
 
 ### Fresnel Reflection/Refraction
 
@@ -185,6 +214,7 @@ calculation based on that factor.
 
 |   Before |    After |
 | --------:| --------:|
+|  101 reg |  101 reg |
 | 233.2 ms | 249.9 ms |
 
 ### Camera movement
@@ -199,6 +229,11 @@ This is a minor thing, but I fixed the provided code to use inverse transpose
 transformations to calculate the sphere normals.
 
 (Error image in bloopers.)
+
+|   Before |    After |
+| --------:| --------:|
+|  101 reg |  111 reg |
+| 250.2 ms | 266.5 ms |
 
 
 Parameter Comparison Renderings
@@ -230,11 +265,14 @@ Diffuse-only:
 Diffuse + Reflective:
 ![](images/12_refactored.png)
 
+With Direct Lighting, depth=8 (not included in final version):
+![](images/15_slightly_better_depth8.png)
+
 With Direct Lighting, depth=1 (not included in final version):
 ![](images/15_slightly_better_depth1.png)
 
-With Direct Lighting, depth=8
-![](images/15_slightly_better_depth8.png)
+Same image with antialiasing:
+![](images/16_antialiasing_depth1.png)
 
 
 Debug Renders
