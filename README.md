@@ -32,7 +32,7 @@ You can change the scene file in command arguments section.
 ## IMPLEMENTATION
 * Color Accumulation
 I have touble accumulate color when I was testing my diffuse surface, here is what I got at first diffuse rendering:
-
+![alt tag](https://raw.githubusercontent.com/XJMa/Project3-Pathtracer/master/screenShoots/bug.jpg)
 Later I found out the color contribution of each iteration should be different, then I divide the color with 1/iteration and got much more reasonable result: 
 
 * Stream Compaction
@@ -41,7 +41,11 @@ This path tracer is parallelized by ray. When parallelizing by pixel, some ray p
 This implementation uses a pool of rays, each ray has a flag indicating if the ray is alive or dead. With each new wave of raycasts, the current active rays are pulled from the pool and cast into the scene. Depending on whether or not geometry was intersected, the ray is marked as inactive or active. After each wave of raycasts, I use thrust scan and scatter funstion to cull dead rays and get a new raypool with smaller size. 
 
 * Fresnel Transparency
+<<<<<<< HEAD
 I implement fresnel transparency to make the glass material looks more realistic. The implementation is basically the same as I did in CIS560 ray tracer project: first calculate the fresnel coefficients and decide if the ray is a reflect ray or refract ray by the random number portion.
 
 * Depth of Field
 Depth of Field is implemneted by selecting a depth plane away from the camera and jittering the camera position during each iteration.
+=======
+I implement fresnel transparency to make the glass material looks more realistic. The implementation is basically the same as I did in CIS560 ray tracer project: first calculate the fresnel coefficients and 
+>>>>>>> 8f9f67057ff81b9e64ae039e6a97416449cbce59
