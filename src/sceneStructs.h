@@ -23,7 +23,7 @@ struct ray {
 
 	// color-related stuff
 	glm::vec3 color;
-	float intensityMultiplier; // lowers with every bounce to take into account the effect of types of illumination.
+	//float intensityMultiplier; // lowers with every bounce to take into account the effect of types of illumination.
 };
 
 struct geom {

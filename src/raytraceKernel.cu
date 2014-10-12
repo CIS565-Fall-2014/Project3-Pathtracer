@@ -21,7 +21,7 @@
 
 
 
-#define TRACE_DEPTH_LIMIT 5
+#define TRACE_DEPTH_LIMIT 6 // this means 5 bounces in my convoluted code
 
 
 
@@ -81,8 +81,8 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	r.origin = eye;
 	r.active = true;
 	r.sourceindex = x + (y * resolution.x);
-	r.color = glm::vec3(0,0,0);
-	r.intensityMultiplier = 1.f;
+	r.color = glm::vec3(1,1,1);
+	//r.intensityMultiplier = 1.f;
 
 	return r;
 }
@@ -159,12 +159,13 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 	  if (!rays[index].active) {
 		  //the ray has been deactivated, so do nothing
+		  // if/when I implement stream compaction, this will be taken care of elsewhere, so there should be no issue
 		  return;
 	  }
 
 	  if (rayDepth == TRACE_DEPTH_LIMIT - 1) {
 		  rays[index].active = false;
-		  colors[index] += glm::vec3(0,0,.2); // THIS OCCURS TWICE
+		  colors[index] += glm::vec3(0,0,0); // THIS OCCURS TWICE (this line does nothing... it was originally used for debug)
 	  }// too many bounces causes deactivation
 
 		//glm::vec3 colorOfMinDistance(0, 0, 0);
@@ -193,6 +194,13 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 						minNormal = n;
 						minMaterial = materials[geoms[g].materialid];
 					}
+
+						//if ray isect any cube, add something
+					colors[index] += materials[geoms[g].materialid].color;
+						rays[index].active = false;
+						return;
+						////
+
 				}
 			}
 			else if (geoms[g].type == SPHERE) {
@@ -212,7 +220,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 		// nothing was hit
 		if (minDistance == -1.f) {
 			rays[index].active = false;
-			colors[index] += glm::vec3(0,0,.2); // THIS OCCURS TWICE
+			colors[index] += glm::vec3(0,0,0); // THIS OCCURS TWICE (also does nothing)
 			return;
 		}
 

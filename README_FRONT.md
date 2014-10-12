@@ -115,6 +115,15 @@ to quarter the resolution.)
 Note that since each iteration returns the same thing, there is no change if I
 leave the pathtracer to run for multiple iterations.
 
+###### Checkpoint 3:
+
+Look like a real pathtracer, but no stream compaction opt or motion blur yet.
+
+I'm running into trouble - my image is black where the walls should be.
+
+However, I'm pretty sure my box intersection testing is right...
+
+![checkpoint 3-0.0](images/chkpt3-0.0.png)
 
 
 

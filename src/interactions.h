@@ -124,15 +124,17 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 __host__ __device__ int calculateBSDF(ray& r, int depth, material m, glm::vec3 intersectpt, glm::vec3 normal, int iterationNumber){
 	
 	//if the material the ray hit is a light, just stop the bounces there.
+	// I examined the code of some other, more successful students, and decided to make simplifications.
+	// You can see what lines I removed by noticing that they have been commented out. (That was really obvious)
 	if (m.emittance > 0.f) {
-		// ray has hit the light directly
-		if (depth == 0) {
-			r.color = m.emittance * m.color * r.intensityMultiplier;
-		}
+		//// ray has hit the light directly
+		//if (depth == 0) {
+		//	r.color = m.emittance * m.color * r.intensityMultiplier;
+		//}
 		// ray hit the light after some bounces
-		else {
-			r.color *= m.emittance * m.color * r.intensityMultiplier;
-		}
+		//else {
+			r.color *= (m.emittance * m.color);// * r.intensityMultiplier;
+		//}
 
 		return 2;
 	}
@@ -149,10 +151,13 @@ __host__ __device__ int calculateBSDF(ray& r, int depth, material m, glm::vec3 i
 
 		// calculate the intensity
 		float cos_th = glm::dot(newRay, normal) / glm::length(newRay) / glm::length(normal);
-		r.intensityMultiplier *= cos_th;
+		//r.intensityMultiplier *= cos_th;
 
 		// add the color of the surface
-		r.color += m.color * r.intensityMultiplier;
+		//r.color += m.color * r.intensityMultiplier;
+
+		// Actually, it seems what I should do is MULTIPLY the color
+		r.color *= (m.color * cos_th);
 
 		// update r's attributes
 		r.direction = glm::normalize(newRay);
