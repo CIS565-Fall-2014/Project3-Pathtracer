@@ -67,6 +67,7 @@ With help from:
 
 * https://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
 * http://en.wikipedia.org/wiki/Path_tracing#Algorithm
+* Slide 701 from CIS 560 Fall 2013 notes (formula for Lambertian diffuse shading)
 
 
 ##### raytraceKernel.cu work

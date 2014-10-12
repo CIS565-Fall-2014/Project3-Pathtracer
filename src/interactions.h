@@ -7,59 +7,61 @@
 #define INTERACTIONS_H
 
 #include "intersections.h"
+#include "utilities.h"
+#include <thrust/random.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "utilities.h"
+#include <time.h>
 
-struct Fresnel {
-  float reflectionCoefficient;
-  float transmissionCoefficient;
-};
+//struct Fresnel {
+//  float reflectionCoefficient;
+//  float transmissionCoefficient;
+//};
 
-struct AbsorptionAndScatteringProperties{
-    glm::vec3 absorptionCoefficient;
-    float reducedScatteringCoefficient;
-};
+//struct AbsorptionAndScatteringProperties{
+//    glm::vec3 absorptionCoefficient;
+//    float reducedScatteringCoefficient;
+//};
 
 // Forward declaration
-__host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
+//__host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2);
-__host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance);
-__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR);
-__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
-__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
+//__host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance);
+//__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR);
+//__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
+//__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2);
 
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance) {
-  return glm::vec3(0,0,0);
-}
-
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
-                                                        glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3){
-  return false;
-}
-
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
-  return glm::vec3(0,0,0);
-}
-
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
-  //nothing fancy here
-  return glm::vec3(0,0,0);
-}
-
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
-  Fresnel fresnel;
-
-  fresnel.reflectionCoefficient = 1;
-  fresnel.transmissionCoefficient = 0;
-  return fresnel;
-}
+//// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+//__host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance) {
+//  return glm::vec3(0,0,0);
+//}
+//
+//// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+//__host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
+//                                                        glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3){
+//  return false;
+//}
+//
+//// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+//__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
+//  return glm::vec3(0,0,0);
+//}
+//
+//// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+//__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
+//  //nothing fancy here
+//  return glm::vec3(0,0,0);
+//}
+//
+//// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+//__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
+//  Fresnel fresnel;
+//
+//  fresnel.reflectionCoefficient = 1;
+//  fresnel.transmissionCoefficient = 0;
+//  return fresnel;
+//}
 
 // LOOK: This function demonstrates cosine weighted random direction generation in a sphere!
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2) {
@@ -115,18 +117,42 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 }
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
-// Returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
+// Returns 0 if diffuse scatter, 1 if reflected, 2 if it hits LIGHT (active is then set to false).
 
 // NOTE: this function REQUIRES both "diffuse" and "perfect specular reflective" functionality!
 // I will NOT be supporting transmittance, so only the "hemisphere" random function will be used.
-__host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
-                                       glm::vec3& color, material m){
+__host__ __device__ int calculateBSDF(ray& r, int depth, material m, glm::vec3 intersectpt, glm::vec3 normal){
+	
+	//if the material the ray hit is a light, just stop the bounces there.
+	if (m.emittance > 0.f) {
+		// ray has hit the light directly
+		if (depth == 0) {
+			r.color = m.emittance * m.color * r.intensityMultiplier;
+		}
+		// ray hit the light after some bounces
+		else {
+			r.color *= m.emittance * m.color * r.intensityMultiplier;
+		}
+
+		return 2;
+	}
+										  
 	// hasReflective of 0 means no reflection
 	if (m.hasReflective < EPSILON) {
-		
+		//update the intensity multiplier using the Lambertian model
+		// first, get a new ray
+		srand (time(NULL));
+		thrust::default_random_engine rng(hash(rand()));
+		thrust::uniform_real_distribution<float> r01(0,1);
 
-		// do something with color? Idea: add 10% of whatever you hit. when LIGHT is hit, add 100% of the light, 
+		glm::vec3 newRay = calculateRandomDirectionInHemisphere(normal, (float)r01(rng), (float)r01(rng));
 
+		// calculate the intensity
+		float cos_th = glm::dot(newRay, normal) / glm::length(newRay) / glm::length(normal);
+		r.intensityMultiplier *= cos_th;
+
+		// add the color of the surface
+		r.color += m.color * r.intensityMultiplier;
 
 		return 0;
 	}
@@ -136,7 +162,7 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 		float c1 = -1. * glm::dot(normal, incomingDirection);
 		//update r's attributes
 		r.direction = incomingDirection + (normal * (2.f * c1));
-		r.origin = intersect + (float)EPSILON * r.direction; // ensure it doesn't hit itself
+		r.origin = intersectpt + (float)EPSILON * r.direction; // ensure it doesn't hit itself
 
 		// no difficult color math needed for perfect reflection, so don't worry about any other inputs.
 
