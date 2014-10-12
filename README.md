@@ -92,7 +92,7 @@ This program could read a bmp format image and store all the pixel colors in a c
 ![ResultImage](testure mapping_Cut.bmp)
 ![ResultImage](testure mapping2_Cut.bmp)
 * Further improvement:  
-I would like to add the bump mapping effect for the next step. It should be easy to implement the effect. What I need to do is change the normal vector for every point.
+I would like to add the bump mapping effect for the next step. It should be easy to implement the effect. What I need to do is to change the normal vector for every point.
 
 ##Change light color:
 ![ResultImage](change color_depth_5_iteration_1000_Cut.bmp)
