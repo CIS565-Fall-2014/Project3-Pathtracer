@@ -15,6 +15,7 @@
 #include <cuda_gl_interop.h>
 #include <fstream>
 #include <glm/glm.hpp>
+#include <glm/gtx/rotate_vector.hpp>
 #include <glslUtil/glslUtility.hpp>
 #include <iostream>
 #include <sstream>
@@ -101,5 +102,25 @@ void deleteTexture(GLuint* tex);
 void mainLoop();
 void errorCallback(int error, const char *description);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+void cursorCallback(GLFWwindow* window, double x, double y);
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+
+//------------------------------
+//-----USER INTERACTION---------
+//------------------------------
+enum mouseState {
+	NONE,
+	LEFT_MOUSE,
+	MIDDLE_MOUSE,
+	RIGHT_MOUSE
+};
+
+struct Mouse {
+	float x, y;
+	mouseState state;
+};
+
+Mouse mouse;
+
 
 #endif

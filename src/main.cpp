@@ -9,6 +9,7 @@
 #include <cstring>
 #define GLEW_STATIC
 
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -89,7 +90,19 @@ void runCuda(){
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
+	if (renderCam->changed) {
+		iterations = 0;
+		renderCam->changed = false;
+	}
+	
+	// calculate the vectors for screen coordinates here first.
+	glm::vec3 right = glm::normalize(glm::cross(renderCam->views[targetFrame], glm::normalize(renderCam->ups[targetFrame])));
+	glm::vec3 up = glm::cross(right, renderCam->views[targetFrame]);
+	// Image plane should have (0,0) at upper-left, (res.x, rex.y) at bottom-right.
+	// TODO: Figure out why this is flipped horizontally
+	renderCam->planeRight = right * (float)tan(renderCam->fov.x * PI / 180);
+	renderCam->planeDown = -up * (float)tan(renderCam->fov.y * PI / 180);
+
   if(iterations < renderCam->iterations){
     uchar4 *dptr=NULL;
     iterations++;
@@ -178,6 +191,8 @@ bool init(int argc, char* argv[]) {
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
+  glfwSetCursorPosCallback(window, cursorCallback);
+  glfwSetMouseButtonCallback(window, mouseButtonCallback);
 
   // Set up GL context
   glewExperimental = GL_TRUE;
@@ -320,5 +335,59 @@ void errorCallback(int error, const char* description){
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
-    }
+    } else if(key == GLFW_KEY_P && action == GLFW_PRESS) {
+		// print current image, with iteration_#
+	}
+}
+
+void cursorCallback(GLFWwindow* window, double x, double y){
+	if (mouse.state == LEFT_MOUSE) {	//rotate
+		renderCam->changed = true;
+		glm::mat4 rot(1.f);
+		glm::vec3 axis = ((float)x - mouse.x) / renderCam->resolution.x * 2 * renderCam->planeRight +
+											-((float)y - mouse.y) / renderCam->resolution.y * 2  * renderCam->planeDown;
+		//glm::rotate(rot, 0.01f, axis);
+		
+		renderCam->positions[targetFrame] += ((float)x - mouse.x) / renderCam->resolution.x * 2 * renderCam->planeRight +
+											-((float)y - mouse.y) / renderCam->resolution.y * 2  * renderCam->planeDown;
+		/*renderCam->positions[targetFrame] += ((float)x - mouse.x) / renderCam->resolution.x * 2 * renderCam->planeRight +
+											-((float)y - mouse.y) / renderCam->resolution.y * 2  * renderCam->planeDown;//glm::vec3(rot * glm::vec4(renderCam->positions[targetFrame], 1.f));
+		cout << "x = " << x << ", y = " << y << endl;*/
+	} else if (mouse.state == RIGHT_MOUSE) {	//pan
+		renderCam->changed = true;
+		// positive x -> camera shifts left
+		// positive y -> camera shifts up
+		renderCam->positions[targetFrame] += ((float)x - mouse.x) / renderCam->resolution.x * 2 * renderCam->planeRight +
+											-((float)y - mouse.y) / renderCam->resolution.y * 2  * renderCam->planeDown;
+	} else if (mouse.state == MIDDLE_MOUSE) {	//zoom
+		renderCam->changed = true;
+		renderCam->positions[targetFrame] += ((float)y - mouse.y) / renderCam->resolution.y * 2 * renderCam->views[targetFrame];
+	}
+	mouse.x = x;
+	mouse.y = y;
+}
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+	if (button == GLFW_MOUSE_BUTTON_1) {
+		if (action == GLFW_PRESS) {
+			mouse.state = LEFT_MOUSE;
+		} else if (mouse.state == LEFT_MOUSE){
+			mouse.state = NONE;
+		}
+		cout << "m1"<<endl;
+	} else if (button == GLFW_MOUSE_BUTTON_2) {
+		if (action == GLFW_PRESS) {
+			mouse.state = RIGHT_MOUSE;
+		} else if (mouse.state == RIGHT_MOUSE){
+			mouse.state = NONE;
+		}
+		cout << "m2"<<endl;
+	} else if (button == GLFW_MOUSE_BUTTON_3) {
+		if (action == GLFW_PRESS) {
+			mouse.state = MIDDLE_MOUSE;
+		} else if (mouse.state == MIDDLE_MOUSE){
+			mouse.state = NONE;
+		}
+		cout << "m3"<<endl;
+	}
 }

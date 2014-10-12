@@ -16,6 +16,10 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	int index;
+	glm::vec3 color;
+	bool ended;
+	bool init;
 };
 
 struct geom {
@@ -45,6 +49,8 @@ struct cameraData {
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+	glm::vec3 planeRight;
+	glm::vec3 planeDown;
 };
 
 struct camera {
@@ -58,6 +64,9 @@ struct camera {
 	glm::vec3* image;
 	ray* rayList;
 	std::string imageName;
+	bool changed;
+	glm::vec3 planeRight;
+	glm::vec3 planeDown;
 };
 
 struct material{
