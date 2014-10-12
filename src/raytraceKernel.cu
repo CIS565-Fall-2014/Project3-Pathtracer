@@ -153,42 +153,76 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
   /*
        - do a colors[] +=, not a colors[] = ... I need to ACCUMULATE colors and then divide (see PBO function above)
 	   - use the pooled array map to ensure you're +='ing to the proper colors[] entry!
+	   - ** ADD TO COLORS[] UPON DEACTIVATION
   */
   if((x<=resolution.x && y<=resolution.y)){
 
-	  glm::vec3 colorOfMinDistance(0, 0, 0);
-	  float minDistance = -1.f;
-
-	  for (int g = 0; g < numberOfGeoms; g++) {
-		  if (geoms[g].type == CUBE) {
-			  float test = boxIntersectionTest(geoms[g], rays[index], glm::vec3(), glm::vec3());
-			  if (test > -.5) { // so, positive
-				  if (minDistance < 0 || test < minDistance) { // if unset or new min
-					  minDistance = test;
-					  //light debug
-					  if (materials[geoms[g].materialid].emittance > 0) {
-						  colorOfMinDistance = glm::vec3(1,1,0);
-					  }
-					  else {
-						  colorOfMinDistance = materials[geoms[g].materialid].color;
-					  }
-				  }
-			  }
-		  }
-		  else if (geoms[g].type == SPHERE) {
-			  float test = sphereIntersectionTest(geoms[g], rays[index], glm::vec3(), glm::vec3());
-			  if (test > -.5) { // so, positive
-				  if (minDistance < 0 || test < minDistance) { // if unset or new min
-					  minDistance = test;
-					  colorOfMinDistance = materials[geoms[g].materialid].color;
-				  }
-			  }
-		  }
+	  if (!rays[index].active) {
+		  //the ray has been deactivated, so do nothing
+		  return;
 	  }
 
-	  colors[index] += colorOfMinDistance;
+	  if (rayDepth == TRACE_DEPTH_LIMIT - 1) {
+		  rays[index].active = false;
+		  colors[index] += glm::vec3(0,0,.2); // THIS OCCURS TWICE
+	  }// too many bounces causes deactivation
 
-	  //colors[index] += generateRandomNumberFromThread(resolution, time, x, y);
+		//glm::vec3 colorOfMinDistance(0, 0, 0);
+		float minDistance = -1.f;
+		glm::vec3 minIsectPt(0,0,0);
+		glm::vec3 minNormal(0,0,0);
+		material minMaterial;
+
+		glm::vec3 i(0,0,0);
+		glm::vec3 n(0,0,0);
+
+		for (int g = 0; g < numberOfGeoms; g++) {
+			if (geoms[g].type == CUBE) {
+				float test = boxIntersectionTest(geoms[g], rays[index], i, n);
+				if (test > -.5) { // so, positive
+					if (minDistance < 0 || test < minDistance) { // if unset or new min
+						minDistance = test;
+						////light debug
+						//if (materials[geoms[g].materialid].emittance > 0) {
+							// colorOfMinDistance = glm::vec3(1,1,0);
+						//}
+						//else {
+							//colorOfMinDistance = materials[geoms[g].materialid].color;
+						//}
+						minIsectPt = i;
+						minNormal = n;
+						minMaterial = materials[geoms[g].materialid];
+					}
+				}
+			}
+			else if (geoms[g].type == SPHERE) {
+				float test = sphereIntersectionTest(geoms[g], rays[index], i, n);
+				if (test > -.5) { // so, positive
+					if (minDistance < 0 || test < minDistance) { // if unset or new min
+						//colorOfMinDistance = materials[geoms[g].materialid].color;
+						minDistance = test;
+						minIsectPt = i;
+						minNormal = n;
+						minMaterial = materials[geoms[g].materialid];
+					}
+				}
+			}
+		}
+
+		// nothing was hit
+		if (minDistance == -1.f) {
+			rays[index].active = false;
+			colors[index] += glm::vec3(0,0,.2); // THIS OCCURS TWICE
+			return;
+		}
+
+		if (calculateBSDF(rays[index], rayDepth, minMaterial, minIsectPt, minNormal, (int)time) == 2) {
+			//light has been hit, so terminate the ray here and add its color
+			rays[index].active = false;
+			colors[index] += rays[index].color;
+		}
+		// if light wasn't hit, BSDF takes care of other stuff as needed
+
   }
 }
 

@@ -121,7 +121,7 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 
 // NOTE: this function REQUIRES both "diffuse" and "perfect specular reflective" functionality!
 // I will NOT be supporting transmittance, so only the "hemisphere" random function will be used.
-__host__ __device__ int calculateBSDF(ray& r, int depth, material m, glm::vec3 intersectpt, glm::vec3 normal){
+__host__ __device__ int calculateBSDF(ray& r, int depth, material m, glm::vec3 intersectpt, glm::vec3 normal, int iterationNumber){
 	
 	//if the material the ray hit is a light, just stop the bounces there.
 	if (m.emittance > 0.f) {
@@ -141,8 +141,8 @@ __host__ __device__ int calculateBSDF(ray& r, int depth, material m, glm::vec3 i
 	if (m.hasReflective < EPSILON) {
 		//update the intensity multiplier using the Lambertian model
 		// first, get a new ray
-		srand (time(NULL));
-		thrust::default_random_engine rng(hash(rand()));
+		//srand (time(NULL));
+		thrust::default_random_engine rng(hash(iterationNumber));
 		thrust::uniform_real_distribution<float> r01(0,1);
 
 		glm::vec3 newRay = calculateRandomDirectionInHemisphere(normal, (float)r01(rng), (float)r01(rng));
@@ -153,6 +153,10 @@ __host__ __device__ int calculateBSDF(ray& r, int depth, material m, glm::vec3 i
 
 		// add the color of the surface
 		r.color += m.color * r.intensityMultiplier;
+
+		// update r's attributes
+		r.direction = glm::normalize(newRay);
+		r.origin = intersectpt + (float)EPSILON * r.direction; // ensure it doesn't hit itself
 
 		return 0;
 	}

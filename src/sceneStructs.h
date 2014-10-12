@@ -18,7 +18,7 @@ struct ray {
 	glm::vec3 direction;
 	// additional stuff needed to make stream compaction optimization work
 	bool active; // if false, then a stream compaction alg should DESTROY this ray (so it doesn't exist in memory anymore)
-	             // changes to FALSE upon reaching max depth, or hitting nothing.
+	             // changes to FALSE upon hitting nothing or reaching Max Depth
 	int sourceindex; // which pixel the ray originally came from. This DOES NOT CHANGE throughout the lifetime of a ray
 
 	// color-related stuff

@@ -107,7 +107,8 @@ and have them return the color of the first thing they intersect.
 I already have some ideas as to what this should look like, based on posts from
 other students on the forums.
 
-It works!
+It works! (Though my implementation is obviously terribly inefficient, so I had
+to quarter the resolution.)
 
 ![checkpoint 2](images/chkpt2.png)
 
