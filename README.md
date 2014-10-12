@@ -61,18 +61,17 @@ depths (tested up to 1000) without very significant performance degradation.
 This is because the vast majority of paths have terminated, and dead paths no
 longer use kernel threads.
 
-TODO: numbers
-
 | Path Depth | Before | After  |
 | ----------:| ------:| ------:|
 |          2 |  33.20 |  49.86 |
 |          4 |  66.54 |  83.20 |
 |          8 | 116.55 | 116.56 |
 |         16 | 216.54 | 133.20 |
-|         64 | 327.1  | 149.90 |
-|        256 | 418    | 183.22 |
+|         64 | 327.1x | 149.90 |
+|        256 | 418.xx | 183.22 |
+|       1024 | 660.xx | 300.23 |
 
-![](images/00_compaction_plot.png)
+![](plots/compaction.png)
 
 ### Block sizes (with compaction)
 

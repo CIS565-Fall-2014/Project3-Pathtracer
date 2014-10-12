@@ -33,3 +33,6 @@ windows/src/
 # Exceptions
 !external/lib/*/*.lib
 !external/bin/*
+
+# LibreOffice
+.~lock.*#
