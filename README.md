@@ -61,27 +61,59 @@ depths (tested up to 1000) without very significant performance degradation.
 This is because the vast majority of paths have terminated, and dead paths no
 longer use kernel threads.
 
-| Path Depth | Before | After  |
-| ----------:| ------:| ------:|
-|          2 |  33.20 |  49.86 |
-|          4 |  66.54 |  83.20 |
-|          8 | 116.55 | 116.56 |
-|         16 | 216.54 | 133.20 |
-|         64 | 327.1x | 149.90 |
-|        256 | 418.xx | 183.22 |
-|       1024 | 660.xx | 300.23 |
+| Path Depth |    Before |     After |
+| ----------:| ---------:| ---------:|
+|          2 |  33.20 ms |  49.86 ms |
+|          4 |  66.54 ms |  83.20 ms |
+|          8 | 116.55 ms | 116.56 ms |
+|         16 | 216.54 ms | 133.20 ms |
+|         64 | 327.1x ms | 149.90 ms |
+|        256 | 418.xx ms | 183.22 ms |
+|       1024 | 660.xx ms | 300.23 ms |
 
 ![](plots/compaction.png)
 
 ### Block sizes (with compaction)
 
-TODO: graph
+This plot is remarkably uninteresting (beyond the expected low performance of
+block sizes which are not multiples of the warp size of 32).
+This is probably due to the fact that shared memory was not used at all.
+
+With a block size of 512, performance becomes marginally worse.
+This may be due to the increased number of registers used, since the number of
+registers per thread is high (111).  This may be also due to caching effects:
+at this block size, a lot of data is being loaded for each block, so the cache
+may not be able to hold everything effectively.
+
+With a block size of 1024, the kernel does not run due to insufficient
+resources.
+
+| Block size |    Time  |
+| ----------:| --------:|
+|         16 | 399.9 ms |
+|         32 | 266.5 ms |
+|         33 | 416.5 ms |
+|         48 | 316.5 ms |
+|         64 | 266.5 ms |
+|         65 | 349.3 ms | 
+|         80 | 299.9 ms |
+|         96 | 266.5 ms |
+|        128 | 266.5 ms |
+|        256 | 266.5 ms |
+|        512 | 271.3 ms |
+
+![](plots/blocksize.png)
 
 ### Cube Intersection
 
-Initially I did cube intersection naively, but this turned out to use way too
+Initially I did cube intersection naively, but this turned out to use 
 many GPU registers and had very bad performance. Rewriting based on Kay and
-Kayjia's slab method reduced register usage by around 50 registers.
+Kayjia's slab method increased performance significantly:
+
+|             | Naive    |    Slabs |
+|:----------- | --------:| --------:|
+| Registers   |      102 |       95 |
+| Render time | 83.21 ms | 66.54 ms |
 
 
 Features
@@ -103,7 +135,7 @@ Samples are taken randomly from within each pixel.
 
 **Performance:** Negligible impact.
 
-*Mean rendering time per sample for an arbitrary example scene*
+*Mean rendering time per iteration for an arbitrary example scene*
 
 |   Before |    After |
 | --------:| --------:|
@@ -125,7 +157,7 @@ distribution) to emulate a physical aperture.
 of samples needed for visual smoothness due to the extreme variation between
 samples. Implementation-wise, this is identical to analogous CPU code.
 
-*Mean rendering time per sample for an arbitrary example scene*
+*Mean rendering time per iteration for an arbitrary example scene*
 
 |   Before |    After |
 | --------:| --------:|
@@ -149,7 +181,7 @@ dot products with that, but this is more readable.)
 the additional Fresnel factor computation and the additional random branch
 calculation based on that factor.
 
-*Mean rendering time per sample for an arbitrary example scene*
+*Mean rendering time per iteration for an arbitrary example scene*
 
 |   Before |    After |
 | --------:| --------:|
