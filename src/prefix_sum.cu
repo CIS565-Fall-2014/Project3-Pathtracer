@@ -5,6 +5,7 @@
 
 // Project Dependencies
 #include "prefix_sum.h"
+#include "sceneStructs.h"
 
 template <typename T> 
 __global__ void naive_prefix_sum(T* in, T* out, int* size) {
@@ -121,7 +122,7 @@ __global__ void one_block_prefix_sum(T* in, T* out, int* size) {
 }
 
 template <typename T> 
-__global__ void n_block_prefix_sum(T* in, T* out, int* size) {
+__global__ void n_block_prefix_sum(T* in, T* out) {
 
     int index = blockIdx.x * blockDim.x + threadIdx.x; //can't keep it simple anymore
 	int s_index = threadIdx.x;
@@ -222,12 +223,11 @@ __global__ void threshold_array(const T* in, const T* threshold, int* out) {
 }
 
 template <typename T>
-__global__ void compact_array(const T* in, const int* indices, const int* mask, T* out, int* size) {
-	int index = threadIdx.x; //Keep it simple, only use x since arrays are 1 dimensional
+__global__ void compact_array(const T* in, const int* indices, const int* mask, T* out) {
+	int index = blockIdx.x*blockDim.x + threadIdx.x;
 	if (mask[index] == 1) {
 		out[indices[index]] = in[index];
 	}
-	*size = (indices[*size-1] + 1);
 }
 
 template <typename T> 
@@ -301,7 +301,7 @@ void gpuNBlockPrefixSum(const T* in, T* out, int size) {
 	int threads_per_block = 16384/needed_bytes;
 	int n_blocks = size/threads_per_block;
 
-	n_block_prefix_sum<T><<<n_blocks, threads_per_block, needed_bytes>>>(in_d, out_d, size_d);
+	n_block_prefix_sum<T><<<n_blocks, threads_per_block, needed_bytes>>>(in_d, out_d);
 	cudaDeviceSynchronize();
 
 	//Copy data from GPU
@@ -381,12 +381,16 @@ int gpuCompact(const T* in, const T threshold, T* out, int size) {
 	cudaDeviceSynchronize();
 
 	// Call the compaction kernel
-	compact_array<T><<<1,size>>>(in_d, indices_d, mask_d, out_d, size_d);
+	compact_array<T><<<1,size>>>(in_d, indices_d, mask_d, out_d);
 
 	// Copy the result back from the GPU
 	int result;
 	cudaMemcpy(&result, size_d, sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(out, out_d, result*sizeof(T), cudaMemcpyDeviceToHost);
+
+	// Update the size
+	cudaMemcpy(&size, &indices_d[size-1], sizeof(int), cudaMemcpyDeviceToHost);
+	size += 1;
 
 	//Clear GPU Memory
 	cudaFree(in_d);

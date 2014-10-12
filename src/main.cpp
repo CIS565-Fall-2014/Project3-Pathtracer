@@ -110,9 +110,14 @@ void runCuda(){
     for (int i=0; i < renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
-  
+	worldSizes ws;
+	ws.numberOfGeoms = renderScene->objects.size();
+	ws.numberOfMaterials = renderScene->materials.size();
+	ws.numberOfTriangles = 0;
+	ws.numberOfVertices = 0;
+
     // execute the kernel
-    cudaPathtraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaPathtraceCore(dptr, renderCam, targetFrame, iterations, materials, geoms, ws);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);

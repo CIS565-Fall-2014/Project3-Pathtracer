@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <cuda.h>
 #include <cmath>
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
 
 #include "sceneStructs.h"
 #include "glm/glm.hpp"
@@ -73,14 +75,15 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 }
 
 // function that collides a ray against a set of geometries
-__host__ __device__ float collideRay(const ray& r, const staticGeom* geoms, const int numGeoms, glm::vec3& normal, int& idx) {
+__host__ __device__ float collideRay(const ray& r, const worldData* world, worldSizes ws, glm::vec3& normal, int& idx) {
 	float min_dist = FLT_MAX;
 	glm::vec3 norm;
-	
-	for (int i = 0; i < numGeoms; i++) {
-		staticGeom g = geoms[i];
-		glm::vec3 i_point;
-		float d;
+	glm::vec3 i_point;
+	float d;
+
+	// Loop over primitive geometries
+	for (int i = 0; i < ws.numberOfGeoms; i++) {
+		staticGeom g = world->geoms[i];
 
 		switch (g.type) {
 		case SPHERE : 
@@ -103,18 +106,152 @@ __host__ __device__ float collideRay(const ray& r, const staticGeom* geoms, cons
 			}
 			break;	
 			}
-		//TODO: Handle the mesh case here
 		default :
 			{
 			break;
 			}
 		}
 	}
-	return (idx == -1 ? -1.0f : min_dist);
+
+	// Loop over triangles
+	glm::vec3 triangle[3];
+	for (int i = 0; i < ws.numberOfTriangles; i++) {
+		for (int j = 0; j < 3; j++) {
+			triangle[j] = world->vertices[world->indices[3*i + j]];
+		}
+		d = triangleIntersectionTest(triangle, r, i_point, norm);
+		if (d >= 0.0f && d < min_dist) {
+			//idx = i; TODO: Associate a triangle with a geometry
+			min_dist = d;
+			normal = norm;
+		}
+	}
+
+		return (idx == -1 ? -1.0f : min_dist);
+}
+
+// predicate struct for thrust stream compaction (utilizing the google code template for doing this)
+struct is_kept {
+	__host__ __device__
+	bool operator() (const ray& r)
+	{
+		return !r.remove;
+	}
+};
+
+// templated kernel for prefix sum
+template <typename T>
+__global__ void nBlockPrefixSum(T* in, T* out) {
+
+	int index = blockIdx.x * blockDim.x + threadIdx.x; //can't keep it simple anymore
+	int s_index = threadIdx.x;
+
+	// Create shared memory
+	extern __shared__ T s[];
+	T* in_s = &s[0];
+	T* out_s = &s[blockDim.x];
+	__shared__ float lower_tile_value;
+
+	//Load into shared memory
+	//Start by shifting right since the calculation is going to be inclusive and we want exclusive
+	if (index > 0) {
+		in_s[s_index] = in[index - 1];
+	}
+	else {
+		in_s[s_index] = 0.0f;
+	}
+	__syncthreads();
+
+	//Calculate the max depth
+	int max_depth = ceil(log((float)blockDim.x) / log(2.0f));
+
+	//Loop over each depth
+	for (int d = 1; d <= max_depth; d++) {
+
+		//Calculate the offset for the current depth
+		int off = pow(2.0f, d - 1);
+
+		// compute left->right or right->left
+		if ((d % 2) == 1) {
+
+			// calculate the sum
+			if (s_index >= off) {
+				out_s[s_index] = in_s[s_index - off] + in_s[s_index];
+			}
+			else {
+				//Have to leave other elements alone
+				out_s[s_index] = in_s[s_index];
+			}
+
+		}
+		else {
+
+			// calculate the sum
+			if (s_index >= off) {
+				in_s[s_index] = out_s[s_index - off] + out_s[s_index];
+			}
+			else {
+				//Have to leave other elements alone
+				in_s[s_index] = out_s[s_index];
+			}
+
+		}
+
+		//Sync threads before the next depth to use proper values
+		__syncthreads();
+
+	}
+
+	//Copy the correct result to global memory
+	if ((max_depth % 2) == 1) {
+		out[index] = out_s[s_index];
+	}
+	else {
+		out[index] = in_s[s_index];
+	}
+
+	__syncthreads();
+
+	//Determine the number of additional loops that will be required
+	int kernel_calls = ceil(log((float)gridDim.x) / log(2.0f)) + 1;
+
+	//Loop over the kernel calls, doing a pseudo-serial scan over the remaining layers
+	for (int k = 0; k < kernel_calls; k++) {
+
+		//Swap out and in
+		T* temp = in;
+		in = out;
+		out = temp;
+
+		//Load the needed value for this tile into shared memory
+		if (s_index == 0) {
+			if (blockIdx.x >= (int)pow(2.0f, k)) {
+				lower_tile_value = in[(blockIdx.x + 1 - (int)pow(2.0f, k))*blockDim.x - 1];
+			}
+			else {
+				lower_tile_value = 0.0f;
+			}
+		}
+		__syncthreads();
+
+		//Add to the output
+		out[index] = in[index] + lower_tile_value;
+		__syncthreads();
+	}
+
+}
+
+// templated kernel for compaction
+template <typename T>
+__global__ void compactArray(const T* in, const int* indices, const int* mask, T* out) {
+	int index = blockIdx.x*blockDim.x + threadIdx.x;
+	if (mask[index] == 1) {
+		out[indices[index]] = in[index];
+	}
 }
 
 // Wrapper kernel to call the camera raycasting
-__global__ void getInitialRays(cameraData cam, float time, ray* rays) {
+__global__ void getInitialRays(cameraData cam, float time, ray* rays/*, int* mask*/) {
 	// Get the x,y coords for this thread
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
 	int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -124,8 +261,9 @@ __global__ void getInitialRays(cameraData cam, float time, ray* rays) {
 	if(x<=cam.resolution.x && y<=cam.resolution.y) {
 		rays[index] = raycastFromCameraKernel(cam.resolution, time, x, y,  cam.position, cam.view, cam.up, cam.fov);
 		rays[index].pix_idx = index;
-		rays[index].remove = false;
 		rays[index].color = glm::vec3(1.0f, 1.0f, 1.0f);
+		rays[index].remove = false;
+		//mask[index] = 1;
 	}
 }
 
@@ -174,20 +312,15 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 // Core pathtracer kernel
-__global__ void pathtraceRays(float time, int rayDepth, int maxDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, 
-							ray* rays, int numRays) {
+__global__ void pathtraceRays(float time, int rayDepth, int maxDepth, glm::vec3* colors, worldData* world, worldSizes ws, 
+							ray* rays, int numRays/*, int* rayMask*/) {
 
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   if(index < numRays) {
 	// Get the ray for this thread
 	ray r = rays[index];
-
-	// TEMP: Skip removed rays
-	if (r.remove) {
-		return;
-	}
+	//int mask = rayMask[index];
 
 	// Initialize the normal vector of intersection
 	glm::vec3 normal;
@@ -196,53 +329,108 @@ __global__ void pathtraceRays(float time, int rayDepth, int maxDepth, glm::vec3*
 	int geom_idx = -1;
 
 	// Check if the ray hits something
-	float dist = collideRay(r, geoms, numberOfGeoms, normal, geom_idx);
+	float dist = collideRay(r, world, ws, normal, geom_idx);
 
 	//A miss should be removed and the follow steps can be skipped
 	if (geom_idx == -1) {
+		//mask = 0;
 		r.remove = true;
 
 	// Handle the case where the object is a light source (it stops here, and accumulates color)
-	} else if (!epsilonCheck(materials[geoms[geom_idx].materialid].emittance, 0.0f)) {
-		r.color *= materials[geoms[geom_idx].materialid].emittance;
+	} else if (!epsilonCheck(world->materials[world->geoms[geom_idx].materialid].emittance, 0.0f)) {
+		r.color *= world->materials[world->geoms[geom_idx].materialid].emittance;
 		colors[r.pix_idx] += r.color;
+		//mask = 0;
 		r.remove = true;
 	} else {
 
 		// Update the ray's color from the object
-		r.color *= materials[geoms[geom_idx].materialid].color;
+		r.color *= world->materials[world->geoms[geom_idx].materialid].color;
 
 		// Update the origin of the ray based on the intersection point (slightly outside)
-		r.origin += r.direction * (dist * 0.99f);
+		r.origin += r.direction * (dist * 0.9999f);
 
+		// Handle the case where the object is refractive
+		if (!epsilonCheck(world->materials[world->geoms[geom_idx].materialid].hasRefractive, 0.0f)) {
+			float r1 = 1.0f;
+			float r2 = world->materials[world->geoms[geom_idx].materialid].indexOfRefraction;
+			if (glm::dot(normal, r.direction) > 0.0f) {
+				float temp = r1;
+				r1 = r2;
+				r2 = temp;
+			}
+			r.direction = calculateTransmissionDirection(normal, r.direction, r1, r2);
 		// Handle the case where the object is reflective
-		if (!epsilonCheck(materials[geoms[geom_idx].materialid].hasReflective, 0.0f)) {
-			r.direction -= 2.0f*glm::dot(r.direction, normal)*normal;
-			r.direction = glm::normalize(r.direction);
+		} else if (!epsilonCheck(world->materials[world->geoms[geom_idx].materialid].hasReflective, 0.0f)) {
+			r.direction = calculateReflectionDirection(normal, r.direction);
 		// Handle the case where the object is pure diffusive
 		} else {
 			thrust::default_random_engine rng(hash((time+1)*(rayDepth+1)*index));
+			thrust::default_random_engine rng2(hash((time/2)*(rayDepth + 1)*index));
 			thrust::uniform_real_distribution<float> u01(0,1);
-			r.direction = calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng));
+			r.direction = calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng2));
 		}
 
+		// Randomly kill with russian roulette
+		thrust::default_random_engine rng(hash((time + 1)*(rayDepth/2)*index));
+		thrust::uniform_real_distribution<float> u01(0, 1);
+
 		// Set the flag for removal if its at max depth and add color to the pixel for it
-		if (rayDepth >= (maxDepth - 1)) {
+		if (rayDepth >= (maxDepth - 1) || (float)u01(rng) < 0.01) {
 			colors[r.pix_idx] += r.color;
+			//mask = 0;
 			r.remove = true;
 		}
 	}
 
 	// Put the ray back into global memory
 	rays[index] = r;
+	//rayMask[index] = mask;
   }
 
 }
 
+//Wrapper for kernel calls that compact a set of rays (on the device)
+void compactRays(ray* raysIn, int num, int* mask, ray* raysOut) {
+	int threads_per_block = 256;
+	int needed_bytes = 2 * threads_per_block * sizeof(int);
+	int n_blocks = num / threads_per_block;
+
+	//Prefix sum the mask to get the indices
+	int* indices;
+	int* mask_copy;
+	int* indices_h = (int*) malloc(num*sizeof(int));
+	cudaMalloc((void**)&indices, num*sizeof(int));
+	cudaMalloc((void**)&mask_copy, num*sizeof(int));
+	cudaMemcpy(mask_copy, mask, num*sizeof(int), cudaMemcpyDeviceToDevice);
+	cudaDeviceSynchronize();
+	nBlockPrefixSum<int><<<n_blocks, threads_per_block, needed_bytes>>>(mask_copy, indices);
+	cudaDeviceSynchronize();
+
+	//Compact into the output by using the indices
+	compactArray<ray><<<n_blocks, threads_per_block>>>(raysIn, indices, mask, raysOut);
+	cudaDeviceSynchronize();
+
+	//Determine the new length
+	cudaMemcpy(indices_h, indices, num*sizeof(int), cudaMemcpyDeviceToHost);
+	num = indices_h[num-1] + 1;
+
+	//Cleanup
+	cudaFree(indices);
+	free(indices_h);
+}
+
+//Wrapper for stream compaction with thrust
+void compactRaysThrust(ray* raysIn, int& num, ray* raysOut) {
+	thrust::device_ptr<ray> in = thrust::device_pointer_cast<ray>(raysIn);
+	thrust::device_ptr<ray> out = thrust::device_pointer_cast<ray>(raysOut);
+	num = thrust::copy_if(in, in+num, out, is_kept()) - out;
+}
+
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, geom* geoms, worldSizes ws){
   
-  int traceDepth = 5; //determines how many bounces the pathtracer traces
+  int traceDepth = 20; //determines how many bounces the pathtracer traces
 
   // set up crucial magic
   int tileSize = 16;
@@ -253,10 +441,15 @@ void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterati
   glm::vec3* cudaImage;
   cudaMalloc((void**)&cudaImage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
   cudaMemcpy(cudaImage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
-  
+
+  // setup the world on the GPU
+  worldData hostWorld;
+  worldData* cudaWorld;
+  cudaMalloc((void**)&cudaWorld, sizeof(worldData));
+
   // package geometry
-  staticGeom* geomList = new staticGeom[numberOfGeoms];
-  for(int i=0; i<numberOfGeoms; i++){
+  staticGeom* geomList = new staticGeom[ws.numberOfGeoms];
+  for(int i=0; i<ws.numberOfGeoms; i++){
     staticGeom newStaticGeom;
     newStaticGeom.type = geoms[i].type;
     newStaticGeom.materialid = geoms[i].materialid;
@@ -270,13 +463,26 @@ void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterati
   
   // send geometry to GPU
   staticGeom* cudaGeoms;
-  cudaMalloc((void**)&cudaGeoms, numberOfGeoms*sizeof(staticGeom));
-  cudaMemcpy(cudaGeoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+  cudaMalloc((void**)&cudaGeoms, ws.numberOfGeoms*sizeof(staticGeom));
+  cudaMemcpy(cudaGeoms, geomList, ws.numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+  hostWorld.geoms = cudaGeoms;
   
   // send materials to GPU
   material* cudaMaterials;
-  cudaMalloc((void**)&cudaMaterials, numberOfMaterials*sizeof(material));
-  cudaMemcpy(cudaMaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+  cudaMalloc((void**)&cudaMaterials, ws.numberOfMaterials*sizeof(material));
+  cudaMemcpy(cudaMaterials, materials, ws.numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+  hostWorld.materials = cudaMaterials;
+
+  // send triangles to GPU
+  /*glm::vec3* cudaVertices;
+  int* cudaIndices;
+  cudaMalloc((void**)&cudaVertices, ws.numberOfVertices*sizeof(glm::vec3));
+  cudaMalloc((void**)&cudaIndices, ws.numberOfTriangles*3*sizeof(int));
+  hostWorld.vertices = cudaVertices;
+  hostWorld.indices = cudaIndices;*/
+
+  // send the final world to the GPU
+  cudaMemcpy(cudaWorld, &hostWorld, sizeof(worldData), cudaMemcpyHostToDevice);
 
   // package camera
   cameraData cam;
@@ -286,26 +492,52 @@ void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterati
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
 
-  // allocate ray data on GPU
-  ray* cudaRays;
+  // allocate ray data on GPU (2 sets of rays so we can compact back and forth)
+  ray* cudaRays1;
+  ray* cudaRays2;
+  //int* cudaRayMask;
   int numRays = cam.resolution.x * cam.resolution.y;
-  cudaMalloc((void**)&cudaRays, numRays*sizeof(ray));
+  cudaMalloc((void**)&cudaRays1, numRays*sizeof(ray));
+  cudaMalloc((void**)&cudaRays2, numRays*sizeof(ray));
+  //cudaMalloc((void**)&cudaRayMask, numRays*sizeof(int));
 
   // Clear off the current image
   //clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaImage);
 
   // Get initial rays
-  getInitialRays<<<fullBlocksPerGrid, threadsPerBlock>>>(cam, (float)iterations, cudaRays);
+  getInitialRays<<<fullBlocksPerGrid, threadsPerBlock>>>(cam, (float)iterations, cudaRays1/*, cudaRayMask*/);
 
   // Setup thread/block breakdown for pathtracing
   int rayThreads = 256;
   dim3 rayThreadsPerBlock(rayThreads);
   dim3 rayBlocksPerGrid((int)ceil((float)numRays / (float)rayThreads));
 
+  // initialize device pointers to use in the main loop
+  ray* raysIn = cudaRays1;
+  ray* raysOut = cudaRays2;
+
   // loop over kernel launches
   for (int tr = 0; tr < traceDepth; tr++) {
-	pathtraceRays<<<rayBlocksPerGrid, rayThreadsPerBlock>>>((float)iterations, tr, traceDepth, cudaImage, cudaGeoms, numberOfGeoms, cudaMaterials, numberOfMaterials, cudaRays, numRays);
+	//Pathtrace the current rays
+	pathtraceRays<<<rayBlocksPerGrid, rayThreadsPerBlock>>>((float)iterations, tr, traceDepth, cudaImage, cudaWorld, ws, raysIn, numRays/*, cudaRayMask*/);
 	cudaDeviceSynchronize();
+
+	//Stream compact to get rid of finished rays for the next iteration
+	//compactRays(raysIn, numRays, cudaRayMask, raysOut);
+	compactRaysThrust(raysIn, numRays, raysOut);
+
+	//No need to continue if there are no more rays
+	if (numRays == 0) {
+		break;
+	}
+
+	///Update the number of needed blocks based on the condensed number of rays
+	rayBlocksPerGrid = (int)ceil((float)numRays / (float)rayThreads);
+
+	//Flip the input and output for the next iteration
+	ray* raysTemp = raysIn;
+	raysIn = raysOut;
+	raysOut = raysTemp;
   }
 
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaImage, (float)iterations);
@@ -315,9 +547,14 @@ void cudaPathtraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterati
 
   // free up stuff, or else we'll leak memory like a madman
   cudaFree( cudaImage );
+  cudaFree( cudaWorld );
   cudaFree( cudaGeoms );
   cudaFree( cudaMaterials );
-  cudaFree( cudaRays );
+  //cudaFree( cudaVertices );
+  //cudaFree( cudaIndices );
+  cudaFree( cudaRays1 );
+  cudaFree( cudaRays2 );
+  //cudaFree(cudaRayMask);
   delete geomList;
 
   // make certain the kernel has completed

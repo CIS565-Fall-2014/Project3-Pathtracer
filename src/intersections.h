@@ -69,6 +69,46 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
+// Triangle intersection test, return -1 if no intersection, otherwise, distance to intersection
+__host__ __device__ float triangleIntersectionTest(glm::vec3* vertices, ray r, glm::vec3& intersectionPoint, glm::vec3& normal) {
+	// Compute the vectors of the edges of the triangle for barycentric coords
+	glm::vec3 ab = vertices[1] - vertices[0];
+	glm::vec3 ac = vertices[2] - vertices[0];
+
+	// Compute the normal of the triangle
+	glm::vec3 n = -glm::cross(ab, ac);
+
+	// Compute denominator
+	float d = glm::dot(r.direction, n);
+	if (d >= 0.0f) return -1.0f;
+
+	// Intersect ray with plane of triangle
+	glm::vec3 pa = vertices[0] - r.origin;
+	float t = glm::dot(pa, -n);
+	if (t < 0.0f) return -1.0f;
+
+	// Compute barycentric coordinates and test if within bounds
+	glm::vec3 e = glm::cross(r.direction, pa);
+	float v = glm::dot(ac, e);
+	if (v < 0.0f || v > d) return -1.0f;
+	float w = -glm::dot(ab, e);
+	if (w < 0.0f || v + w > d) return -1.0f;
+
+	// Intersects triangle
+	float ood = 1.0f / d;
+	t *= ood;
+	v *= ood;
+	w *= ood;
+
+	// Compute the intersection point from barycentric coordinates
+	intersectionPoint = vertices[0] + w * ab + v * ac;
+
+	// Normalize the output
+	normal = glm::normalize(n);
+
+	return t;
+}
+
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 
@@ -118,13 +158,15 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
   //Compute the normal by determining the face
   glm::vec3 objNorm(0.0f, 0.0f, 0.0f);
   for (int i = 0; i < 3; i++) {
-	  if (abs(objectIntersectionPoint[i] - omin) < 0.01) {
+	  if (abs(objectIntersectionPoint[i] - omin) < 0.001) {
 		  objNorm[i] = -1.0f;
-	  } else if (abs(objectIntersectionPoint[i] - omax) < 0.01) {
+		  break;
+	  } else if (abs(objectIntersectionPoint[i] - omax) < 0.001) {
 		  objNorm[i] = 1.0f;
+		  break;
 	  }
   }
-  normal = glm::normalize(multiplyMV(box.transform, glm::vec4(objNorm, 1.0f)));
+  normal = glm::normalize(multiplyMV(box.transform, glm::vec4(objNorm, 0.0f)));
         
   return glm::length(r.origin - intersectionPoint);
 

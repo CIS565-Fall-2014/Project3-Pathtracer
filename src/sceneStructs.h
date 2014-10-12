@@ -42,6 +42,33 @@ struct staticGeom {
 	cudaMat4 inverseTransform;
 };
 
+struct material{
+	glm::vec3 color;
+	float specularExponent;
+	glm::vec3 specularColor;
+	float hasReflective;
+	float hasRefractive;
+	float indexOfRefraction;
+	float hasScatter;
+	glm::vec3 absorptionCoefficient;
+	float reducedScatterCoefficient;
+	float emittance;
+};
+
+struct worldSizes {
+	int numberOfGeoms;
+	int numberOfMaterials;
+	int numberOfTriangles;
+	int numberOfVertices;
+};
+
+struct worldData{
+	staticGeom* geoms;
+	material* materials;
+	glm::vec3* vertices;
+	int* indices;
+};
+
 struct cameraData {
 	glm::vec2 resolution;
 	glm::vec3 position;
@@ -61,19 +88,6 @@ struct camera {
 	glm::vec3* image;
 	ray* rayList;
 	std::string imageName;
-};
-
-struct material{
-	glm::vec3 color;
-	float specularExponent;
-	glm::vec3 specularColor;
-	float hasReflective;
-	float hasRefractive;
-	float indexOfRefraction;
-	float hasScatter;
-	glm::vec3 absorptionCoefficient;
-	float reducedScatterCoefficient;
-	float emittance;
 };
 
 #endif //CUDASTRUCTS_H
