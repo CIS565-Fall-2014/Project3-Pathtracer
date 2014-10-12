@@ -63,6 +63,17 @@ longer use kernel threads.
 
 TODO: numbers
 
+| Path Depth | Before | After  |
+| ----------:| ------:| ------:|
+|          2 |  33.20 |  49.86 |
+|          4 |  66.54 |  83.20 |
+|          8 | 116.55 | 116.56 |
+|         16 | 216.54 | 133.20 |
+|         64 | 327.1  | 149.90 |
+|        256 | 418    | 183.22 |
+
+![](images/00_compaction_plot.png)
+
 ### Block sizes (with compaction)
 
 TODO: graph
@@ -72,6 +83,16 @@ TODO: graph
 Initially I did cube intersection naively, but this turned out to use way too
 many GPU registers and had very bad performance. Rewriting based on Kay and
 Kayjia's slab method reduced register usage by around 50 registers.
+
+
+Features
+--------
+
+### Diffuse materials
+
+Rays bounced according to provided hemisphere sampling method.
+
+**Performance:** TODO
 
 
 Extras
