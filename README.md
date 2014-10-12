@@ -1,8 +1,8 @@
 #CUDA Pathtracer
 
 This is a standalone pathtracer implemented on the GPU using CUDA and OpenGL.
-##Feature Highlights:
-###Diffuse,Reflection, Refraction
+###Feature Highlights:
+**Diffuse,Reflection, Refraction**
 
 ###Global Illumination,Soft Shadow, Caustics, Color Bleeding
 
@@ -27,7 +27,7 @@ that requires very high depth, we could use stream compaction to remove "dead" r
 
 ###Stream Compaction of Rays
 
-Used thrust::copy_if to do the compaction. Double buffer swapping is used to avoid copy and reload data.
+Used thrust::copy_if to do the compaction. Double buffer swapping is used to avoid copy data twice.
 
 
 ##Feature Implementation Explained:
@@ -65,7 +65,9 @@ Jittered pixel position while shooting camera rays.
 
 
 ###Performance Analysis
-
-
-
+The data is produced from a scene in a cornell box and with three spheres, a pure diffuse, a reflective and a refractive one. Resolution was 1024 x 2014.
+![](SCanalysis.bmp)
+From the graph we can see when depth is greater than 10, stream compaction begins to be in advantage. The higher the depth the more advantage stream compaction has.
+This is probably because when depth is low, overhead and data copying time in stream compaction exceeds the time saved. In addition, I expect stream compaction to have even greater
+advantage when the scene is more sparse, i.e. lots of camera rays do not hit anything.
 

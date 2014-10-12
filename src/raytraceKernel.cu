@@ -21,8 +21,8 @@
 #include "interactions.h"
 
 //Render Settings
-#define TRACE_DEPTH 5
-#define RAY_STREAM_COMPACTION_ON 0
+#define TRACE_DEPTH 160
+#define RAY_STREAM_COMPACTION_ON 1
 #define ENABLE_ANTIALIASING 1
 
 //report kernel failure
