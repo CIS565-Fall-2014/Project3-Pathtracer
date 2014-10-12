@@ -6,7 +6,15 @@ This is a standalone pathtracer implemented on the GPU using CUDA and OpenGL.
 
 **Global Illumination,Soft Shadow, Caustics, Color Bleeding**
 
+**Depth of Field
+
+**Subsurface scattering
+
 **Fresnel Coefficients for reflection/refraction**
+
+**Polygon Mesh Render**
+
+###Results:
 ![](std1.bmp)
 
 **Subsurface Scattering**
@@ -17,6 +25,7 @@ This is a standalone pathtracer implemented on the GPU using CUDA and OpenGL.
 
 **Polygon Mesh Support**
 ![](Obj1.bmp)
+
 
 ###Performance Features:
 
