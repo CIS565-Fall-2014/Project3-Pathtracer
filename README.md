@@ -166,7 +166,7 @@ for comparison.
 
 **Performance:** Negligible impact.
 
-*Mean rendering time per iteration for an arbitrary example scene*
+**Mean rendering time per iteration for an arbitrary example scene**
 
 |   Before |    After |
 | --------:| --------:|
@@ -185,7 +185,7 @@ random rays.  Depth of field also increases the number
 of samples needed for visual smoothness due to the extreme variation between
 samples. Implementation-wise, this is identical to analogous CPU code.
 
-*Mean rendering time per iteration for an arbitrary example scene*
+**Mean rendering time per iteration for an arbitrary example scene**
 
 |   Before |    After |
 | --------:| --------:|
@@ -210,7 +210,7 @@ dot products with that, but this is more readable.)
 the additional Fresnel factor computation and the additional random branch
 calculation based on that factor.
 
-*Mean rendering time per iteration for an arbitrary example scene*
+**Mean rendering time per iteration for an arbitrary example scene**
 
 |   Before |    After |
 | --------:| --------:|
@@ -244,16 +244,16 @@ were averaged over time. Higher path depths seem to correspond with bright
 spots which never get optimized out, for some reason.
 
 Depth 16, 500 samples:
-![](images/22_ultimate_d16s500)
+![](images/22_ultimate_d16s500.png)
 
 Depth 16, 2000 samples:
-![](images/22_ultimate_d16s2000)
+![](images/22_ultimate_d16s2000.png)
 
 Depth 256, 500 samples:
-![](images/22_ultimate_d256s500)
+![](images/22_ultimate_d256s500.png)
 
 Depth 256, 2000 samples;
-![](images/22_ultimate_d256s2000)
+![](images/22_ultimate_d256s2000.png)
 
 
 Earlier Renders
