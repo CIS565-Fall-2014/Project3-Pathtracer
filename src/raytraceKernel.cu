@@ -302,10 +302,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   
   //depth trace with compaction
   for(int i = 0; i <= traceDepth; i++){
-    raytraceRay<<<64, (int)ceil((float)length/64.0f)>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, materialList, numberOfMaterials, rayList, i, thrustArray, length);
+    raytraceRay<<<(int)ceil((float)length/64.0f), 64>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, materialList, numberOfMaterials, rayList, i, thrustArray, length);
     length = thrust::count(validRays.begin(), validRays.end(), 1);//count valid rays
     thrust::exclusive_scan(validRays.begin(), validRays.end(), scanRay.begin());
-    compactRays<<<64, (int)ceil((float)length/64.0f) >>>(scanPointer, rayList, length);
+    compactRays<<<(int)ceil((float)length/64.0f), 64 >>>(scanPointer, rayList, length);
     std::cout << length << "\n";
   }
   std::cout  << "\n";
