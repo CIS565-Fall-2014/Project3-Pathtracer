@@ -22,7 +22,7 @@
 #define ANTI_ALIAS 1
 #define MAX_DEPTH 8
 
-#define DOFLENGTH	8
+#define DOFLENGTH	12
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
   if( cudaSuccess != err) {
@@ -73,11 +73,11 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	glm::vec3 P = M + (2*fx/(resolution.x-1)-1) * H + (2*(1-fy/(resolution.y-1))-1) * V;
 	r.direction = glm::normalize(P-eye);
 	//depth of field
-	//thrust::uniform_real_distribution<float> u02(-0.3,0.3);
-	//glm::vec3 aimPoint = r.origin + (float)DOFLENGTH * r.direction;
-	//r.origin += glm::vec3(u02(rng),u02(rng),u02(rng));
-	//r.direction = aimPoint - r.origin;
-	//r.direction = glm::normalize(r.direction);
+	thrust::uniform_real_distribution<float> u02(-0.3,0.3);
+	glm::vec3 aimPoint = r.origin + (float)DOFLENGTH * r.direction;
+	r.origin += glm::vec3(u02(rng),u02(rng),u02(rng));
+	r.direction = aimPoint - r.origin;
+	r.direction = glm::normalize(r.direction);
 
   return r;
   
@@ -225,30 +225,30 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				else{
 					
 					
-					//if(mat1.hasReflective > EPSILON || mat1.hasRefractive > EPSILON){
-					//	//if (notDiffuseRay(seed, mat1.hasReflective)) {
-					//		float IOR = mat1.indexOfRefraction;//Index of Refraction
-					//		if (glm::dot(rays[rayIdx].direction, normal) > 0) { // reverse normal and index of refraction if ray inside the object
-					//			normal *= -1;
-					//			IOR = 1/(IOR + EPSILON);
-					//		}
-					//		if (mat1.hasRefractive > EPSILON) { // if the surface has refraction
-					//			glm::vec3 dir = getRefractedRay(rays[rayIdx].direction, normal, IOR);
-					//			if (glm::length(dir) > EPSILON && (mat1.hasReflective < EPSILON|| isRefractedRay(seed, IOR, rays[rayIdx].direction, normal, dir))) {
-					//				rays[rayIdx].direction = dir;
-					//				rays[rayIdx].origin = interPoint + dir * (float)EPSILON;
-					//				rays[rayIdx].color *= mat1.color;
-					//				return;
-					//			}
-					//		}
-					//		// if the surface only has reflection
-					//		glm::vec3 dir2 = getReflectedRay(rays[rayIdx].direction, normal);
-					//		rays[rayIdx].origin = interPoint + dir2 * (float)EPSILON;
-					//		rays[rayIdx].direction = dir2;
-					//		rays[rayIdx].color *= mat1.color;
-					//		return;
-					//	 //}
-					//}
+					if(mat1.hasReflective > EPSILON || mat1.hasRefractive > EPSILON){
+						//if (notDiffuseRay(seed, mat1.hasReflective)) {
+							float IOR = mat1.indexOfRefraction;//Index of Refraction
+							if (glm::dot(rays[rayIdx].direction, normal) > 0) { // reverse normal and index of refraction if ray inside the object
+								normal *= -1;
+								IOR = 1/(IOR + EPSILON);
+							}
+							if (mat1.hasRefractive > EPSILON) { // if the surface has refraction
+								glm::vec3 dir = getRefractedRay(rays[rayIdx].direction, normal, IOR);
+								if (glm::length(dir) > EPSILON && (mat1.hasReflective < EPSILON|| isRefractedRay(seed, IOR, rays[rayIdx].direction, normal, dir))) {
+									rays[rayIdx].direction = dir;
+									rays[rayIdx].origin = interPoint + dir * (float)EPSILON;
+									rays[rayIdx].color *= mat1.color;
+									return;
+								}
+							}
+							// if the surface only has reflection
+							glm::vec3 dir2 = getReflectedRay(rays[rayIdx].direction, normal);
+							rays[rayIdx].origin = interPoint + dir2 * (float)EPSILON;
+							rays[rayIdx].direction = dir2;
+							rays[rayIdx].color *= mat1.color;
+							return;
+						 //}
+					}
 					if (glm::dot(rays[rayIdx].direction, normal) > 0) { // reverse normal if we are inside the object
 						normal *= -1;
 					}
@@ -341,14 +341,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	// retrieve image from GPU
 	cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
-	// free up stuff, or else we'll leak memory like a madman
+	// free up stuff
 	cudaFree( cudaimage );
 	cudaFree( cudageoms );
 	cudaFree( raypool1 );
 	cudaFree( cudamtls );
 	delete[] geomList;
 
-	// make certain the kernel has completed
+	
 	cudaThreadSynchronize();
 
 	checkCUDAError("Kernel failed!");
