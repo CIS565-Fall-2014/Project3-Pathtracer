@@ -1,273 +1,246 @@
-CIS 565 Project3 : CUDA Pathtracer
-===================
+CIS 565 Project 3: CUDA Pathtracer
+==================================
 
-Fall 2014
+#### Michael Li
 
-Due Wed, 10/8 (submit without penalty until Sun, 10/12)
+### _Overview_
 
-## INTRODUCTION
-In this project, you will implement a CUDA based pathtracer capable of
-generating pathtraced rendered images extremely quickly. Building a pathtracer can be viewed as a generalization of building a raytracer, so for those of you who have taken 460/560, the basic concept should not be very new to you. For those of you that have not taken
-CIS460/560, raytracing is a technique for generating images by tracing rays of
-light through pixels in an image plane out into a scene and following the way
-the rays of light bounce and interact with objects in the scene. More
-information can be found here:
-http://en.wikipedia.org/wiki/Ray_tracing_(graphics). Pathtracing is a generalization of this technique by considering more than just the contribution of direct lighting to a surface.
+This is my (rather unsuccessful) attempt to rebuild parts of a pathtracer that was
+designed for CIS565 2 years ago as a final project.
 
-Since in this class we are concerned with working in generating actual images
-and less so with mundane tasks like file I/O, this project includes basecode
-for loading a scene description file format, described below, and various other
-things that generally make up the render "harness" that takes care of
-everything up to the rendering itself. The core renderer is left for you to
-implement.  Finally, note that while this basecode is meant to serve as a
-strong starting point for a CUDA pathtracer, you are not required to use this
-basecode if you wish, and you may also change any part of the basecode
-specification as you please, so long as the final rendered result is correct.
+Pictures follow in the wall of text below.
 
-## CONTENTS
-The Project3 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio
-  solution and the OSX and Linux makefiles reference this folder for all 
-  source; the base source code compiles on Linux, OSX and Windows without 
-  modification.  If you are building on OSX, be sure to uncomment lines 4 & 5 of
-  the CMakeLists.txt in order to make sure CMake builds against clang.
-* data/scenes/ contains an example scene description file.
-* renders/ contains an example render of the given example scene file. 
-* windows/ contains a Windows Visual Studio 2010 project and all dependencies
-  needed for building and running on Windows 7. If you would like to create a
-  Visual Studio 2012 or 2013 projects, there are static libraries that you can
-  use for GLFW that are in external/bin/GLFW (Visual Studio 2012 uses msvc110, 
-  and Visual Studio 2013 uses msvc120)
-* external/ contains all the header, static libraries and built binaries for
-  3rd party libraries (i.e. glm, GLEW, GLFW) that we use for windowing and OpenGL
-  extensions
 
-## RUNNING THE CODE
-The main function requires a scene description file (that is provided in data/scenes). 
-The main function reads in the scene file by an argument as such :
-'scene=[sceneFileName]'
+### _Details on what I implemented_
 
-If you are using Visual Studio, you can set this in the Debugging > Command Arguments section
-in the Project properties.
 
-## REQUIREMENTS
-In this project, you are given code for:
+##### getRandomPointOnSphere()
 
-* Loading, reading, and storing the scene scene description format
-* Example functions that can run on both the CPU and GPU for generating random
-  numbers, spherical intersection testing, and surface point sampling on cubes
-* A class for handling image operations and saving images
-* Working code for CUDA-GL interop
+Used:
 
-You will need to implement the following features:
+* http://mathworld.wolfram.com/SpherePointPicking.html
+* http://tutorial.math.lamar.edu/Classes/CalcIII/SphericalCoords.aspx
 
-* Raycasting from a camera into a scene through a pixel grid
-* Diffuse surfaces
-* Perfect specular reflective surfaces
-* Cube intersection testing
-* Sphere surface point sampling
-* Stream compaction optimization
 
-You are also required to implement at least 2 of the following features:
+##### boxIntersectionTest()
 
-* Texture mapping 
-* Bump mapping
-* Depth of field
-* Refraction, i.e. glass
-* OBJ Mesh loading and rendering
-* Interactive camera
-* Motion blur
-* Subsurface scattering
+Makes use of a helper function "planeIntersectionTest()". I've implemented this
+stuff in CIS 560 before so the code is being reused here.
 
-The 'extra features' list is not comprehensive.  If you have a particular feature
-you would like to implement (e.g. acceleration structures, etc.) please contact us 
-first!
+See:
 
-For each 'extra feature' you must provide the following analysis :
-* overview write up of the feature
-* performance impact of the feature
-* if you did something to accelerate the feature, why did you do what you did
-* compare your GPU version to a CPU version of this feature (you do NOT need to 
-  implement a CPU version)
-* how can this feature be further optimized (again, not necessary to implement it, but
-  should give a roadmap of how to further optimize and why you believe this is the next
-  step)
+* http://www.siggraph.org/education/materials/HyperGraph/raytrace/rayplane_intersection.htm
+* https://github.com/citizen-of-infinity/SCHOOL-CIS-560-Raytracer/blob/master/CIS560hw2/intersect.cpp
+* Slide 793 in the FALL 2013 notes for CIS 560 - basically, using ^-1^T to correctly
+  map the normal from normalized space to world space. 
+    * Addendum: this actually turned out not to work because CUDA is too sensitive
+	  about using glm function in a "__host__ __device__" function like boxIntersectionTest().
+	  I bypassed this issue by calculating the real normal in planeIntersectionTest().
 
-## BASE CODE TOUR
-You will be working in three files: raytraceKernel.cu, intersections.h, and
-interactions.h. Within these files, areas that you need to complete are marked
-with a TODO comment. Areas that are useful to and serve as hints for optional
-features are marked with TODO (Optional). Functions that are useful for
-reference are marked with the comment LOOK.
 
-* raytraceKernel.cu contains the core raytracing CUDA kernel. You will need to
-  complete:
-    * cudaRaytraceCore() handles kernel launches and memory management; this
-      function already contains example code for launching kernels,
-      transferring geometry and cameras from the host to the device, and transferring
-      image buffers from the host to the device and back. You will have to complete
-      this function to support passing materials and lights to CUDA.
-    * raycastFromCameraKernel() is a function that you need to implement. This
-      function once correctly implemented should handle camera raycasting. 
-    * raytraceRay() is the core raytracing CUDA kernel; all of your pathtracing
-      logic should be implemented in this CUDA kernel. raytraceRay() should
-      take in a camera, image buffer, geometry, materials, and lights, and should
-      trace a ray through the scene and write the resultant color to a pixel in the
-      image buffer.
+##### getRandomDirectionInSphere()
 
-* intersections.h contains functions for geometry intersection testing and
-  point generation. You will need to complete:
-    * boxIntersectionTest(), which takes in a box and a ray and performs an
-      intersection test. This function should work in the same way as
-      sphereIntersectionTest().
-    * getRandomPointOnSphere(), which takes in a sphere and returns a random
-      point on the surface of the sphere with an even probability distribution.
-      This function should work in the same way as getRandomPointOnCube(). You can
-      (although do not necessarily have to) use this to generate points on a sphere
-      to use a point lights, or can use this for area lighting.
+It is *incredibly* unclear what is supposed to be going on with this function
+and with calculateRandomDirectionInHemisphere(). There is not a single bit of
+useful documentation in the code provided, and it becomes clear that neither
+of these two "random" functions is random in the slightest. Through some testing
+in the main() function I was able to determine that
+calculateRandomDirectionInHemisphere() expects its 2 float inputs to be between
+0 and 1, and I will do the same for this function. In that case, it's almost the
+same thing as getRandomPointOnSphere().
+  
 
-* interactions.h contains functions for ray-object interactions that define how
-  rays behave upon hitting materials and objects. You will need to complete:
-    * getRandomDirectionInSphere(), which generates a random direction in a
-      sphere with a uniform probability. This function works in a fashion
-      similar to that of calculateRandomDirectionInHemisphere(), which generates a
-      random cosine-weighted direction in a hemisphere.
-    * calculateBSDF(), which takes in an incoming ray, normal, material, and
-      other information, and returns an outgoing ray. You can either implement
-      this function for ray-surface interactions, or you can replace it with your own
-      function(s).
+##### calculateBSDF
 
-You will also want to familiarize yourself with:
+For simplicity, I only support scattering and reflection. Not too sure about some
+of the math either, so I guess I'm just making stuff up (research takes too
+much effort... XP)
 
-* sceneStructs.h, which contains definitions for how geometry, materials,
-  lights, cameras, and animation frames are stored in the renderer. 
-* utilities.h, which serves as a kitchen-sink of useful functions
+Essentially, perfect reflection uses the standard formula for reflection;
+diffuse uses calculateRandomDirectionInHemisphere().
 
-## NOTES ON GLM
-This project uses GLM, the GL Math library, for linear algebra. You need to
-know two important points on how GLM is used in this project:
+This function also does some sort of weird math (inspired by Wikipedia) for
+diffuse intersections, based on "Lambertian reflection". Unfortunately the
+specifics of how to do this was never discussed in class, so I've kind of just
+made things up. You really should **not** bet that this path tracer does any conservation
+of energy correctly or whatever.
 
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed
-  via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is
-  used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but
-  pre-Fermi cards do not play nice with GLM matrices. As such, in this project,
-  GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found
-  in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is
-  provided as multiplyMV() in intersections.h.
+With help from:
 
-## SCENE FORMAT
-This project uses a custom scene description format.
-Scene files are flat text files that describe all geometry, materials,
-lights, cameras, render settings, and animation frames inside of the scene.
-Items in the format are delimited by new lines, and comments can be added at
-the end of each line preceded with a double-slash.
+* https://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
+* http://en.wikipedia.org/wiki/Path_tracing#Algorithm
+* Slide 701 from CIS 560 Fall 2013 notes (formula for Lambertian diffuse shading)
 
-Materials are defined in the following fashion:
 
-* MATERIAL (material ID)								//material header
-* RGB (float r) (float g) (float b)					//diffuse color
-* SPECX (float specx)									//specular exponent
-* SPECRGB (float r) (float g) (float b)				//specular color
-* REFL (bool refl)									//reflectivity flag, 0 for
-  no, 1 for yes
-* REFR (bool refr)									//refractivity flag, 0 for
-  no, 1 for yes
-* REFRIOR (float ior)									//index of refraction
-  for Fresnel effects
-* SCATTER (float scatter)								//scatter flag, 0 for
-  no, 1 for yes
-* ABSCOEFF (float r) (float b) (float g)				//absorption
-  coefficient for scattering
-* RSCTCOEFF (float rsctcoeff)							//reduced scattering
-  coefficient
-* EMITTANCE (float emittance)							//the emittance of the
-  material. Anything >0 makes the material a light source.
+##### raytraceKernel.cu work
 
-Cameras are defined in the following fashion:
+Since 2 of the 3 incomplete functions I need to finish up are dependent on each other,
+I'll be working on them at the same time.
 
-* CAMERA 												//camera header
-* RES (float x) (float y)								//resolution
-* FOVY (float fovy)										//vertical field of
-  view half-angle. the horizonal angle is calculated from this and the
-  reslution
-* ITERATIONS (float interations)							//how many
-  iterations to refine the image, only relevant for supersampled antialiasing,
-  depth of field, area lights, and other distributed raytracing applications
-* FILE (string filename)									//file to output
-  render to upon completion
-* frame (frame number)									//start of a frame
-* EYE (float x) (float y) (float z)						//camera's position in
-  worldspace
-* VIEW (float x) (float y) (float z)						//camera's view
-  direction
-* UP (float x) (float y) (float z)						//camera's up vector
+The third function, **raycastFromCameraKernel()**, is very similar to previous work I did in CIS 560.
+See https://github.com/citizen-of-infinity/SCHOOL-CIS-560-Raytracer/blob/master/CIS560hw2/SceneGraph.cpp
+starting at line 655. In fact, the implementation here is simpler since fov-x
+and fov-y are both already available to me.
 
-Objects are defined in the following fashion:
-* OBJECT (object ID)										//object header
-* (cube OR sphere OR mesh)								//type of object, can
-  be either "cube", "sphere", or "mesh". Note that cubes and spheres are unit
-  sized and centered at the origin.
-* material (material ID)									//material to
-  assign this object
-* frame (frame number)									//start of a frame
-* TRANS (float transx) (float transy) (float transz)		//translation
-* ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
-* SCALE (float scalex) (float scaley) (float scalez)		//scale
+I decided to proceed in a series of checkpoints to make debugging easier.
 
-An example scene file setting up two frames inside of a Cornell Box can be
-found in the scenes/ directory.
+###### Checkpoint 1:
 
-For meshes, note that the base code will only read in .obj files. For more 
-information on the .obj specification see http://en.wikipedia.org/wiki/Wavefront_.obj_file.
+Fix how cudaimage/colors and the PBO work so that the colors[] array now ACCUMULATES the value
+it gets on each iteration, and make sure the right stuff is sent to the PBO and
+the .bmp output.
 
-An example of a mesh object is as follows:
+This causes the screen to display an ever-more featureless gray as the iteration
+count increases, as expected. (Over time, a bunch of random colors averages out
+to 50% gray.) The static is no longer completely "fresh" with each iteration.
 
-OBJECT 0
-mesh tetra.obj
-material 0
-frame 0
-TRANS       0 5 -5
-ROTAT       0 90 0
-SCALE       .01 10 10 
+![checkpoint 1-1](images/chkpt1-1.png)
+![checkpoint 1-2](images/chkpt1-2.png)
+![checkpoint 1-3](images/chkpt1-3.png)
 
-Check the Google group for some sample .obj files of varying complexity.
+The output .bmp file exactly matches the last screenshot above (I capped
+ITERATIONS to 1000 to make things faster).
 
-## THIRD PARTY CODE POLICY
-* Use of any third-party code must be approved by asking on our Google Group.  
-  If it is approved, all students are welcome to use it.  Generally, we approve 
-  use of third-party code that is not a core part of the project.  For example, 
-  for the ray tracer, we would approve using a third-party library for loading 
-  models, but would not approve copying and pasting a CUDA function for doing 
-  refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another
-  student's code, is an academic integrity violation, and will result in you
-  receiving an F for the semester.
+###### Checkpoint 2:
 
-## SELF-GRADING
-* On the submission date, email your grade, on a scale of 0 to 100, to Harmony,
-  harmoli+cis565@seas.upenn.com, with a one paragraph explanation.  Be concise and
-  realistic.  Recall that we reserve 30 points as a sanity check to adjust your
-  grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We
-  hope to only use this in extreme cases when your grade does not realistically
-  reflect your work - it is either too high or too low.  In most cases, we plan
-  to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as
-  the path tracer.  We will determine the weighting at the end of the semester
-  based on the size of each project.
+Deterministically initialize all rays from camera (use raycastFromCameraKernel())
+and have them return the color of the first thing they intersect.
 
-## SUBMISSION
-Please change the README to reflect the answers to the questions we have posed
-above.  Remember:
-* this is a renderer, so include images that you've made!
-* be sure to back your claims for optimization with numbers and comparisons
-* if you reference any other material, please provide a link to it
-* you wil not e graded on how fast your path tracer runs, but getting close to
-  real-time is always nice
-* if you have a fast GPU renderer, it is good to show case this with a video to
-  show interactivity.  If you do so, please include a link.
+I already have some ideas as to what this should look like, based on posts from
+other students on the forums.
 
-Be sure to open a pull request and to send Harmony your grade and why you
-believe this is the grade you should get.
+It works! (Though my implementation is obviously terribly inefficient, so I had
+to quarter the resolution.)
+
+![checkpoint 2](images/chkpt2.png)
+
+Note that since each iteration returns the same thing, there is no change if I
+leave the pathtracer to run for multiple iterations.
+
+###### Checkpoint 3:
+
+Look like a real pathtracer, but no stream compaction opt or motion blur yet.
+
+I'm running into trouble - my image is black where the walls should be.
+
+However, I'm pretty sure my box intersection testing is right... check out this
+debug view that just returns material color:
+
+![checkpoint 3-0.0](images/chkpt3-0.0.png)
+
+I guess something might be wrong with the normals I am getting... and the debug
+view showed that I was getting nothing back at all (just a black screen)!
+
+Upon fixing this, my walls were showing up, but coming back really dark:
+
+![checkpoint 3-0.1](images/chkpt3-0.1.png)
+
+I was unable to fix this, and consequently, decided to throw in a few extra emitting
+cubes in different parts of the scene to make stuff brighter.
+I also played around with my thrust RNG - there was a bug where the same seed was
+being used for each pixel in an iteration, causing a weird non-static-like convergence
+(it was more like chunks of objects lit up all at once).
+
+The end result was something like this. 
+
+![checkpoint 3-1](images/chkpt3-1.png)
+
+For some reason, the bmp output looked completely different:
+
+![checkpoint 3-1.1](images/chkpt3-1.1.bmp)
+
+(It seems like it failed to divide by the number of iterations, since there's
+a lot of white. This tells me that any black area on the output is a place where
+the ray absolutely never hit the light. I don't know if this has to do with the
+hemisphere function or what, but I'm completely clueless as to what the cause
+might be.)
+
+At this point, I've decided to stop and focus on motion blur / stream compaction
+in the few remaining hours I have.
+
+
+#### Stream compaction
+
+**Important: remember to change the #blocks launched with each call of raytraceRay.
+Otherwise I'll end up with lots of wasted cycles anyway because I'll launch kernels
+for rays that don't exist.
+
+Stream compaction is made possible by adding "source_index" attributes to the
+ray struct, which allows rays to be culled without losing their corresponding
+index location.
+
+Here's an output for 100 interations I got that seems almost right - but it's much too dark, even for
+100 iterations. If stream compaction were implemented correctly, it should be exactly
+the same, right?
+
+![Stream Compaction](images/stream-compaction.png)
+
+Going up to 1000 iterations changes little.
+
+The time to get to 100 iterations was 13.7s without SC, and 16.7s with SC and a
+block size of 32. I read on the readme for a project last year that SC only becomes
+effective when a high recursive depth is used. Unfortunately, I did not test this,
+probably because it wouldn't have been very accurate anyway, considering it doesn't seem
+to work right now.
+
+The work shows up in 3 places in the code:
+
+* relabeling of the indexes in raytraceRay()
+* NUM_BLOCKS changes near the while loop in cudaRaytraceCore()
+* the new void function cullRays (this is NOT a kernel or __device__ function!)
+
+
+### _Extra feature analysis_
+
+["extra features", performance analysis]
+
+#### Motion blur
+
+I'm going to hardcode in motion blur for object 7, the green sphere. The blur will
+be a movement 2.5 units to the right.
+
+This was done by adding an if-else wrappers around particular points in
+cudaRaytraceCore() - specifically, the exact lines where the green sphere's
+translation, transformation matrix, and inverse transformation matrix are specified
+(right before being sent to device CUDA memory). These are then redefined, using
+[scene.cpp](https://github.com/citizen-of-infinity/Project3-Pathtracer/blob/master/src/scene.cpp)
+for guidance.
+
+Here's the implementation change (this is NOT good code; if I had more time
+it would be a good idea for me to pull this stuff out into a more general function):
+
+![Motion Blur Implementation](images/motion-blur-impl.png)
+
+And here's the end result:
+
+![Motion Blur Image](images/motion-blur-img.png)
+
+The version I implemented has little performance impact. The way it is calculated,
+it already takes place on the CPU. There's probably a smarter way to do this on
+the GPU that does not involve recalculating a matrix with each iteration, but I
+can't think of it right now.
+
+
+
+### _Overall comments_
+
+[Potential ideas for better optimization]
+
+I'd like to say that the Moore 100C computers are just slow, but it still seems
+likely that my implementation is not that good - after all, I had to decrease
+the resolution a LOT (first to 400 x 400, then 350 x 350) to get the thing
+to run at a reasonable pace.
+
+I can identify the following areas of redundancy in the code:
+
+* deleting/repackaging stuff to send to/from CUDA on each iteration - while this
+  was obviously important it making it very easy to implement motion blur, I still
+  feel there may be a better way to handle the data at the front of cudaRaytraceCore()
+  than just copying it fresh for each iteration.
+* stream compaction requires kernel calls. If the number of finished rays is very
+  low, then perhaps it isn't worth it to cull just those rays. So, conditioning
+  the call for stream compaction may result in better performance.
+
+Also, stream compaction overhead may not be worth it if, for example, we're
+shooting rays around in an enclosed box with lights all over the place, as
+all the rays will terminate soon/take around the same number of bounces to terminate.
