@@ -75,7 +75,7 @@ __global__ void initRaycastFromCamera(glm::vec2 resolution, float time, glm::vec
 		r.ior = 1.0f;
 
 		if (depth > 0) {
-			rand = generateRandomNumberFromThread(resolution, time, x, y) * (glm::length(planeRight) * 2 / resolution.x);
+			rand = (generateRandomNumberFromThread(resolution, time, x, y) - glm::vec3(0.5f))* (glm::length(planeRight) * 2 / resolution.x);
 			// find r's intersection point with the depth of field plane ***should this be a sphere?***
 			glm::vec3 P = r.origin + r.direction * depth / glm::dot(r.direction, view);
 
