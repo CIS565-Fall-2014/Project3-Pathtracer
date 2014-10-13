@@ -18,6 +18,22 @@ struct ray {
 	glm::vec3 direction;
 };
 
+struct rayPixel{
+	ray r;
+	int x;
+	int y;
+	glm::vec3 color;
+	bool isTerminated;
+};
+
+struct isTerminated {
+	__host__ __device__
+	bool operator()(const rayPixel rayP)
+	{
+		return (rayP.isTerminated);
+	}
+};
+
 struct geom {
 	enum GEOMTYPE type;
 	int materialid;

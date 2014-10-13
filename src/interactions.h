@@ -40,23 +40,68 @@ __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, Abs
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
-  return glm::vec3(0,0,0);
+	
+	float cosI = glm::dot(normal, incident);
+	float n12 = incidentIOR / transmittedIOR;
+
+	if (cosI > 0)	//inside
+	{
+		n12 = transmittedIOR / incidentIOR;
+		normal = -normal;
+	}
+
+	float delt = 1.0f - pow(n12, 2) * (1.0f - pow(glm::dot(normal, incident), 2));
+
+	if (delt >= 0)
+		return glm::normalize( (-n12 * glm::dot(normal, incident) - sqrt(delt)) * normal + n12 * incident);
+	else
+		return calculateReflectionDirection(normal, incident);
 }
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
   //nothing fancy here
-  return glm::vec3(0,0,0);
+	return glm::normalize(incident - 2.0f * normal * (glm::dot(incident, normal)));
 }
 
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+//// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
-  Fresnel fresnel;
+	Fresnel fresnel;
 
-  fresnel.reflectionCoefficient = 1;
-  fresnel.transmissionCoefficient = 0;
-  return fresnel;
+	fresnel.reflectionCoefficient = 1;
+	fresnel.transmissionCoefficient = 0;
+
+	float cosI = glm::dot(normal, incident);
+	float n12 = incidentIOR / transmittedIOR;
+
+	if (cosI > 0)//inside
+	{
+		n12 = transmittedIOR / incidentIOR;
+		normal = -normal;
+	}
+
+	reflectionDirection = calculateReflectionDirection(normal, incident);
+
+	if(transmittedIOR == 0.0f)
+		return fresnel;
+	
+	float delt = 1 - pow((n12 * sqrt(1 - pow(glm::dot(normal, incident), 2))), 2);
+
+	if (delt < 0)
+		return fresnel;
+	delt = sqrt(delt);
+
+	float Rs = pow((incidentIOR * glm::dot(normal, incident) - transmittedIOR * delt)/(incidentIOR * glm::dot(normal, incident) + transmittedIOR * delt), 2);
+	float Rp = pow((incidentIOR * delt - transmittedIOR * glm::dot(normal, incident))/(incidentIOR * delt + transmittedIOR * glm::dot(normal, incident)), 2);
+
+	fresnel.reflectionCoefficient = (Rs + Rp)/2.0f;
+	fresnel.transmissionCoefficient = 1 - fresnel.reflectionCoefficient;
+
+	if (cosI > 0)
+		transmissionDirection = calculateTransmissionDirection(normal, incident, incidentIOR, transmittedIOR);
+	return fresnel;
 }
+
 
 // LOOK: This function demonstrates cosine weighted random direction generation in a sphere!
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2) {
@@ -91,7 +136,10 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
 // non-cosine (uniform) weighted random direction generation.
 // This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
-  return glm::vec3(0,0,0);
+	float theta = TWO_PI * xi1;
+	float u = 2 * xi2 - 1;
+	
+	return glm::vec3(sqrt(1-u*u)*cos(theta),sqrt(1-u*u)*sin(theta),u);
 }
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
