@@ -23,7 +23,7 @@ Performance
 
 Extra Features
 --------------
-* Interactive Camera
+# Interactive Camera
 
 > see pathtracer_camera_demo.mp4
 >
@@ -35,7 +35,10 @@ Extra Features
 >
 > Middle click-drag will move the camera forward/backward.
 
-* Depth of Field
+## Performance
+## Improvement/Optimization
+
+# Depth of Field
 
 > Added a camera field, DEPTH, that defines the focal distance of the camera.  Nonpositive DEPTH values should result in no depth of field.
 
