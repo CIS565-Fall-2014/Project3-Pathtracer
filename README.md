@@ -48,3 +48,6 @@ I implemented anti-aliasing by jitting the pixel position when we first generate
 ![alt tag](https://raw.githubusercontent.com/jianqiaol/Project3-Pathtracer/master/AA_compare.png)
 
 Although it is not very obvious since I only run 500 iteration due to time limit. You can still tell that the edge is a little smoother after using Anti-aliasing.
+
+##Motion Blur
+I implemented motion blur by hard coded in the cudaRaytraceCore function. By changing the position of the object a little bit during each iteration, you can get a moiton blur like this:
