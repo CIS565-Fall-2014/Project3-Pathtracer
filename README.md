@@ -51,3 +51,5 @@ Although it is not very obvious since I only run 500 iteration due to time limit
 
 ##Motion Blur
 I implemented motion blur by hard coded in the cudaRaytraceCore function. By changing the position of the object a little bit during each iteration, you can get a moiton blur like this:
+
+~[alt tag](https://raw.githubusercontent.com/jianqiaol/Project3-Pathtracer/master/motion_blur.png)
