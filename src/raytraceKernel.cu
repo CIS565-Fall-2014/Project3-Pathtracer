@@ -169,7 +169,7 @@ __global__ void average_image(glm::vec2 resolution,float time,glm::vec3* current
 	{
 		//final_image[index]=current_image[index]/(float)time+final_image[index]*(time-1)/(float)time;
 		
-		final_image[index]=current_image[index]*0.2f+final_image[index]*0.8f;
+		final_image[index]=current_image[index]/(float)time+final_image[index]*(time-1)/(float)time;
 		glm::clamp(final_image[index],0.0f,1.0f);
 		
 	}
