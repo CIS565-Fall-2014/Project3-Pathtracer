@@ -28,6 +28,6 @@ additional features:
 
 When I finished all the basic functions, the pathtracer gave me this wired output:
 
-The problem is my color accumulation. Since I was simply adding the color for each iteration, everything becomes white. Also the emittance of the light is too large (15) that makes almost every pixel white. I fixed this by 
+The problem is my color accumulation. Since I was simply adding the color for each iteration, everything becomes white. Also the emittance of the light is too large (15) that makes almost every pixel white. I fixed this by:
 1. Average color through iterations.  
 2. Add a distance feature to the ray and multiply exp(-Distance) to the final pixel color. After doing so, I get this much better result:
