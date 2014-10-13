@@ -22,6 +22,10 @@
 
 #define	 MAX_TRAVEL_DIST	9999999.99f
 #define  ENABLE_AA			1
+#define  ENABLE_MOTION_BLUR 0
+#define  ENABLE_DOF			1
+#define  APERTURE_RADIUS	0.1f
+#define  FOCALLEN_LENGTH	1.1f
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -42,16 +46,28 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   glm::vec3 image_center=eye+view;
   float px=float(x);
   float py=float(y);
+
+  if(ENABLE_DOF)
+  {
+	  thrust::default_random_engine rng(hash(time+1.0f));
+	  thrust::uniform_real_distribution<float> u01(-1.0f,1.0f);
+	  r.origin=r.origin+u01(rng)*image_x_direction*APERTURE_RADIUS;
+	  r.origin=r.origin+u01(rng)*image_y_direction*APERTURE_RADIUS;
+	  image_center=eye+FOCALLEN_LENGTH*view;
+  }
+
+
+  //http://en.wikipedia.org/wiki/Supersampling for Anti Aliasing
    if(ENABLE_AA)
   {
-	  thrust::default_random_engine rng(hash((time+1.0f)*(x+2.0f)*(y+3.0f)));
-	  thrust::uniform_real_distribution<float> u01(-2.0f,2.0f);
+	  thrust::default_random_engine rng(hash((time+1.0f)*(px+2.0f)*(py+3.0f)));
+	  thrust::uniform_real_distribution<float> u01(-1.5f,1.5f);
 	  px=px+u01(rng);
 	  py=py+u01(rng);
   }
   float image_x=((float)px-(float)resolution.x/2)/((float)resolution.x/2);
   float image_y=((float)py-(float)resolution.y/2)/((float)resolution.y/2);
-  //http://en.wikipedia.org/wiki/Supersampling for Anti Aliasing
+ 
  
 
 
@@ -153,7 +169,7 @@ __global__ void average_image(glm::vec2 resolution,float time,glm::vec3* current
 	{
 		//final_image[index]=current_image[index]/(float)time+final_image[index]*(time-1)/(float)time;
 		
-		final_image[index]=(current_image[index]+final_image[index])*0.5f;
+		final_image[index]=current_image[index]*0.2f+final_image[index]*0.8f;
 		glm::clamp(final_image[index],0.0f,1.0f);
 		
 	}
@@ -206,7 +222,7 @@ __global__ void raytraceRay(ray* activeRays,int N,int current_depth,glm::vec2 re
 		  activeRays[index].travel_dist+=travelDist;
 		  if(M.emittance>0.001f)
 		  {
-			  colors[activeRays[index].index]=exp(-0.08f*activeRays[index].travel_dist)*M.emittance*M.color*activeRays[index].color;
+			  colors[activeRays[index].index]=exp(-0.05f*activeRays[index].travel_dist)*M.emittance*M.color*activeRays[index].color;
 			  activeRays[index].is_Active=false;
 			  return;
 		  }
@@ -282,6 +298,18 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     newStaticGeom.scale = geoms[i].scales[frame];
     newStaticGeom.transform = geoms[i].transforms[frame];
     newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+	 //motion blur
+  if(ENABLE_MOTION_BLUR)
+  {
+	  if(i==6)
+	  {
+		  newStaticGeom.translation.x-=(float)iterations/3000;
+		  newStaticGeom.translation.y+=(float)iterations/3000;
+		  glm::mat4 new_transform=utilityCore::buildTransformationMatrix(newStaticGeom.translation,newStaticGeom.rotation,newStaticGeom.scale);
+		  newStaticGeom.transform=utilityCore::glmMat4ToCudaMat4(new_transform);
+		  newStaticGeom.inverseTransform=utilityCore::glmMat4ToCudaMat4(glm::inverse(new_transform));
+	  }
+  }
     geomList[i] = newStaticGeom;
   }
   //send geometry
@@ -302,8 +330,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.fov = renderCam->fov;
  
 
+
+ 
+
+
+
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  bool stream_compact=true;
+  bool stream_compact=false;
   int traceDepth=10;
   // set up crucial magic
   int tileSize = 16;
