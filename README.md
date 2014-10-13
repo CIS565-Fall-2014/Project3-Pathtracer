@@ -34,5 +34,5 @@ Also I find that the randseed for BSDF input has a hugh impact for the result. H
 
 ![alt tag](https://raw.githubusercontent.com/jianqiaol/Project3-Pathtracer/master/wiredResult_with_randSeed1.png)
 
-![alt tag](https://raw.githubusercontent.com/jianqiaol/Project3-Pathtracer/master/wiredResult_with_randSeed2.png)
+![alt tag](https://raw.githubusercontent.com/jianqiaol/Project3-Pathtracer/master/wiredREsult_with_randSeed2.png)
 
