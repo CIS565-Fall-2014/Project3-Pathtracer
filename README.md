@@ -24,7 +24,7 @@ additional features:
 ##First version of pathtracer
 
 When I finished all the basic functions, the pathtracer gave me this wired output:
-![alt tag](https://https://raw.githubusercontent.com/jianqiaol/Project3-Pathtracer/master/first_result_failed.png)
+![alt tag](https://raw.githubusercontent.com/jianqiaol/Project3-Pathtracer/master/first_result_failed.png)
 The problem is my color accumulation. Since I was simply adding the color for each iteration, everything becomes white. Also the emittance of the light is too large (15) that makes almost every pixel white. I fixed this by average color through iterations. And I also add a distance feature to the ray and multiply exp(-Distance) to the final pixel color. 
 
 After doing so, I get this much better result:
