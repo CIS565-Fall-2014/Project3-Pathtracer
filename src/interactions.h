@@ -117,11 +117,18 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 	//diffuse
 	if (m.hasReflective < ZERO_ABSORPTION_EPSILON && m.hasRefractive < ZERO_ABSORPTION_EPSILON) {
 		r.direction = calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng));
-		r.origin = intersect + (float)EPSILON * normal;
+		r.origin = intersect + (float)EPSILON * r.direction;
 		return 0;
-	} else {
+	} else if (m.hasRefractive >  ZERO_ABSORPTION_EPSILON) {	// refraction
+		glm::vec3 dir = r.direction;
+		glm::vec3 refDir = glm::refract(r.direction, normal, r.ior/m.indexOfRefraction);
+		r.direction = refDir;
+		r.origin = intersect + (float)EPSILON * r.direction;
+		r.ior = m.indexOfRefraction;
+		return 2;
+	}else {														// reflection
 		r.direction = glm::reflect(r.direction, normal);
-		r.origin = intersect + (float)EPSILON * normal;
+		r.origin = intersect + (float)EPSILON * r.direction;
 		return 1;
 	}
 };

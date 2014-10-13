@@ -67,12 +67,13 @@ __global__ void initRaycastFromCamera(glm::vec2 resolution, float time, glm::vec
 
 		glm::vec3 dir = view + (2 * x / resolution.x - 1) * planeRight + (2 * y / resolution.y - 1) * planeDown;
 
-		glm::vec3 rand = generateRandomNumberFromThread(resolution, time, x, y) * (glm::length(planeRight) * 2 / resolution.x);
+		glm::vec3 rand = generateRandomNumberFromThread(resolution, time, x, y) * (glm::length(planeRight) * 5 / resolution.x);
 		r.direction = glm::normalize(dir + rand);
 		r.index = index;
 		r.ended = false;
 		r.color = glm::vec3(1.0f);
-		
+		r.ior = 1.0f;
+
 		if (depth > 0) {
 			rand = generateRandomNumberFromThread(resolution, time, x, y) * (glm::length(planeRight) * 2 / resolution.x);
 			// find r's intersection point with the depth of field plane ***should this be a sphere?***
@@ -220,14 +221,6 @@ __global__ void raytraceRays(glm::vec2 resolution, float time, int traceDepth, r
 			} else {
 				r.color = r.color * (mat.color);// + mat.specularColor * pow(glm::dot(-r.direction, normal), 2));
 				calculateBSDF(r, point, normal, mat, index*time);
-
-				/*// Set up new R
-				thrust::default_random_engine rng(hash());
-				thrust::uniform_real_distribution<float> u01(0,1);
-
-				// Include a small epsilon * normal term in the new origin to prevent self-intersection.
-				r.origin += r.direction * (float)minIndex + (float)EPSILON * normal;
-				r.direction = calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng));*/
 			}
 			// Simple normal debugging:
 			//r.color = normal;
@@ -280,7 +273,7 @@ struct isRayEnded {
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
 
-	int traceDepth = 10; //determines how many bounces the raytracer traces
+	int traceDepth = 7; //determines how many bounces the raytracer traces
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -331,20 +324,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
 	cudaMemcpy(cudamaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
 
-	// package lights --CURRENTLY NOT USED--
-	int numberOfLights = 0;
-	int * lightIds = new int[numberOfGeoms];
-	for (int i = 0; i < numberOfGeoms; i++) {
-		if (materials[geoms[i].materialid].emittance > ZERO_ABSORPTION_EPSILON) {
-			lightIds[numberOfLights] = i;
-			numberOfLights++;
-		}
-	}
-	int* cudalightids = NULL;
-	cudaMalloc((void**)&cudalightids, numberOfLights*sizeof(int));
-	cudaMemcpy(cudalightids, lightIds, numberOfLights*sizeof(int), cudaMemcpyHostToDevice);
-	delete [] lightIds;
-
 	// raytrace core
 	int numberOfRays = renderCam->resolution.x * renderCam->resolution.y;
 	ray* cudarays = NULL;
@@ -385,7 +364,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaFree( cudageoms );
 	cudaFree( cudamaterials );
 	cudaFree( cudarays );
-	cudaFree( cudalightids );
 	cudaFree( cudacolors );
 
 	delete geomList;

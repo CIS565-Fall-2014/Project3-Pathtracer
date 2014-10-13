@@ -20,6 +20,7 @@ struct ray {
 	glm::vec3 color;
 	bool ended;
 	bool init;
+	float ior;	// index of refraction of the material it is currently in.
 };
 
 struct geom {
