@@ -117,7 +117,7 @@ Problems
 ![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/scene1.0.bmp)
 
 * (see the squares on the back wall)
-I am fairly certain that these artifacts are either being caused by float precision (though I think I use epsilon equality everywhere) or the random number generator seed.  Putting in a different seed results in vastly different results, some completely wrong.
+I am fairly certain that these artifacts are caused by either float precision (though I think I use epsilon equality everywhere) or the random number generator seed.  Putting in a different seed results in vastly different results, some completely wrong.
 
 ### Noise (slow to converge)
 ![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/iter_comparison.bmp)
