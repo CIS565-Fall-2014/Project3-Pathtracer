@@ -198,6 +198,7 @@ __global__ void raytraceRays(glm::vec2 resolution, float time, int traceDepth, r
 	ray r = rays[index];
 	if(index < numberOfRays && !r.ended){
 		glm::vec3 point, normal;
+		glm::vec3 minPt, minNorm;
 		float minT = FLT_MAX;
 		float t;
 		int minIndex = -1;
@@ -208,6 +209,8 @@ __global__ void raytraceRays(glm::vec2 resolution, float time, int traceDepth, r
 				t = boxIntersectionTest(geoms[j], r, point, normal);
 			}
 			if (t < minT && t != -1) {
+				minPt = point;
+				minNorm = normal;
 				minT = t;
 				minIndex = j;
 			}
@@ -220,7 +223,7 @@ __global__ void raytraceRays(glm::vec2 resolution, float time, int traceDepth, r
 				r.ended = true;
 			} else {
 				r.color = r.color * (mat.color);// + mat.specularColor * pow(glm::dot(-r.direction, normal), 2));
-				calculateBSDF(r, point, normal, mat, index*time);
+				calculateBSDF(r, minPt, minNorm, mat, index*time);
 			}
 			// Simple normal debugging:
 			//r.color = normal;
