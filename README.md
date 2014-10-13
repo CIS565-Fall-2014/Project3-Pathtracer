@@ -14,18 +14,17 @@ basic features:
 * Cube&Sphere intersection testing
 * Sphere surface point sampling
 * Stream compaction optimization 
-* 
 
 additional features:
 * Depth of field
 * Fresnel Refraction and Reflection
 * Supersampled antialiasing
 * Motion blur
-* 
 
 ##Implementation
+
 *First version of pathtracer
-*
+
 
 When I finished all the basic functions, the pathtracer gave me this wired output:
 
