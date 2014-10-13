@@ -16,6 +16,7 @@ I have so far implemented the following additional features:
 * Refraction, i.e. glass
 
 ## ANALYSIS DEPTH OF FIELD
+![DOF5000.bmp](https://raw.githubusercontent.com/RTCassidy1/Project3-Pathtracer/master/DOF5000.bmp)
 I incorporated Depth of Field by adding two parameters to the camera. 
 * the DOF parameter is the distance from the eye to the focal point.  (it would be more aptly named focal length, note to self for future refactoring)
 * the APERATURE parameter is the size of the aperature
@@ -23,13 +24,12 @@ The way the feature works is that when casting the first ray, after selecting wi
 * Adding this feature did add a few more calculations into the initial raycast which slowed performance down slightly.  I was overly cautious in normalizing my direction vectors so it's possible I could remove a few of these normalizations for additional speedup. I also probably don't need to jitter within the pixel anymore, but kept it there so I still maintain AntiAliasing when aperature is 0.
 * I didn't do anything particularly to speed this feature up. In RayTracing people often have to supersample the pixel to achieve this, but since we're already taking 1000s of samples per pixle I merely had to jitter around within the size of the aperature.
 
-## ANALYSIS DEPTH OF REFRACTION
-![DOF5000.bmp](https://raw.githubusercontent.com/RTCassidy1/Project3-Pathtracer/master/DOF5000.bmp)
+## ANALYSIS REFRACTION
+![FirstRefraction.bmp](https://raw.githubusercontent.com/RTCassidy1/Project3-Pathtracer/master/FirstRefraction.bmp)
 My BSDF is pretty simple, I would like to go through and make it more modular at a future time when I have a chance to refactor.  Instead of using Reflective and Refractive markers as flags, I used them as floats each representing the percentage of photons that hit is that will reflect or refract(transmit).  If a photon doesn't reflect or refract then it is treated as diffuse. 
 * my BSDF accepts two random numbers from 0-1 as parameters.  I use these to determine if I will check the reflectance or refractance threshold first.  I then use the number to determine which way to treat the material. If my random number is less than the threshhold for reflectance (or refractance) I treat it as a reflection (refraction).  If it is above the threshold it falls through to the next test. If it fails everything else it's treated as diffuse.
 
-## ANALYSIS DEPTH OF STREAM COMPACTION
-![FirstRefraction.bmp](https://raw.githubusercontent.com/RTCassidy1/Project3-Pathtracer/master/FirstRefraction.bmp)
+## ANALYSIS STREAM COMPACTION
 I also implemented stream compaction in an effort to speed up my renders.  Unfortunately it has so far offered little to no performance increase with depth 5 or 10.  I think this is because my implementation is not efficient enough and has too much memory access overhead.  I used thrust to scan an array for retired threads, but then implemented my own function to compact the rayStates.  I think with a little more research of Thrust I can implement my rayState array as a thrust vector and use built in functions to prune it on each depth iteration. 
 * I also planned to look at shared memory, but haven't yet had the chance.  There are a lot of parallel streams doing ray-intersection tests with the same geometry, so I speculate there could be an increase in efficiency by moving the geometery (and possibly materials) into shared memory.  This will have an overhead to actually move them, and the shear number of threads may actually be hiding any latency in the accesses, but I haven't had a chance to look at it yet.
 
