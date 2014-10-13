@@ -5,15 +5,20 @@
 //       Peter Kutz and Yining Karl Li's GPU Pathtracer: http://gpupathtracer.blogspot.com/
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
-#ifndef RAYTRACEKERNEL_H
-#define PATHTRACEKERNEL_H
 
 #include <stdio.h>
-#include <thrust/random.h>
 #include <cuda.h>
 #include <cmath>
+#include <thrust/random.h>
+#include <thrust/remove.h>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_ptr.h>
 #include "sceneStructs.h"
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+#define THRESHOLD 0.001
+#define DEPTH_OF_FIELD 0
 
-#endif
+void cudaRayTraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+void cudaPathTraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+

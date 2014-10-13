@@ -1,0 +1,5 @@
+scene2:	(under 10 maxDepth)	  iteration 50		iteration 100		iteration 150  		iteration 200		iteration 250
+
+with streamcompaction			9.63			21.12			34.27              47.09		58.97
+
+without streamcompaction		8.66			23.56			42.75		   64.51		90.32	

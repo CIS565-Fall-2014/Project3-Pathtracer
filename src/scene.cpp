@@ -54,20 +54,8 @@ int scene::loadObject(string objectid){
                 cout << "Creating new cube..." << endl;
 				newObject.type = CUBE;
             }else{
-				string objline = line;
-                string name;
-                string extension;
-                istringstream liness(objline);
-                getline(liness, name, '.');
-                getline(liness, extension, '.');
-                if(strcmp(extension.c_str(), "obj")==0){
-                    cout << "Creating new mesh..." << endl;
-                    cout << "Reading mesh from " << line << "... " << endl;
-		    		newObject.type = MESH;
-                }else{
-                    cout << "ERROR: " << line << " is not a valid object type!" << endl;
-                    return -1;
-                }
+				cout<< "error object type" <<endl;
+           
             }
         }
        
@@ -140,7 +128,7 @@ int scene::loadCamera(){
 	float fovy;
 	
 	//load static properties
-	for(int i=0; i<4; i++){
+	for(int i=0; i<6; i++){
 		string line;
         utilityCore::safeGetline(fp_in,line);
 		vector<string> tokens = utilityCore::tokenizeString(line);
@@ -152,6 +140,10 @@ int scene::loadCamera(){
 			newCamera.iterations = atoi(tokens[1].c_str());
 		}else if(strcmp(tokens[0].c_str(), "FILE")==0){
 			newCamera.imageName = tokens[1];
+		}else if(strcmp(tokens[0].c_str(), "FOCAL")==0){
+			newCamera.focalLength = atof(tokens[1].c_str());
+		}else if(strcmp(tokens[0].c_str(), "APERTURE")==0){
+			newCamera.aperture = atof(tokens[1].c_str());
 		}
 	}
         

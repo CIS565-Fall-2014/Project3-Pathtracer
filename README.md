@@ -1,165 +1,158 @@
 CIS 565 Project3 : CUDA Pathtracer
 ===================
 
-Fall 2014
-
-Due Wed, 10/8 (submit without penalty until Sun, 10/12)
 
 ## INTRODUCTION
-In this project, you will implement a CUDA based pathtracer capable of
-generating pathtraced rendered images extremely quickly. Building a pathtracer can be viewed as a generalization of building a raytracer, so for those of you who have taken 460/560, the basic concept should not be very new to you. For those of you that have not taken
-CIS460/560, raytracing is a technique for generating images by tracing rays of
-light through pixels in an image plane out into a scene and following the way
-the rays of light bounce and interact with objects in the scene. More
-information can be found here:
-http://en.wikipedia.org/wiki/Ray_tracing_(graphics). Pathtracing is a generalization of this technique by considering more than just the contribution of direct lighting to a surface.
+This is a CUDA based Monte-Carlo Path tracer that renders images of different objects(sphere, cube, obj file) 
+in various materials including diffuse, reflection, refraction, and more in the future. The render window will show 
+real-time rendering progress (like other renderers do:) ), and camera angle can be changed at real-time to allow interesting shots!
+To run my code in visual studio, press "ctrl+F5 ", sometimes, the renderer will stuck at 46 frame for certain scene (for instance, myScene.txt) but sometimes it works perfectly if restart the rendering without changing anything. So just keep trying.
+I definitely need to fix this in the future.
 
-Since in this class we are concerned with working in generating actual images
-and less so with mundane tasks like file I/O, this project includes basecode
-for loading a scene description file format, described below, and various other
-things that generally make up the render "harness" that takes care of
-everything up to the rendering itself. The core renderer is left for you to
-implement.  Finally, note that while this basecode is meant to serve as a
-strong starting point for a CUDA pathtracer, you are not required to use this
-basecode if you wish, and you may also change any part of the basecode
-specification as you please, so long as the final rendered result is correct.
+## BACIC FEATURES
 
-## CONTENTS
-The Project3 root directory contains the following subdirectories:
+* Raycasting from a camera into a scene through a pixel grid  
+	Using jittered coordinates to achieve Anti-Aliasing, and this effect is obvious when using small resolution, and less obvious when using large resolution.  
 	
-* src/ contains the source code for the project. Both the Windows Visual Studio
-  solution and the OSX and Linux makefiles reference this folder for all 
-  source; the base source code compiles on Linux, OSX and Windows without 
-  modification.  If you are building on OSX, be sure to uncomment lines 4 & 5 of
-  the CMakeLists.txt in order to make sure CMake builds against clang.
-* data/scenes/ contains an example scene description file.
-* renders/ contains an example render of the given example scene file. 
-* windows/ contains a Windows Visual Studio 2010 project and all dependencies
-  needed for building and running on Windows 7. If you would like to create a
-  Visual Studio 2012 or 2013 projects, there are static libraries that you can
-  use for GLFW that are in external/bin/GLFW (Visual Studio 2012 uses msvc110, 
-  and Visual Studio 2013 uses msvc120)
-* external/ contains all the header, static libraries and built binaries for
-  3rd party libraries (i.e. glm, GLEW, GLFW) that we use for windowing and OpenGL
-  extensions
+* Diffuse surfaces  
+Using Hemi sphere sampling to cast secondary diffuse rays. I used Importance Sampling (cos weighted) to reduce noise and speed up convergence. 
+shading is done by simplest Lambert BRDF.
 
-## RUNNING THE CODE
-The main function requires a scene description file (that is provided in data/scenes). 
-The main function reads in the scene file by an argument as such :
-'scene=[sceneFileName]'
+* Perfect specular reflective surfaces  
+Calculating reflected secondary ray by vector math
 
-If you are using Visual Studio, you can set this in the Debugging > Command Arguments section
-in the Project properties.
+* Cube intersection testing  
+My cube intersection is based on 
+http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/ 
 
-## REQUIREMENTS
-In this project, you are given code for:
+* Sphere surface point sampling  
+Monte-Carlo Sampling. 
 
-* Loading, reading, and storing the TAKUAscene scene description format
-* Example functions that can run on both the CPU and GPU for generating random
-  numbers, spherical intersection testing, and surface point sampling on cubes
-* A class for handling image operations and saving images
-* Working code for CUDA-GL interop
+* Stream compaction optimization  
+Stream compaction was done by thrust, fast and reliable:)
+This can be turned on or off by defining "STREAM_COMPACTION" in "raytracerKernel.h"  
+The maximum limit of ray depth impacts the rendered speed, and this limit can be set in "MAX_DEPTH" in "raytracerKernel.h"  
 
-You will need to implement the following features:
+The comparison between using and not using stream compaction is shown below  
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Comparison.png)
 
-* Raycasting from a camera into a scene through a pixel grid
-* Diffuse surfaces
-* Perfect specular reflective surfaces
-* Cube intersection testing
-* Sphere surface point sampling
-* Stream compaction optimization
 
-You are also required to implement at least 2 of the following features:
+## ADVANCED FEATURES
 
-* Texture mapping 
-* Bump mapping
-* Depth of field
-* Refraction, i.e. glass
-* OBJ Mesh loading and rendering
-* Interactive camera
-* Motion blur
-* Subsurface scattering
+## Refraction, i.e. glass  
+Refraction was done based on snell's law and fresnel equation.
+Using good index of refraction will produce beautiful refractions.
+Both clear glass or colored glass can be handled here. Wondering doing some frosted glass(play with transparency)in the future.  
+The picture below shows three material - diffuse, highly reflective, and refractive glass.
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best6_Materials.bmp) 
 
-The 'extra features' list is not comprehensive.  If you have a particular feature
-you would like to implement (e.g. acceleration structures, etc.) please contact us 
-first!
 
-For each 'extra feature' you must provide the following analysis :
-* overview write up of the feature
-* performance impact of the feature
-* if you did something to accelerate the feature, why did you do what you did
-* compare your GPU version to a CPU version of this feature (you do NOT need to 
-  implement a CPU version)
-* how can this feature be further optimized (again, not necessary to implement it, but
-  should give a roadmap of how to further optimize and why you believe this is the next
-  step)
+##Depth of field  
+Depth of filed was achieved by offsetting initial pinhole ray origin based on camera aperture, and re-calculate the ray direction based on previous focal plane intersecting point.
+Thus, the ray casting mimics the lens-based camera and produces depth of field effect where objects out of focus is blurred.  
 
-## BASE CODE TOUR
-You will be working in three files: raytraceKernel.cu, intersections.h, and
-interactions.h. Within these files, areas that you need to complete are marked
-with a TODO comment. Areas that are useful to and serve as hints for optional
-features are marked with TODO (Optional). Functions that are useful for
-reference are marked with the comment LOOK.
+Turning on/off "DEPTH_OF_FIELD" in "raytracerKernel.h" will switch the effect on/off
 
-* raytraceKernel.cu contains the core raytracing CUDA kernel. You will need to
-  complete:
-    * cudaRaytraceCore() handles kernel launches and memory management; this
-      function already contains example code for launching kernels,
-      transferring geometry and cameras from the host to the device, and transferring
-      image buffers from the host to the device and back. You will have to complete
-      this function to support passing materials and lights to CUDA.
-    * raycastFromCameraKernel() is a function that you need to implement. This
-      function once correctly implemented should handle camera raycasting. 
-    * raytraceRay() is the core raytracing CUDA kernel; all of your pathtracing
-      logic should be implemented in this CUDA kernel. raytraceRay() should
-      take in a camera, image buffer, geometry, materials, and lights, and should
-      trace a ray through the scene and write the resultant color to a pixel in the
-      image buffer.
+REMEMBER to specify camera "FOCAL" and "APERTURE" in scene txt file no matter using Depth of Field or not, like illustrated below, otherwise my program will have error in reading txt file lines  
+  
+CAMERA   
+RES         800 800  
+FOVY        35  
+ITERATIONS  5000  
+FILE        test.bmp  
+FOCAL 8.2  
+APERTURE 1.3  
+frame 0  
+EYE         0 4.5 8  
+VIEW        0 0 -1  
+UP          0 1 0  
+      
+Choosing good focal length and aperture is essential to create realistic depth of field.   
+I have three rendered image as below, first everything is in focus (without depth of field), 
+second with longer focal length, so further objects are in focus, the third with shorter focal length, hence nearer objects are in focus. 
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best0_Sharp.bmp)
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best1_DepthOfField.bmp)
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best2_DepthOfField.bmp)
 
-* intersections.h contains functions for geometry intersection testing and
-  point generation. You will need to complete:
-    * boxIntersectionTest(), which takes in a box and a ray and performs an
-      intersection test. This function should work in the same way as
-      sphereIntersectionTest().
-    * getRandomPointOnSphere(), which takes in a sphere and returns a random
-      point on the surface of the sphere with an even probability distribution.
-      This function should work in the same way as getRandomPointOnCube(). You can
-      (although do not necessarily have to) use this to generate points on a sphere
-      to use a point lights, or can use this for area lighting.
+##OBJ Mesh loading and rendering  
+OBJ loading is possible with the help of "TinyObjLoader" by https://github.com/syoyo/tinyobjloader.
+The obj data is parsed "mesh" with both "indices" and "positions". This saved me a lot of time in reading the obj file.
 
-* interactions.h contains functions for ray-object interactions that define how
-  rays behave upon hitting materials and objects. You will need to complete:
-    * getRandomDirectionInSphere(), which generates a random direction in a
-      sphere with a uniform probability. This function works in a fashion
-      similar to that of calculateRandomDirectionInHemisphere(), which generates a
-      random cosine-weighted direction in a hemisphere.
-    * calculateBSDF(), which takes in an incoming ray, normal, material, and
-      other information, and returns an outgoing ray. You can either implement
-      this function for ray-surface interactions, or you can replace it with your own
-      function(s).
+Then I created a structure "triangle" to handle face structure of mesh, and during intersection test, 
+each of triangle will only be tested if the bounding box is intersecting the ray. This is very important as it will take A LOT OF TIME without bounding box intersection.
 
-You will also want to familiarize yourself with:
+But, my renderer can only handle one obj instead of multiple obj, at current stage. (i.e only one objects in the scene can be specified by obj file, not more. 
+but with other basic shape like sphere or cube is okay.) As I failed in adding the list of triangle to the member of "geom" and readable by CUDA. 
+This can be solved by expanding my current global array of triangle to an array of triangle list. I should implement this in the near future.  
 
-* sceneStructs.h, which contains definitions for how geometry, materials,
-  lights, cameras, and animation frames are stored in the renderer. 
-* utilities.h, which serves as a kitchen-sink of useful functions
+In order to load obj, speify the scene file as below. REMEMBER to include FULL PATH for the obj file, so that TinyObjLoader can correctly finds the file.  
+I have two renders below, 166 and 437 triangle faces respectively, each took 40 minutes, and 80 minutes to render, which is still too slow for a renderer. 
+In the future, I should implement Kd tree to speed up the rendering for polygonal meshes.     
 
-## NOTES ON GLM
-This project uses GLM, the GL Math library, for linear algebra. You need to
-know two important points on how GLM is used in this project:
+OBJECT 5  
+C:\Users\AppleDu\Documents\GitHub\Project3-Pathtracer\data\scenes\hexGem.obj  
+material 5  
+frame 0  
+TRANS       0 1.1 -0.5  
+ROTAT       0 0 0  
+SCALE       4 4 4  
 
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed
-  via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is
-  used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but
-  pre-Fermi cards do not play nice with GLM matrices. As such, in this project,
-  GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found
-  in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is
-  provided as multiplyMV() in intersections.h.
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best4_Diamond.bmp)
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best5_Crystal.bmp)
 
-## Scene FORMAT
-This project uses a custom scene description format, called TAKUAscene.
-TAKUAscene files are flat text files that describe all geometry, materials,
+##Interactive camera  
+Interactive Camera is implemented to provide flexible in rendering angles, including pan, tilt, zoom, everything. 
+Play with camera like a camera man! :) Rendering will start fresh every time camera is changed. This allows interactive adjustment to camera angle, and make interesting shots possible.    
+
+"STEP_SIZE" specifies the step size of camera movements, and can be changed in "main.h".  
+The keyboard interaction during run-time is as specified below. In the future, I will include real-time modification of camera focal length and aperture as well, so that I can produce a good and realistic depth of field effect.  
+
+* W - move up
+* Q - move down
+* S - move left
+* D - move right
+* Q - move forward (zoom in)
+* E - move backward (zoom out)
+* up - rotate up
+* down - rotate down
+* left - rotate left
+* right - rotate right
+* , - rotate CCW
+* . - rotate CW
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best3_Depth_and_Camera_moving.bmp)
+[![ScreenShot](windows/Project3-Pathtracer/Project3-Pathtracer/YoutubeThumbnail.png)] (http://www.youtube.com/embed/RtjJXwnUBZo)
+
+##Compare to CPU Ray Tracer  
+There are tons of advantages this rendered has over the CPU raytracer, such as  
+* Much faster!   
+* Real-time Rendering  
+* Global Illumination ( Color Bleeding, Soft Shadow, & Caustics! )   
+* Realistic Rendering ( BRDF )  
+
+## SCENE FORMAT  
+In order to use my program, "FOCAL" and "APERTURE" MUST be specified for camera in the scene file, 
+though depth of field may not be turned on. This is to ensure correctness of reading in scene txt file.
+I have some scene files that are interesting to render:  
+* sampleScene.txt  
+Original file  
+
+* myScene.txt  
+There is diffuse item, highly reflective item, glass item, depth of field.
+with only one cube for Anti-Aliasing test  
+
+* myScene1.txt  
+Demonstrating basic materials - diffuse, reflection, and refraction  
+
+* myScene2.txt  
+Diamond obj with white glass material  
+
+* myScene3.txt  
+Crystal obj with blue glass material  
+
+
+************************************************************
+This project uses a custom scene description format.
+Scene files are flat text files that describe all geometry, materials,
 lights, cameras, render settings, and animation frames inside of the scene.
 Items in the format are delimited by new lines, and comments can be added at
 the end of each line preceded with a double-slash.
@@ -216,58 +209,4 @@ Objects are defined in the following fashion:
 * ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
 * SCALE (float scalex) (float scaley) (float scalez)		//scale
 
-An example TAKUAscene file setting up two frames inside of a Cornell Box can be
-found in the scenes/ directory.
 
-For meshes, note that the base code will only read in .obj files. For more 
-information on the .obj specification see http://en.wikipedia.org/wiki/Wavefront_.obj_file.
-
-An example of a mesh object is as follows:
-
-OBJECT 0
-mesh tetra.obj
-material 0
-frame 0
-TRANS       0 5 -5
-ROTAT       0 90 0
-SCALE       .01 10 10 
-
-Check the Google group for some sample .obj files of varying complexity.
-
-## THIRD PARTY CODE POLICY
-* Use of any third-party code must be approved by asking on our Google Group.  
-  If it is approved, all students are welcome to use it.  Generally, we approve 
-  use of third-party code that is not a core part of the project.  For example, 
-  for the ray tracer, we would approve using a third-party library for loading 
-  models, but would not approve copying and pasting a CUDA function for doing 
-  refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another
-  student's code, is an academic integrity violation, and will result in you
-  receiving an F for the semester.
-
-## SELF-GRADING
-* On the submission date, email your grade, on a scale of 0 to 100, to Harmony,
-  harmoli+cis565@seas.upenn.com, with a one paragraph explanation.  Be concise and
-  realistic.  Recall that we reserve 30 points as a sanity check to adjust your
-  grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We
-  hope to only use this in extreme cases when your grade does not realistically
-  reflect your work - it is either too high or too low.  In most cases, we plan
-  to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as
-  the path tracer.  We will determine the weighting at the end of the semester
-  based on the size of each project.
-
-## SUBMISSION
-Please change the README to reflect the answers to the questions we have posed
-above.  Remember:
-* this is a renderer, so include images that you've made!
-* be sure to back your claims for optimization with numbers and comparisons
-* if you reference any other material, please provide a link to it
-* you wil not e graded on how fast your path tracer runs, but getting close to
-  real-time is always nice
-* if you have a fast GPU renderer, it is good to show case this with a video to
-  show interactivity.  If you do so, please include a link.
-
-Be sure to open a pull request and to send Harmony your grade and why you
-believe this is the grade you should get.
