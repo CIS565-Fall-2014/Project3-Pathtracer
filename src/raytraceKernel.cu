@@ -22,7 +22,7 @@
 #include "intersections.h"
 #include "interactions.h"
 
-#define RAY_DEPTH 10
+#define RAY_DEPTH 5
 #define TILE_SIZE 8
 //#define DOF 11.2
 //#define MOTION_BLUR 1
