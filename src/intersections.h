@@ -78,8 +78,8 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	rt.origin=ro;
 	rt.direction=rd;
 
-	float Tnear=-999999.0f;
-	float Tfar=999999.0f;
+	float Tnear=-9999999.0f;
+	float Tfar=9999999.0f;
 	float t1,t2;
 	//check for x-slab
 	if(rd.x==0.0f)
@@ -252,8 +252,16 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 // TODO: IMPLEMENT THIS FUNCTION
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
+	thrust::default_random_engine rng(hash(randomSeed));
+	thrust::uniform_real_distribution<float> u01(0,TWO_PI);
+	thrust::uniform_real_distribution<float> u02(0,PI);
 
-  return glm::vec3(0,0,0);
+	float alpha,beta;
+	alpha=(float)u01(rng);
+	beta=(float)u02(rng);
+	glm::vec3 P_sphere(cos(beta)*cos(alpha),cos(beta)*sin(alpha),sin(beta));
+	glm::vec3 P_global=multiplyMV(sphere.transform,glm::vec4(P_sphere,1.0f));
+	return P_global;
 }
 
 #endif

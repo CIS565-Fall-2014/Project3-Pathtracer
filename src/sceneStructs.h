@@ -19,6 +19,15 @@ struct ray {
 	glm::vec3 color;
 	bool is_Active;
 	int index;
+	float travel_dist;
+};
+
+struct rayPool {
+	ray ray;
+	glm::vec3 colors;
+	float coefficient;
+	int index;
+	bool isTerminated;
 };
 
 struct geom {

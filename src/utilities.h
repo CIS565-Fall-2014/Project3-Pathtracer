@@ -25,6 +25,7 @@
 #define ZERO_ABSORPTION_EPSILON     0.00001
 #define RAY_BIAS_AMOUNT             0.0002
 
+
 namespace utilityCore {
     extern float clamp(float f, float min, float max);
     extern bool replaceString(std::string& str, const std::string& from, const std::string& to);
