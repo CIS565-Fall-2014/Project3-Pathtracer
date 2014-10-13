@@ -127,25 +127,31 @@ __host__ __device__ int calculateReflective(ray& thisRay, glm::vec3 intersect, g
 
 __host__ __device__ int calculateRefractive(ray& thisRay, glm::vec3 intersect, glm::vec3 normal,
                                        glm::vec3& color, material mat, float seed1, float seed2){
+//consulted Bram de Grave paper 2006 Reflections and Refractions in Ray Tracing for help with algorithm.
   ray newRay;
+  float theta, phi;
+  float indexOfRefraction = mat.indexOfRefraction;
+  
   //refraction angle
-  float cosIncident = - glm::dot(normal, thisRay.direction);
-  float N;
-  if (cosIncident < 0){
-    N = mat.indexOfRefraction;
+  theta = glm::dot(normal, thisRay.direction);
+  if (theta > 0){
+    //flip normal, i'm inside the object
+    normal = - normal;
   }else{
-    N = 1.0f/mat.indexOfRefraction;
+    //flip theta and invert IOR
+    theta = -theta;
+    indexOfRefraction = 1/indexOfRefraction;
   }
-  float sinTheta2 = N * N * (1.0f - cosIncident * cosIncident);
-  if (sinTheta2 > 1.0){
-    color = glm::vec3(0,0,0); //total internal reflection
-    return 2;
+  phi = indexOfRefraction * indexOfRefraction * (1 - theta * theta);
+  //is there total internal reflection?
+  if (phi > 1){
+    return calculateReflective(thisRay, intersect, normal, color, mat, seed1, seed2); //switch to reflection
   }
-  float cosTheta = sqrt(1.0f - sinTheta2);
-  newRay.direction = N * thisRay.direction + (N * cosIncident - cosTheta) * normal;
+  float sinPhi = sqrt(1 - phi);
+  newRay.direction = indexOfRefraction * thisRay.direction + (indexOfRefraction * theta - sinPhi) * normal;
+  newRay.direction = glm::normalize(newRay.direction);
   newRay.origin = intersect + .001f * newRay.direction; //nudge in direction
   thisRay = newRay;
-  
   return 2;
 }
 
@@ -176,7 +182,7 @@ __host__ __device__ int calculateDiffuse(ray& thisRay, glm::vec3 intersect, glm:
                                        glm::vec3& color, glm::vec3& unabsorbedColor, material m){ */
 __host__ __device__ int calculateBSDF(ray& thisRay, glm::vec3 intersect, glm::vec3 normal,
                                        glm::vec3& color, material mat, float seed1, float seed2){
-  if(seed1 > seed2){
+  if((seed1 + seed2) > 1){
     //check reflectance first
     if(seed2 < mat.hasReflective){ 
       return calculateReflective(thisRay, intersect, normal, color, mat, seed1, seed2);
