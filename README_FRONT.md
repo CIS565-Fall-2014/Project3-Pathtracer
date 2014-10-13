@@ -5,11 +5,10 @@ CIS 565 Project 3: CUDA Pathtracer
 
 ### _Overview_
 
-[Text overview, some pictures.]
+This is my (rather unsuccessful) attempt to rebuild parts of a pathtracer that was
+designed for CIS565 2 years ago as a final project.
 
-
-
-
+Pictures follow in the wall of text below.
 
 
 ### _Details on what I implemented_
@@ -150,15 +149,39 @@ For some reason, the bmp output looked completely different:
 
 ![checkpoint 3-1.1](images/chkpt3-1.1.bmp)
 
+(It seems like it failed to divide by the number of iterations, since there's
+a lot of white. This tells me that any black area on the output is a place where
+the ray absolutely never hit the light. I don't know if this has to do with the
+hemisphere function or what, but I'm completely clueless as to what the cause
+might be.)
+
 At this point, I've decided to stop and focus on motion blur / stream compaction
 in the few remaining hours I have.
 
 
 #### Stream compaction
 
+**Important: remember to change the #blocks launched with each call of raytraceRay.
+Otherwise I'll end up with lots of wasted cycles anyway because I'll launch kernels
+for rays that don't exist.
 
+Stream compaction is made possible by adding "source_index" attributes to the
+ray struct, which allows rays to be culled without losing their corresponding
+index location.
 
+Here's an output for 100 interations I got that seems almost right - but it's much too dark, even for
+100 iterations. If stream compaction were implemented correctly, it should be exactly
+the same, right?
 
+![Stream Compaction](images/stream-compaction.png)
+
+Going up to 1000 iterations changes little.
+
+The work shows up in 3 places in the code:
+
+* relabeling of the indexes in raytraceRay()
+* NUM_BLOCKS changes near the while loop in cudaRaytraceCore()
+* the new void function cullRays (this is NOT a kernel or __device__ function!)
 
 
 ### _Extra feature analysis_
@@ -186,7 +209,10 @@ And here's the end result:
 
 ![Motion Blur Image](images/motion-blur-img.png)
 
-
+The version I implemented has little performance impact. The way it is calculated,
+it already takes place on the CPU. There's probably a smarter way to do this on
+the GPU that does not involve recalculating a matrix with each iteration, but I
+can't think of it right now.
 
 
 
@@ -195,10 +221,20 @@ And here's the end result:
 [Potential ideas for better optimization]
 
 I'd like to say that the Moore 100C computers are just slow, but it still seems
-likely that my implementation is not perfect. I can identify the following areas
-of redundancy:
+likely that my implementation is not that good - after all, I had to decrease
+the resolution a LOT (first to 400 x 400, then 350 x 350) to get the thing
+to run at a reasonable pace.
 
-* 
+I can identify the following areas of redundancy in the code:
+
+* deleting/repackaging stuff to send to/from CUDA on each iteration - while this
+  was obviously important it making it very easy to implement motion blur, I still
+  feel there may be a better way to handle the data at the front of cudaRaytraceCore()
+  than just copying it fresh for each iteration.
+* stream compaction requires kernel calls. If the number of finished rays is very
+  low, then perhaps it isn't worth it to cull just those rays. So, conditioning
+  the call for stream compaction may result in better performance.
 
 Also, stream compaction overhead may not be worth it if, for example, we're
-shooting rays around in an enclosed box with lights all over the place.
+shooting rays around in an enclosed box with lights all over the place, as
+all the rays will terminate soon/take around the same number of bounces to terminate.

@@ -217,7 +217,7 @@ OBJECT 9
 cube
 material 8 
 frame 0
-TRANS       -2 3 4
+TRANS       -2 3 9
 ROTAT       0 0 90
 SCALE       1 1 1
 

@@ -18,6 +18,8 @@
 #include "intersections.h"
 #include "interactions.h"
 
+#include <thrust/remove.h>
+#include <thrust/count.h>
 
 
 
@@ -143,11 +145,13 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 // NOTE: this kernel represents "tracing ONE bounce" 
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors, ray* rays,
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
+                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, int numRays){
 
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
+  //int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  //int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  //int index = x + (y * resolution.x);
+	int origindex = blockIdx.x * blockDim.x + threadIdx.x;
+	int scindex = rays[origindex].sourceindex;
 
   // REMEMBER:
   /*
@@ -155,17 +159,17 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 	   - use the pooled array map to ensure you're +='ing to the proper colors[] entry!
 	   - ** ADD TO COLORS[] UPON DEACTIVATION
   */
-  if((x<=resolution.x && y<=resolution.y)){
+  if(scindex < resolution.x * resolution.y && origindex < numRays){
 
-	  if (!rays[index].active) {
+	  if (!rays[origindex].active) {
 		  //the ray has been deactivated, so do nothing
 		  // if/when I implement stream compaction, this will be taken care of elsewhere, so there should be no issue
 		  return;
 	  }
 
 	  if (rayDepth == TRACE_DEPTH_LIMIT - 1) {
-		  rays[index].active = false;
-		  colors[index] += glm::vec3(0,0,0); // THIS OCCURS TWICE (this line does nothing... it was originally used for debug)
+		  rays[origindex].active = false;
+		  colors[scindex] += glm::vec3(0,0,0); // THIS OCCURS TWICE (this line does nothing... it was originally used for debug)
 	  }// too many bounces causes deactivation
 
 		//glm::vec3 colorOfMinDistance(0, 0, 0);
@@ -179,7 +183,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 		for (int g = 0; g < numberOfGeoms; g++) {
 			if (geoms[g].type == CUBE) {
-				float test = boxIntersectionTest(geoms[g], rays[index], i, n);
+				float test = boxIntersectionTest(geoms[g], rays[scindex], i, n);
 				if (test > -.5) { // so, positive
 					if (minDistance < 0 || test < minDistance) { // if unset or new min
 						minDistance = test;
@@ -200,11 +204,10 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 						//rays[index].active = false;
 						//return;
 						//////
-
 				}
 			}
 			else if (geoms[g].type == SPHERE) {
-				float test = sphereIntersectionTest(geoms[g], rays[index], i, n);
+				float test = sphereIntersectionTest(geoms[g], rays[scindex], i, n);
 				if (test > -.5) { // so, positive
 					if (minDistance < 0 || test < minDistance) { // if unset or new min
 						//colorOfMinDistance = materials[geoms[g].materialid].color;
@@ -219,15 +222,15 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 		// nothing was hit
 		if (minDistance == -1.f) {
-			rays[index].active = false;
-			colors[index] += glm::vec3(0,0,0); // THIS OCCURS TWICE (also does nothing)
+			rays[origindex].active = false;
+			colors[scindex] += glm::vec3(0,0,0); // THIS OCCURS TWICE (also does nothing)
 			return;
 		}
 
-		if (calculateBSDF(rays[index], rayDepth, minMaterial, minIsectPt, minNormal, (int)time) == 2) {
+		if (calculateBSDF(rays[scindex], rayDepth, minMaterial, minIsectPt, minNormal, (int)time) == 2) {
 			//light has been hit, so terminate the ray here and add its color
-			rays[index].active = false;
-			colors[index] += rays[index].color;
+			rays[origindex].active = false;
+			colors[scindex] += rays[origindex].color;
 		}
 		// if light wasn't hit, BSDF takes care of other stuff as needed
 
@@ -242,6 +245,36 @@ __global__ void initiateCameraRays(cameraData cam, ray* rays, float time) {
 	if((x<=cam.resolution.x && y<=cam.resolution.y)){
 		rays[index] = raycastFromCameraKernel(glm::vec2(cam.resolution.x, cam.resolution.y), time, x, y, cam.position, cam.view, cam.up, cam.fov);
 	}
+}
+
+// Stream Compaction
+// int& is to be used with changing the number of blocks.
+void cullRays(ray* rays, int& numRays) {
+
+	struct is_inactive {
+		__host__ __device__
+		bool operator()(const ray r)
+		{
+			return !r.active;
+		}
+	};
+
+	struct is_active {
+		__host__ __device__
+		bool operator()(const ray r)
+		{
+			return r.active;
+		}
+	};
+
+	const int Nold = numRays;
+	numRays = thrust::count_if(rays, rays + Nold, is_active()); // only care about active arrays!
+
+	ray* newRays;
+	newRays = thrust::remove_if(rays, rays + Nold, is_inactive());
+
+	rays = newRays;
+
 }
 
 // TODO: FINISH THIS FUNCTION ("Support passing materials and lights to CUDA")
@@ -329,11 +362,27 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   initiateCameraRays<<<fullBlocksPerGrid, threadsPerBlock>>>(cam, cudarays, (float)iterations);
 
+  int numRays = (int)renderCam->resolution.x*(int)renderCam->resolution.y;
+  int BLOCKSIZE = 32;
+  int NUM_BLOCKS = (int)ceil((float)numRays/float(BLOCKSIZE));
+
   while (traceDepth < TRACE_DEPTH_LIMIT) {
-	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth,
+	raytraceRay<<<NUM_BLOCKS, BLOCKSIZE>>>(renderCam->resolution, (float)iterations, cam, traceDepth,
 														cudaimage, cudarays, cudageoms, numberOfGeoms, cudamaterials,
-														numberOfMaterials);
+														numberOfMaterials, numRays);
 	traceDepth++;
+	
+	// stream compaction
+	//ray* raysFromCuda; //is this a memory leak??
+
+	//get rays back onto CPU to do thrust (... how else do I do this??)
+	cudaMemcpy ( renderCam->rayList, cudarays, numRays*sizeof(ray), cudaMemcpyDeviceToHost);
+
+	cullRays( renderCam->rayList, numRays); // cull
+	NUM_BLOCKS = (int)ceil((float)numRays/float(BLOCKSIZE)); // potentially lower the number of blocks
+
+	//send rays back
+	cudaMemcpy ( cudarays, renderCam->rayList, numRays*sizeof(ray), cudaMemcpyHostToDevice);
   }
 
   //std::cout << "\nraytraceRay call is done\n" << std::endl;

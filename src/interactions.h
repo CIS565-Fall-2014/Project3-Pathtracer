@@ -144,11 +144,12 @@ __host__ __device__ int calculateBSDF(ray& r, int depth, material m, glm::vec3 i
 		//update the intensity multiplier using the Lambertian model
 		// first, get a new ray
 		//srand (time(NULL));
-		thrust::default_random_engine rng(hash(iterationNumber * r.sourceindex));
+		thrust::default_random_engine rng1(hash(iterationNumber * r.sourceindex));
+		thrust::default_random_engine rng2(hash(iterationNumber * r.sourceindex * 2.));
 		thrust::uniform_real_distribution<float> r01(0,1);
 		thrust::uniform_real_distribution<float> r02(0,1);
 
-		glm::vec3 newRay = calculateRandomDirectionInHemisphere(normal, (float)r01(rng), (float)r02(rng));
+		glm::vec3 newRay = calculateRandomDirectionInHemisphere(normal, (float)r01(rng1), (float)r02(rng2));
 
 		// calculate the intensity
 		float cos_th = glm::dot(newRay, normal) / glm::length(newRay) / glm::length(normal);
