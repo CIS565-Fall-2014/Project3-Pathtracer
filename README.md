@@ -24,11 +24,14 @@ Performance
 Extra Features
 --------------
 * Interactive Camera
+
 > Use the mouse to control the camera.
 > Left click-drag will move the camera.
 > Right click-drag will tilt the camera.
 > Middle click-drag will move the camera forward/backward.
+
 * Depth of Field
+
 > Added a camera field, DEPTH, that defines the focal distance of the camera.  Nonpositive DEPTH values should result in no depth of field.
 
 Challenges
