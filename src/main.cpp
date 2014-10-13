@@ -8,6 +8,8 @@
 #include "main.h"
 #define GLEW_STATIC
 
+#include "SimpleTimer.h" // Timer.
+
 
 ////////////////////////////////////////////////////
 // Constants
@@ -17,6 +19,8 @@ const std::string SCENE_FILE_NAME = "sampleScene_02.txt";
 const std::string OUTPUT_IMAGE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\renders\\";
 //const std::string TEXTURE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\data\\textures\\world_map.bmp";
 //const std::string SCENE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\data\\scenes\\sampleScene_02.txt";
+
+SimpleTimer timer; // Timer.
 
 
 //-------------------------------
@@ -73,6 +77,9 @@ int main(int argc, char** argv){
 }
 
 void mainLoop() {
+
+	timer.start(); // Timer.
+
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
     runCuda();
@@ -137,6 +144,10 @@ void runCuda(){
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   } else {
+
+	  float elapsed_time = timer.stop();							// Timer.
+	  std::cout << "Elapsed time = " << elapsed_time << std::endl;	// Timer.
+	  std::cin.ignore();											// Timer.
 
     if (!finishedRender) {
       // output image file

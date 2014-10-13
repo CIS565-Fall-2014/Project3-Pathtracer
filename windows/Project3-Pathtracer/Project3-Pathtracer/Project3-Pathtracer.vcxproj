@@ -77,6 +77,7 @@
     <ClInclude Include="..\..\..\src\raytraceKernel.h" />
     <ClInclude Include="..\..\..\src\scene.h" />
     <ClInclude Include="..\..\..\src\sceneStructs.h" />
+    <ClInclude Include="..\..\..\src\SimpleTimer.h" />
     <ClInclude Include="..\..\..\src\utilities.h" />
   </ItemGroup>
   <ItemGroup>
@@ -86,6 +87,7 @@
     <ClCompile Include="..\..\..\src\image.cpp" />
     <ClCompile Include="..\..\..\src\main.cpp" />
     <ClCompile Include="..\..\..\src\scene.cpp" />
+    <ClCompile Include="..\..\..\src\SimpleTimer.cpp" />
     <ClCompile Include="..\..\..\src\utilities.cpp" />
   </ItemGroup>
   <ItemGroup>

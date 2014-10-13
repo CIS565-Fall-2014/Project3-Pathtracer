@@ -58,8 +58,11 @@ glm::vec3 generateRandomNumberFromThread( glm::vec2 resolution,
 										  int y )
 {
 	int index = x + ( y * resolution.x );
-   
+	//float simple_hash_seed = ( float )( ( int )( index * time ) % INT_MAX );
+	//float simple_hash_seed = ( float )( ( int )( index * time ) % 1000000 );
+
 	thrust::default_random_engine rng( simpleHash( index * time ) );
+	//thrust::default_random_engine rng( simpleHash( simple_hash_seed ) );
 	thrust::uniform_real_distribution<float> u01( 0, 1 );
 
 	return glm::vec3( ( float )u01( rng ),
@@ -695,14 +698,14 @@ void cudaRaytraceCore( uchar4 *pbo_pos,
 																				 cuda_texture_info,
 																				 cuda_texture_rgb );
 
-		// Note: Stream compaction is slow.
-		thrust::device_ptr<ray> ray_pool_device_ptr( cuda_ray_pool );
-		thrust::device_ptr<ray> culled_ray_pool_device_ptr = thrust::remove_if( ray_pool_device_ptr,
-																				ray_pool_device_ptr + num_rays,
-																				RayIsInactive() );
+		//// Note: Stream compaction is slow.
+		//thrust::device_ptr<ray> ray_pool_device_ptr( cuda_ray_pool );
+		//thrust::device_ptr<ray> culled_ray_pool_device_ptr = thrust::remove_if( ray_pool_device_ptr,
+		//																		ray_pool_device_ptr + num_rays,
+		//																		RayIsInactive() );
 
-		// Compute number of active rays in ray pool.
-		num_rays = culled_ray_pool_device_ptr.get() - ray_pool_device_ptr.get();
+		//// Compute number of active rays in ray pool.
+		//num_rays = culled_ray_pool_device_ptr.get() - ray_pool_device_ptr.get();
 	}
 
 	// Launch sendImageToPBO kernel.

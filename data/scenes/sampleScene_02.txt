@@ -182,7 +182,7 @@ SCALE       3 3 3
 OBJECT 6
 sphere
 material 3
-texture 0
+texture -1
 frame 0
 TRANS       2 5 2
 ROTAT       0 0 0
@@ -190,8 +190,8 @@ SCALE       2.5 2.5 2.5
 
 OBJECT 7
 sphere
-material 5
-texture -1
+material 3
+texture 0
 frame 0
 TRANS       -2 5 -2
 ROTAT       0 180 0
