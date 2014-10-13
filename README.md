@@ -41,3 +41,8 @@ Here's a chart showing the running time for 50 iterations with/without stream co
 ![alt tag](https://raw.githubusercontent.com/jianqiaol/Project3-Pathtracer/master/performance_analysis.png)
 
 As we can see, stream compaction is extremely useful when max depth becomes larger. While the running time for original method is linear related to the max depth, running time for implementation with stream compaction is not changing too much. This makes sense, since the computation complexity for naive method is linear to the number of depth, while by using stream compaction, I would expect the number of rays that needed to track will decrease exponentially.
+
+##Anti-Aliasing
+I implemented anti-aliasing by jitting the pixel position when we first generate the ray from camera. The following picture shows the effect with anti-aliasing. Left part is generated with AA while right part is generated without AA.
+
+![alt tag](https://raw.githubusercontent.com/jianqiaol/Project3-Pathtracer/master/AA_compare.png)
