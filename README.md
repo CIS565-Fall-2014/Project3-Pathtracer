@@ -69,6 +69,7 @@ Since this is external user input, I don't think that optimization is an issue. 
 Currently I am simply adjusting the view vector by some vector coplanar to the view plane rather than rotating it, mainly because glm::rotate gave me really strange errors.
 
 ### Depth of Field
+![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/dof_comparison.bmp)
 
 > Added a camera field, DEPTH, that defines the focal distance of the camera.  Nonpositive DEPTH values should result in no depth of field.
 >
@@ -96,7 +97,7 @@ For now, I only have two images to show that I used during debugging:
 > The first, and easiest, image to create, other than a basic collision test.  I wanted to make sure that the sphere collision was fully functional and the cube collision I implemented was working.  As it turned out, it wasn't at first, and for some reason that now escapes me, the cubes were being distorted.
 
 ![first bounce debug](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/debug_bounce.bmp)
-* Single sample of the random rays obtained from the BSDF on the first bounce.
+* Accumulated (left) and single (right) sample of the random rays obtained from the BSDF on the first bounce.
 
 > I created this image because initially, the back white wall was remaning pure white while the bottom and top were receiving global illumination from the red/green walls.  This image suggested that the bounced rays were correct, and I later found the issue in my color equation.
 
@@ -117,11 +118,6 @@ I am fairly certain that these artifacts are either being caused by float precis
 ![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/iter_comparison.bmp)
 * 20, 200, and 2000 iterations of the raytrace with depth of 7.
 This one I'm not sure about.  It could be a matter of simply allowing the rays to be more variable, but ultimately the images appear much more spotty than they should be, even after a reasonable number of iterations.  Making the light larger might solve the problem, but I'm not sure that's the right solution.
-
-### Clipping issues
-![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/scene2.0.bmp)
-* (the smaller spheres should be behind the large sphere on the left)
-I honestly have no idea what's causing this right now.  I will have to take a look at the code later to figure out what's causing this.  Strangely enough, they do not clip behind the sphere to the right, only the one on the left.  It may be directional, but I doubt that.
 
 Future Work
 -----------
