@@ -40,12 +40,14 @@ This is fairly straightforward, but I wanted to see the slope of the runtime inc
 ### 3. Number of Iterations
 #### Expectation
 Since this is mostly independent of the GPU (it's based a looped call by the host), it should be expected to be linear.  I want to see if it slows down or speeds up over time, if at all (time/#iterations).
+#### Results
+
 
 Extra Features
 --------------
 ### Interactive Camera
 ![video](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/pathtracer_camera_demo.mp4)
-* Short video demo of the mouse camera controls.
+* Short video demo of the mouse camera controls. Note that there are some bugs in the rendering in this video.
 
 > see pathtracer_camera_demo.mp4
 >
