@@ -17,6 +17,7 @@ Keybindings
 Base Code Features
 ------------------
 
+* Live display of render progress using OpenGL interop
 * Configuration file reading
 * Hemisphere sampling function (for diffuse)
 * Objects: sphere
@@ -37,13 +38,13 @@ Features Implemented
 Renderings
 ----------
 
-Combined test render:
+Combined test render (rendering time: 9 min on GTX 750):
 ![](images/22_brighter_d16s2000.jpg)
 
 Annotated:
 ![](images/24_annotated.jpg)
 
-With depth of field:
+Combined test render (rendering time: 9 min on GTX 750):
 ![](images/23_ultimate_d16s2000.jpg)
 
 
