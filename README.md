@@ -1,9 +1,15 @@
-CIS 565 Project3 : CUDA Pathtracer
+CIS 565 project 03 : CUDA path tracer
 ===================
 
 ## INTRODUCTION
 
+This project is a CUDA-parallelized Monte Carlo pathtracer implemented for CIS 565 during my fall 2014 semester at Penn. Given a scene file that defines a camera, materials, and geometry, my path tracer is capable of rendering images with full global illumination. Additionally, my path tracer supports Fresnel refraction for glass materials and texture mapping for both spheres and cubes.
+
 ## PARALLELIZATION SCHEME
+
+My path tracer is parallelized per ray rather than per pixel. Meaning, at the start of each iteration, one ray is generated for each pixel in the image buffer, and is stored in a ray pool. At each trace depth (basically every time a ray intersects geometry), rays are checked to see if they should be retired from the pool. In my path tracer, rays are retired if they (A) do not intersect with any piece of geometry in the scene, or (B) intersect with a light source. A retired ray is removed from the ray pool and will not be considered during future kernel calls to the GPU.
+
+A per-ray parallelization scheme such as this prevents the unwanted case where some rays in a warp become inactive at a low trace depth while neighboring rays remain active until the max trace depth. In these circumstances, valuable GPU processing time is wasted on inactive rays that no longer contribute to the final rendered image result.
 
 ## STREAM COMPACTION
 
