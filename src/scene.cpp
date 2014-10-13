@@ -162,6 +162,7 @@ int scene::loadCamera(){
 	vector<glm::vec3> positions;
 	vector<glm::vec3> views;
 	vector<glm::vec3> ups;
+	vector<float> depths;
     while (!line.empty() && fp_in.good()){
 	    
 	    //check frame number
@@ -172,7 +173,7 @@ int scene::loadCamera(){
         }
 	    
 	    //load camera properties
-	    for(int i=0; i<3; i++){
+	    for(int i=0; i<4; i++){
             //glm::vec3 translation; glm::vec3 rotation; glm::vec3 scale;
             utilityCore::safeGetline(fp_in,line);
             tokens = utilityCore::tokenizeString(line);
@@ -182,7 +183,9 @@ int scene::loadCamera(){
                 views.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }else if(strcmp(tokens[0].c_str(), "UP")==0){
                 ups.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
-            }
+            }else if(strcmp(tokens[0].c_str(), "DEPTH")==0){
+				depths.push_back(atof(tokens[1].c_str()));
+			}
 	    }
 	    
 	    frameCount++;
@@ -194,10 +197,12 @@ int scene::loadCamera(){
 	newCamera.positions = new glm::vec3[frameCount];
 	newCamera.views = new glm::vec3[frameCount];
 	newCamera.ups = new glm::vec3[frameCount];
+	newCamera.depths = new float[frameCount];
 	for(int i = 0; i < frameCount; i++){
 		newCamera.positions[i] = positions[i];
 		newCamera.views[i] = views[i];
 		newCamera.ups[i] = ups[i];
+		newCamera.depths[i] = depths[i];
 	}
 
 	//calculate fov based on resolution
@@ -214,7 +219,8 @@ int scene::loadCamera(){
 	for(int i=0; i<renderCam.resolution.x*renderCam.resolution.y; i++){
 		renderCam.image[i] = glm::vec3(0,0,0);
 	}
-	
+	renderCam.changed = true;
+
 	cout << "Loaded " << frameCount << " frames for camera!" << endl;
 	return 1;
 }

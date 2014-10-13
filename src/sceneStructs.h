@@ -16,6 +16,11 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	int index;
+	glm::vec3 color;
+	bool ended;
+	bool init;
+	float ior;	// index of refraction of the material it is currently in.
 };
 
 struct geom {
@@ -45,6 +50,9 @@ struct cameraData {
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+	float depth;
+	glm::vec3 planeRight;
+	glm::vec3 planeDown;
 };
 
 struct camera {
@@ -52,12 +60,16 @@ struct camera {
 	glm::vec3* positions;
 	glm::vec3* views;
 	glm::vec3* ups;
+	float* depths;
 	int frames;
 	glm::vec2 fov;
 	unsigned int iterations;
 	glm::vec3* image;
 	ray* rayList;
 	std::string imageName;
+	bool changed;
+	glm::vec3 planeRight;
+	glm::vec3 planeDown;
 };
 
 struct material{

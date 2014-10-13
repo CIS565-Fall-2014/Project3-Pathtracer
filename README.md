@@ -1,273 +1,133 @@
 CIS 565 Project3 : CUDA Pathtracer
 ===================
+Jiatong He
 
-Fall 2014
+![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/scene2_depth20.0.bmp)
 
-Due Wed, 10/8 (submit without penalty until Sun, 10/12)
-
-## INTRODUCTION
-In this project, you will implement a CUDA based pathtracer capable of
-generating pathtraced rendered images extremely quickly. Building a pathtracer can be viewed as a generalization of building a raytracer, so for those of you who have taken 460/560, the basic concept should not be very new to you. For those of you that have not taken
-CIS460/560, raytracing is a technique for generating images by tracing rays of
-light through pixels in an image plane out into a scene and following the way
-the rays of light bounce and interact with objects in the scene. More
-information can be found here:
-http://en.wikipedia.org/wiki/Ray_tracing_(graphics). Pathtracing is a generalization of this technique by considering more than just the contribution of direct lighting to a surface.
-
-Since in this class we are concerned with working in generating actual images
-and less so with mundane tasks like file I/O, this project includes basecode
-for loading a scene description file format, described below, and various other
-things that generally make up the render "harness" that takes care of
-everything up to the rendering itself. The core renderer is left for you to
-implement.  Finally, note that while this basecode is meant to serve as a
-strong starting point for a CUDA pathtracer, you are not required to use this
-basecode if you wish, and you may also change any part of the basecode
-specification as you please, so long as the final rendered result is correct.
-
-## CONTENTS
-The Project3 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio
-  solution and the OSX and Linux makefiles reference this folder for all 
-  source; the base source code compiles on Linux, OSX and Windows without 
-  modification.  If you are building on OSX, be sure to uncomment lines 4 & 5 of
-  the CMakeLists.txt in order to make sure CMake builds against clang.
-* data/scenes/ contains an example scene description file.
-* renders/ contains an example render of the given example scene file. 
-* windows/ contains a Windows Visual Studio 2010 project and all dependencies
-  needed for building and running on Windows 7. If you would like to create a
-  Visual Studio 2012 or 2013 projects, there are static libraries that you can
-  use for GLFW that are in external/bin/GLFW (Visual Studio 2012 uses msvc110, 
-  and Visual Studio 2013 uses msvc120)
-* external/ contains all the header, static libraries and built binaries for
-  3rd party libraries (i.e. glm, GLEW, GLFW) that we use for windowing and OpenGL
-  extensions
-
-## RUNNING THE CODE
-The main function requires a scene description file (that is provided in data/scenes). 
-The main function reads in the scene file by an argument as such :
-'scene=[sceneFileName]'
-
-If you are using Visual Studio, you can set this in the Debugging > Command Arguments section
-in the Project properties.
-
-## REQUIREMENTS
-In this project, you are given code for:
-
-* Loading, reading, and storing the scene scene description format
-* Example functions that can run on both the CPU and GPU for generating random
-  numbers, spherical intersection testing, and surface point sampling on cubes
-* A class for handling image operations and saving images
-* Working code for CUDA-GL interop
-
-You will need to implement the following features:
-
+Implemented features:
+--------------------
 * Raycasting from a camera into a scene through a pixel grid
-* Diffuse surfaces
+* Simple diffuse surfaces (no specular highlights)
 * Perfect specular reflective surfaces
 * Cube intersection testing
 * Sphere surface point sampling
-* Stream compaction optimization
+* Stream compaction optimization (using Thrust)
+* +Interactive camera (pan, zoom, tilt)
+* +Depth of field
 
-You are also required to implement at least 2 of the following features:
+Nonworking features (base code is there):
+-----------------------------------------
+* Refraction (need to modify intersection tests?)
 
-* Texture mapping 
-* Bump mapping
-* Depth of field
-* Refraction, i.e. glass
-* OBJ Mesh loading and rendering
-* Interactive camera
-* Motion blur
-* Subsurface scattering
+> Refraction code has been added to BSDF, but it turns up black.  May be due to intersection tests being incompatible with rays originating from inside the 
 
-The 'extra features' list is not comprehensive.  If you have a particular feature
-you would like to implement (e.g. acceleration structures, etc.) please contact us 
-first!
+![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/depth_comparison.bmp)
+* A comparison of the same scene with different raytrace depths (4, 7, 20)
 
-For each 'extra feature' you must provide the following analysis :
-* overview write up of the feature
-* performance impact of the feature
-* if you did something to accelerate the feature, why did you do what you did
-* compare your GPU version to a CPU version of this feature (you do NOT need to 
-  implement a CPU version)
-* how can this feature be further optimized (again, not necessary to implement it, but
-  should give a roadmap of how to further optimize and why you believe this is the next
-  step)
+Performance
+-----------
+There are three main contributors to runtime that I would like to focus on:
+### 1. Intersection Tests
+#### Expectation
+I expect that this step takes the longest in the code, and should, ignoring issues with block size/memory, result in linear increases in runtime proportional to the number of geometric bodies in the scene.  This is only with spheres and cubes, and will create significantly more overhead once meshes are implemented.  I believe this should be highest priority for optimization, preferably first with some acceleration structure such as a kd-tree (detailed in "Future Work").
+#### Results
+--postponed--
 
-## BASE CODE TOUR
-You will be working in three files: raytraceKernel.cu, intersections.h, and
-interactions.h. Within these files, areas that you need to complete are marked
-with a TODO comment. Areas that are useful to and serve as hints for optional
-features are marked with TODO (Optional). Functions that are useful for
-reference are marked with the comment LOOK.
+### 2. Raytrace Depth
+#### Expectation
+This is fairly straightforward, but I wanted to see the slope of the runtime increase due to higher raytrace depth.  I would expect that it is slightly less than linear (assuming that the blocks are set up optimally for stream compaction, which they may not be), since the number of threads needed per level decreases every level.
+#### Results
+--postponed--
 
-* raytraceKernel.cu contains the core raytracing CUDA kernel. You will need to
-  complete:
-    * cudaRaytraceCore() handles kernel launches and memory management; this
-      function already contains example code for launching kernels,
-      transferring geometry and cameras from the host to the device, and transferring
-      image buffers from the host to the device and back. You will have to complete
-      this function to support passing materials and lights to CUDA.
-    * raycastFromCameraKernel() is a function that you need to implement. This
-      function once correctly implemented should handle camera raycasting. 
-    * raytraceRay() is the core raytracing CUDA kernel; all of your pathtracing
-      logic should be implemented in this CUDA kernel. raytraceRay() should
-      take in a camera, image buffer, geometry, materials, and lights, and should
-      trace a ray through the scene and write the resultant color to a pixel in the
-      image buffer.
+### 3. Number of Iterations
+#### Expectation
+Since this is mostly independent of the GPU (it's based a looped call by the host), it should be expected to be linear.  I want to see if it slows down or speeds up over time, if at all (time/#iterations).
+#### Results
+--postponed--
 
-* intersections.h contains functions for geometry intersection testing and
-  point generation. You will need to complete:
-    * boxIntersectionTest(), which takes in a box and a ray and performs an
-      intersection test. This function should work in the same way as
-      sphereIntersectionTest().
-    * getRandomPointOnSphere(), which takes in a sphere and returns a random
-      point on the surface of the sphere with an even probability distribution.
-      This function should work in the same way as getRandomPointOnCube(). You can
-      (although do not necessarily have to) use this to generate points on a sphere
-      to use a point lights, or can use this for area lighting.
 
-* interactions.h contains functions for ray-object interactions that define how
-  rays behave upon hitting materials and objects. You will need to complete:
-    * getRandomDirectionInSphere(), which generates a random direction in a
-      sphere with a uniform probability. This function works in a fashion
-      similar to that of calculateRandomDirectionInHemisphere(), which generates a
-      random cosine-weighted direction in a hemisphere.
-    * calculateBSDF(), which takes in an incoming ray, normal, material, and
-      other information, and returns an outgoing ray. You can either implement
-      this function for ray-surface interactions, or you can replace it with your own
-      function(s).
+Extra Features
+--------------
+### Interactive Camera
+![video](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/pathtracer_camera_demo.mp4)
+* Short video demo of the mouse camera controls. Note that there are some bugs in the rendering in this video.
 
-You will also want to familiarize yourself with:
+> see pathtracer_camera_demo.mp4
+>
+> Use the mouse to control the camera.
+>
+> Left click-drag will move the camera.
+>
+> Right click-drag will tilt the camera.
+>
+> Middle click-drag will move the camera forward/backward.
 
-* sceneStructs.h, which contains definitions for how geometry, materials,
-  lights, cameras, and animation frames are stored in the renderer. 
-* utilities.h, which serves as a kitchen-sink of useful functions
+#### Performance
 
-## NOTES ON GLM
-This project uses GLM, the GL Math library, for linear algebra. You need to
-know two important points on how GLM is used in this project:
+The mouse control does not actively affect the performance of the raytrace.  However, the lack of acceleration in the raytrace means that what the user sees while moving the camera are
+only a few iterations.  The raytrace continuously refreshes while the camera is moved.  Pausing the mouse movement will allow it to continue.  I think that while showing a fully-formed image
+during a mouse drag is impractical, faster renders will allow the user to see more clearly-formed images before moving again.
 
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed
-  via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is
-  used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but
-  pre-Fermi cards do not play nice with GLM matrices. As such, in this project,
-  GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found
-  in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is
-  provided as multiplyMV() in intersections.h.
+#### Improvement/Optimization
 
-## SCENE FORMAT
-This project uses a custom scene description format.
-Scene files are flat text files that describe all geometry, materials,
-lights, cameras, render settings, and animation frames inside of the scene.
-Items in the format are delimited by new lines, and comments can be added at
-the end of each line preceded with a double-slash.
+Since this is external user input, I don't think that optimization is an issue.  An improvement over the current system would be to have actual rotation of the camera, which would be more flexible and intuitive.
+Currently I am simply adjusting the view vector by some vector coplanar to the view plane rather than rotating it, mainly because glm::rotate gave me really strange errors.
 
-Materials are defined in the following fashion:
+### Depth of Field
+![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/dof_comparison.bmp)
 
-* MATERIAL (material ID)								//material header
-* RGB (float r) (float g) (float b)					//diffuse color
-* SPECX (float specx)									//specular exponent
-* SPECRGB (float r) (float g) (float b)				//specular color
-* REFL (bool refl)									//reflectivity flag, 0 for
-  no, 1 for yes
-* REFR (bool refr)									//refractivity flag, 0 for
-  no, 1 for yes
-* REFRIOR (float ior)									//index of refraction
-  for Fresnel effects
-* SCATTER (float scatter)								//scatter flag, 0 for
-  no, 1 for yes
-* ABSCOEFF (float r) (float b) (float g)				//absorption
-  coefficient for scattering
-* RSCTCOEFF (float rsctcoeff)							//reduced scattering
-  coefficient
-* EMITTANCE (float emittance)							//the emittance of the
-  material. Anything >0 makes the material a light source.
+> Added a camera field, DEPTH, that defines the focal distance of the camera.  Nonpositive DEPTH values should result in no depth of field.
+>
+> This was implemented by finding the intersection point with the focal plane for each ray cast from the camera, and then jittering the origin of the ray by some random amount, and updating the direction so that it still passes through that point on the focal plane.
 
-Cameras are defined in the following fashion:
+#### Performance
+The performance impact of this change is negligible.  It is calculated a single time for each ray cast from the camera, and is far surpassed in runtime by the raytrace itself.
 
-* CAMERA 												//camera header
-* RES (float x) (float y)								//resolution
-* FOVY (float fovy)										//vertical field of
-  view half-angle. the horizonal angle is calculated from this and the
-  reslution
-* ITERATIONS (float interations)							//how many
-  iterations to refine the image, only relevant for supersampled antialiasing,
-  depth of field, area lights, and other distributed raytracing applications
-* FILE (string filename)									//file to output
-  render to upon completion
-* frame (frame number)									//start of a frame
-* EYE (float x) (float y) (float z)						//camera's position in
-  worldspace
-* VIEW (float x) (float y) (float z)						//camera's view
-  direction
-* UP (float x) (float y) (float z)						//camera's up vector
+#### Acceleration
+None.  I kept the implementation very simple in order to prevent it from affecting runtime while still being visually effective.
 
-Objects are defined in the following fashion:
-* OBJECT (object ID)										//object header
-* (cube OR sphere OR mesh)								//type of object, can
-  be either "cube", "sphere", or "mesh". Note that cubes and spheres are unit
-  sized and centered at the origin.
-* material (material ID)									//material to
-  assign this object
-* frame (frame number)									//start of a frame
-* TRANS (float transx) (float transy) (float transz)		//translation
-* ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
-* SCALE (float scalex) (float scaley) (float scalez)		//scale
+#### CPU/GPU comparison
+We make resolutionX * resolutionY calculations for each iteration of the path tracing, which is done in parallel on the GPU.  The CPU would need to make those resolutionX * resolutionY calculations sequentially.
+Because the resolution is typically low enough, the CPU implementation should not be much slower than the GPU implementation.  However, the calculations needed are simple, so there's no reason to not use the GPU.
 
-An example scene file setting up two frames inside of a Cornell Box can be
-found in the scenes/ directory.
+#### Improvement
+The current random "blur" factor seems to prefer a single direction.  This should be due to the random seed; assuming a uniform distribution from [0,1] on the random number, it should generate an even split.
 
-For meshes, note that the base code will only read in .obj files. For more 
-information on the .obj specification see http://en.wikipedia.org/wiki/Wavefront_.obj_file.
+Debugging
+---------
+For now, I only have two images to show that I used during debugging:
+![normals debug](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/debug_normals.bmp)
+* Normals of the planes, +x/y/z = r/g/b respectively.
 
-An example of a mesh object is as follows:
+> The first, and easiest, image to create, other than a basic collision test.  I wanted to make sure that the sphere collision was fully functional and the cube collision I implemented was working.  As it turned out, it wasn't at first, and for some reason that now escapes me, the cubes were being distorted.
 
-OBJECT 0
-mesh tetra.obj
-material 0
-frame 0
-TRANS       0 5 -5
-ROTAT       0 90 0
-SCALE       .01 10 10 
+![first bounce debug](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/debug_bounce.bmp)
+* Accumulated (left) and single (right) sample of the random rays obtained from the BSDF on the first bounce.
 
-Check the Google group for some sample .obj files of varying complexity.
+> I created this image because initially, the back white wall was remaning pure white while the bottom and top were receiving global illumination from the red/green walls.  This image suggested that the bounced rays were correct, and I later found the issue in my color equation.
 
-## THIRD PARTY CODE POLICY
-* Use of any third-party code must be approved by asking on our Google Group.  
-  If it is approved, all students are welcome to use it.  Generally, we approve 
-  use of third-party code that is not a core part of the project.  For example, 
-  for the ray tracer, we would approve using a third-party library for loading 
-  models, but would not approve copying and pasting a CUDA function for doing 
-  refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another
-  student's code, is an academic integrity violation, and will result in you
-  receiving an F for the semester.
+Challenges
+----------
+### RNG
+The random number seed is causing me a ton of trouble.  I'm not certain I fully understand the effect of the seed... certain seeds will completely ruin the image, while others generate strange artifacts.  This is an issue I still have, outlined in the "Problems" section.
 
-## SELF-GRADING
-* On the submission date, email your grade, on a scale of 0 to 100, to Harmony,
-  harmoli+cis565@seas.upenn.com, with a one paragraph explanation.  Be concise and
-  realistic.  Recall that we reserve 30 points as a sanity check to adjust your
-  grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We
-  hope to only use this in extreme cases when your grade does not realistically
-  reflect your work - it is either too high or too low.  In most cases, we plan
-  to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as
-  the path tracer.  We will determine the weighting at the end of the semester
-  based on the size of each project.
+Problems
+--------
+### Artifacts
+![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/scene1.0.bmp)
 
-## SUBMISSION
-Please change the README to reflect the answers to the questions we have posed
-above.  Remember:
-* this is a renderer, so include images that you've made!
-* be sure to back your claims for optimization with numbers and comparisons
-* if you reference any other material, please provide a link to it
-* you wil not e graded on how fast your path tracer runs, but getting close to
-  real-time is always nice
-* if you have a fast GPU renderer, it is good to show case this with a video to
-  show interactivity.  If you do so, please include a link.
+* (see the squares on the back wall)
+I am fairly certain that these artifacts are caused by either float precision (though I think I use epsilon equality everywhere) or the random number generator seed.  Putting in a different seed results in vastly different results, some completely wrong.
 
-Be sure to open a pull request and to send Harmony your grade and why you
-believe this is the grade you should get.
+### Noise (slow to converge)
+![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/iter_comparison.bmp)
+* 20, 200, and 2000 iterations of the raytrace with depth of 7.
+This one I'm not sure about.  It could be a matter of simply allowing the rays to be more variable, but ultimately the images appear much more spotty than they should be, even after a reasonable number of iterations.  Making the light larger might solve the problem, but I'm not sure that's the right solution.
+
+Future Work
+-----------
+#### Priority 0
+* Finish refraction
+* Fix clipping issues
+* Implement meshes
+* Implement acceleration data structure (octtree would probably be simplest)
