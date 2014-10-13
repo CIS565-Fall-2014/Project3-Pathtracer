@@ -36,3 +36,6 @@ Also I find that the randseed for BSDF input has a hugh impact for the result. H
 
 ![alt tag](https://raw.githubusercontent.com/jianqiaol/Project3-Pathtracer/master/wiredREsult_with_randSeed2.png)
 
+##Performance analysis for stream compaction
+Here's a chart showing the running time for 50 iterations with/without stream compaction:
+![alt tag](https://raw.githubusercontent.com/jianqiaol/Project3-Pathtracer/master/performance_analysis.png)
