@@ -25,6 +25,23 @@
 #define ZERO_ABSORPTION_EPSILON     0.00001
 #define RAY_BIAS_AMOUNT             0.0002
 
+// more definitions
+#define BACK_R    0.1
+#define BACK_G    0.1
+#define BACK_B     0.1
+
+//#define AMBIENT_R  1.0
+//#define AMBIENT_G  1.0
+//#define AMBIENT_B  1.0
+
+#define SAMPLES_PER_PIXEL  50
+#define SAMPLES_SOFT_SHADOW  1
+#define DEPTH_TRACE 8
+//// k
+//#define K_AMBIENT  0.2
+//#define K_DIFFUSE    0.6
+//#define K_SPEC        0.5
+
 namespace utilityCore {
     extern float clamp(float f, float min, float max);
     extern bool replaceString(std::string& str, const std::string& from, const std::string& to);

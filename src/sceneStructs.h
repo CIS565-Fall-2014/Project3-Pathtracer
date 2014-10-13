@@ -16,6 +16,20 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	glm::vec3 color;  //add: store the color of the ray
+	bool isDead;  //add: if the ray hit the background or 
+	int index2D; // add: index on the 2D image
+	float k_reflect; //add: to recursively get final reflective 
+	float k_spec;
+
+	__host__ __device__ ray()  //construction
+	{
+		color = glm::vec3(0,0,0);
+	//	m_index = 1.0;
+		isDead = false;
+		k_reflect = 1.0f;
+		k_spec = 1.0f;
+	}
 };
 
 struct geom {
