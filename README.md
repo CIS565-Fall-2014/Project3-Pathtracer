@@ -21,10 +21,7 @@ additional features:
 * Supersampled antialiasing
 * Motion blur
 
-##Implementation
-
-*First version of pathtracer
-
+##First version of pathtracer
 
 When I finished all the basic functions, the pathtracer gave me this wired output:
 
