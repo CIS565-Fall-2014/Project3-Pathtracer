@@ -37,6 +37,7 @@ int main(int argc, char** argv){
 
   if(!loadedScene){
     cout << "Error: scene file needed!" << endl;
+	getchar();
     return 0;
   }
 
@@ -45,6 +46,7 @@ int main(int argc, char** argv){
   renderCam = &renderScene->renderCam;
   width = renderCam->resolution[0];
   height = renderCam->resolution[1];
+ 
 
   if(targetFrame >= renderCam->frames){
     cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
@@ -53,10 +55,10 @@ int main(int argc, char** argv){
 
   // Initialize CUDA and GL components
   if (init(argc, argv)) {
+
     // GLFW main loop
     mainLoop();
   }
-
   return 0;
 }
 
@@ -169,8 +171,8 @@ bool init(int argc, char* argv[]) {
       return false;
   }
 
-  width = 800;
-  height = 800;
+  width = renderCam->resolution.x;
+  height = renderCam->resolution.y;
   window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
   if (!window){
       glfwTerminate();
