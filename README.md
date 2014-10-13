@@ -20,40 +20,47 @@ For the Pathtracing Algorithm and basic features' implementations, I mainly foll
 
 Extra Features:
 - Depth of field
-  I referred to the algorithm posted here: http://ray-tracer-concept.blogspot.com/2011/12/depth-of-field.html
-  Find a focal plane before the camera, the new ray direction should come from the image plane to the focal point.
+  * I referred to the algorithm posted here: http://ray-tracer-concept.blogspot.com/2011/12/depth-of-field.html
+  * Find a focal plane before the camera, the new ray direction should come from the image plane to the focal point.
 	
 - Reflection/ Refraction
-  I referred to the algorithm posted here: http://ray-tracer-concept.blogspot.com/2011/12/refraction.html
-  Interesting bug... when calculating the accumulated reflective/refractive factor, failed to limit the factor to be required number.
+  * I referred to the algorithm posted here: http://ray-tracer-concept.blogspot.com/2011/12/refraction.html
+  * Interesting bug... when calculating the accumulated reflective/refractive factor, failed to limit the factor to be required number.
   Solution:in reflection, if randomnumber < hasReflective, do reflection; else do diffuse.
            in refraction, if randomnumber < refractive, do refraction; else do reflection.
-  Before:
-  ![alt tag]()
-  After: 
+  * Example: iterations: 2000, trace depth: 8, hasReflect = 0.3, hasRefract = 0.8
+  	* Before: 
+  ![alt tag](https://github.com/radiumyang/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/refr_bug.bmp)
+	 * After: (iterations: 2000, trace depth: 8)
   ![alt tag](https://github.com/radiumyang/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/depth%2Brefract%2Bbackreflect%2B2000.bmp)
+
 - Stream compaction
-  reference: http://wiki.thrust.googlecode.com/hg-history/312700376feeadec0b1a679a259d66ff8512d5b3/html/group__stream__compaction.html#ga517b17ceafe31a9fc70ac5127bd626de
-  To accelerate the performance, using thrust to do stream compaction to delete rays which have already been hit to the background or light from the raypool.
-  Thus, after each iteration, the valid rays in the ray pool will be decreased, which will help improve the performance.
+  * reference: http://wiki.thrust.googlecode.com/hg-history/312700376feeadec0b1a679a259d66ff8512d5b3/html/group__stream__compaction.html#ga517b17ceafe31a9fc70ac5127bd626de
+  * To accelerate the performance, using thrust to do stream compaction to delete rays which have already been hit to the background or light from the raypool. Thus, after each iteration, the valid rays in the ray pool will be decreased, which will help improve the performance.
 
 ## Performance Analysis
+![alt tag](https://github.com/radiumyang/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/performance_iterations.JPG)
+
+![alt tag](https://github.com/radiumyang/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/performance_tracedepth.JPG)
 
 ## Progress Screenshots
 
-Step 1: ray intersection + diffuse color + soft shadow (sample 20) test
+* Step 1: ray intersection + diffuse color + soft shadow (sample 20) test
+
 ///// trace depth: 8 /////
 ![alt tag](https://github.com/radiumyang/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/tmp_2.bmp)
 
-Step 2: use ray pool algorithm, diffuse + reflection + specular test
+* Step 2: use ray pool algorithm, diffuse + reflection + specular test
+
 ///// trace depth: 8 /////
 ![alt tag](https://github.com/radiumyang/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/spec_1.bmp)
 
-Step 3: add refraction & depth of field
+* Step 3: add refraction & depth of field
+
 ///// trace depth: 8 /////
 ![alt tag](https://github.com/radiumyang/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/depth_refract_1000.bmp)
 
-Step 4: set customized scene (reflected walls) + performance tests
+* Step 4: set customized scene (reflected walls) + performance tests
 
 ////// Iterations: 4000, trace depth: 2 /////
 ![alt tag](https://github.com/radiumyang/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/4000_depth2.bmp)
