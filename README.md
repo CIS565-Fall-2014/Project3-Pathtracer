@@ -17,12 +17,14 @@ In each bounce, allocate a thread for each pixel. It means there are 800*800 thr
 In each bounce, allocate a thread for each ray, instead of pixel. Construct a pool of rays; and in each bounce, removed terminated rays from the pool. Here, we can use stream compaction to just keep the active rays.
 
 The following chart shows the number of rays and timing in each bounce. Each bounce will have fewer active rays, require fewer blocks and run faster.
+![ScreenShot](url/img/table.JPG)
+![ScreenShot](url/img/RaysPerBounce.JPG)
 
-![ScreenShot]()
+![ScreenShot](url/img/TimingPerBounce.JPG)
 
 Here is the timing comparation between pixel parallelization and ray parallelization. From the chart, the ray parallelization is of higher efficiency.
 
-![ScreenShot]()
+![ScreenShot](url/img/SC.JPG)
 
 
 ## Features
@@ -30,10 +32,10 @@ Here is the timing comparation between pixel parallelization and ray paralleliza
 
 The following image shows diffuse surface with soft shadow.
 
-![ScreenShot]()
+![ScreenShot](url/img/sample.PNG)
 
 * Frenel
 
 The following image shows reflective and refractive surface.
 
-![ScreenShot]()
+![ScreenShot](url/img/fresnel.PNG)
