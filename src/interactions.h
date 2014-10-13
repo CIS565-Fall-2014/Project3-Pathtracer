@@ -119,8 +119,7 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 		r.direction = calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng));
 		r.origin = intersect + (float)EPSILON * normal;
 		return 0;
-	}
-	else {
+	} else {
 		r.direction = glm::reflect(r.direction, normal);
 		r.origin = intersect + (float)EPSILON * normal;
 		return 1;

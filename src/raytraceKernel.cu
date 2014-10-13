@@ -56,7 +56,7 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 // TODO: IMPLEMENT THIS FUNCTION
 // IDID: Implemented camera raycast, random scatter included.
 // Function that fills the initial raycast from camera, for stream compation optimization
-__global__ void initRaycastFromCamera(glm::vec2 resolution, float time, glm::vec3 eye, glm::vec3 view, glm::vec3 planeRight, glm::vec3 planeDown, ray* rays){
+__global__ void initRaycastFromCamera(glm::vec2 resolution, float time, glm::vec3 eye, glm::vec3 view, float depth, glm::vec3 planeRight, glm::vec3 planeDown, ray* rays){
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	
@@ -71,8 +71,19 @@ __global__ void initRaycastFromCamera(glm::vec2 resolution, float time, glm::vec
 		r.direction = glm::normalize(dir + rand);
 		r.index = index;
 		r.ended = false;
-		r.init = false;
 		r.color = glm::vec3(1.0f);
+		
+		if (depth > 0) {
+			rand = generateRandomNumberFromThread(resolution, time, x, y) * (glm::length(planeRight) * 2 / resolution.x);
+			// find r's intersection point with the depth of field plane ***should this be a sphere?***
+			glm::vec3 P = r.origin + r.direction * depth / glm::dot(r.direction, view);
+
+			// jitter r.origin
+			r.origin += glm::normalize(rand);
+
+			// set new values for r.
+			r.direction = glm::normalize(P - r.origin);
+		}
 
 		rays[index] = r;
 	}
@@ -182,10 +193,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 // Core raytracer kernel for stream compation optimization
 __global__ void raytraceRays(glm::vec2 resolution, float time, int traceDepth, ray* rays, int numberOfRays,
                             staticGeom* geoms, int numberOfGeoms, material* materials){
-	
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int index = x + (y * resolution.x);
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	ray r = rays[index];
 	if(index < numberOfRays && !r.ended){
 		glm::vec3 point, normal;
@@ -204,15 +212,15 @@ __global__ void raytraceRays(glm::vec2 resolution, float time, int traceDepth, r
 			}
 		}
 		if (minIndex != -1) {
-			r.init = true;
-			// Flat colors
 			material mat =  materials[geoms[minIndex].materialid];
+			// Flat colors
 			if (mat.emittance > ZERO_ABSORPTION_EPSILON) {
 				r.color = r.color * mat.color * mat.emittance;
 				r.ended = true;
 			} else {
+				r.color = r.color * (mat.color);// + mat.specularColor * pow(glm::dot(-r.direction, normal), 2));
 				calculateBSDF(r, point, normal, mat, index*time);
-				r.color = r.color * mat.color;
+
 				/*// Set up new R
 				thrust::default_random_engine rng(hash());
 				thrust::uniform_real_distribution<float> u01(0,1);
@@ -225,9 +233,7 @@ __global__ void raytraceRays(glm::vec2 resolution, float time, int traceDepth, r
 			//r.color = normal;
 		}
 		else {
-			if (!r.init) {
-				r.color = glm::vec3(0.f);
-			}
+			r.color = glm::vec3(0.f);
 			r.ended = true;
 		}
 		if (traceDepth == 0) {
@@ -240,18 +246,13 @@ __global__ void raytraceRays(glm::vec2 resolution, float time, int traceDepth, r
 
 // Accumulates the colors of ended rays on this iteration
 __global__ void raysToColors(glm::vec2 resolution, ray* rays, int numberOfRays, glm::vec3* colors) {
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	
-	int index = x + (y * resolution.x);
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
 	// TODO: change this to a single-dimensional grid?
-	if((x<=resolution.x && y<=resolution.y) && index < numberOfRays){
+	if(index < numberOfRays){
 		ray r = rays[index];
 		if (r.ended) {
 			colors[r.index] = r.color;
-			if(r.color == glm::vec3(0.f)) {
-				r.color = glm::vec3(1.f);
-			}
 		}
 	}
 }
@@ -279,7 +280,7 @@ struct isRayEnded {
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
 
-	int traceDepth = 4; //determines how many bounces the raytracer traces
+	int traceDepth = 10; //determines how many bounces the raytracer traces
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -316,6 +317,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cam.view = renderCam->views[frame];
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
+	cam.depth = renderCam->depths[frame];
 	// calculate the vectors for screen coordinates here first.
 	glm::vec3 right = glm::normalize(glm::cross(renderCam->views[frame], glm::normalize(renderCam->ups[frame])));
 	glm::vec3 up = glm::cross(right, renderCam->views[frame]);
@@ -347,17 +349,19 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	int numberOfRays = renderCam->resolution.x * renderCam->resolution.y;
 	ray* cudarays = NULL;
 	cudaMalloc((void**)&cudarays, numberOfRays*sizeof(ray));
-	initRaycastFromCamera<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam.position, cam.view, cam.planeRight, cam.planeDown, cudarays);
+	initRaycastFromCamera<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam.position, cam.view, cam.depth, cam.planeRight, cam.planeDown, cudarays);
 
 	// compile the colors from this iteration
 	glm::vec3* cudacolors = NULL;
 	cudaMalloc((void**)&cudacolors, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
 
 	clearColors<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudacolors);
+	int raytraceThreadsPerBlock(tileSize * tileSize);
+	int raytraceBlocksPerGrid((int)ceil(numberOfRays / (float)raytraceThreadsPerBlock));
 	while (traceDepth > 0 && numberOfRays > 0) {
 		traceDepth--;
-		raytraceRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, traceDepth, cudarays, numberOfRays, cudageoms, numberOfGeoms, cudamaterials);
-		raysToColors<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudarays, numberOfRays, cudacolors);
+		raytraceRays<<<raytraceBlocksPerGrid, raytraceThreadsPerBlock>>>(renderCam->resolution, (float)iterations, traceDepth, cudarays, numberOfRays, cudageoms, numberOfGeoms, cudamaterials);
+		raysToColors<<<raytraceBlocksPerGrid, raytraceThreadsPerBlock>>>(renderCam->resolution, cudarays, numberOfRays, cudacolors);
 		// Using thrust stream compaction
 		thrust::device_ptr<ray> cudaraysStart(cudarays);
 

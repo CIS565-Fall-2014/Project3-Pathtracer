@@ -340,26 +340,19 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	}
 }
 
+// I apologize for the tank controls (rotate) but glm::rotate is refusing to work for some reason.
+// FREE MOTION BLURS YE
 void cursorCallback(GLFWwindow* window, double x, double y){
-	if (mouse.state == LEFT_MOUSE) {	//rotate
+	if (mouse.state == LEFT_MOUSE) {	// pan
 		renderCam->changed = true;
-		glm::mat4 rot(1.f);
-		glm::vec3 axis = ((float)x - mouse.x) / renderCam->resolution.x * 2 * renderCam->planeRight +
-											-((float)y - mouse.y) / renderCam->resolution.y * 2  * renderCam->planeDown;
-		//glm::rotate(rot, 0.01f, axis);
-		
-		renderCam->positions[targetFrame] += ((float)x - mouse.x) / renderCam->resolution.x * 2 * renderCam->planeRight +
-											-((float)y - mouse.y) / renderCam->resolution.y * 2  * renderCam->planeDown;
-		/*renderCam->positions[targetFrame] += ((float)x - mouse.x) / renderCam->resolution.x * 2 * renderCam->planeRight +
-											-((float)y - mouse.y) / renderCam->resolution.y * 2  * renderCam->planeDown;//glm::vec3(rot * glm::vec4(renderCam->positions[targetFrame], 1.f));
-		cout << "x = " << x << ", y = " << y << endl;*/
-	} else if (mouse.state == RIGHT_MOUSE) {	//pan
+		renderCam->positions[targetFrame] += ((float)x - mouse.x) / renderCam->resolution.x * 5 * renderCam->planeRight +
+											-((float)y - mouse.y) / renderCam->resolution.y * 5  * renderCam->planeDown;
+	} else if (mouse.state == RIGHT_MOUSE) {	// rotate
 		renderCam->changed = true;
-		// positive x -> camera shifts left
-		// positive y -> camera shifts up
-		renderCam->positions[targetFrame] += ((float)x - mouse.x) / renderCam->resolution.x * 2 * renderCam->planeRight +
-											-((float)y - mouse.y) / renderCam->resolution.y * 2  * renderCam->planeDown;
-	} else if (mouse.state == MIDDLE_MOUSE) {	//zoom
+		renderCam->views[targetFrame] += ((float)x - mouse.x) / renderCam->resolution.x * renderCam->planeRight +
+											-((float)y - mouse.y) / renderCam->resolution.y  * renderCam->planeDown;
+		renderCam->views[targetFrame] = glm::normalize(renderCam->views[targetFrame]);
+	} else if (mouse.state == MIDDLE_MOUSE) {	// zoom
 		renderCam->changed = true;
 		renderCam->positions[targetFrame] += ((float)y - mouse.y) / renderCam->resolution.y * 2 * renderCam->views[targetFrame];
 	}

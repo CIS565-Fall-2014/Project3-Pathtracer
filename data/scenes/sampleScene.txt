@@ -115,6 +115,7 @@ frame 0
 EYE         0 4.5 12
 VIEW        0 0 -1
 UP          0 1 0
+DEPTH       10
 
 OBJECT 0
 cube
