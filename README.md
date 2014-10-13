@@ -2,6 +2,8 @@ CIS 565 Project3 : CUDA Pathtracer
 ===================
 Jiatong He
 
+![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/scene2_depth20.0.bmp)
+
 Implemented features:
 --------------------
 * Raycasting from a camera into a scene through a pixel grid
@@ -21,6 +23,10 @@ Nonworking features (base code is there):
 
 Performance
 -----------
+There are three main contributors to runtime that I would like to focus on:
+### 1. Intersection Tests
+### 2. Raytrace Depth
+### 3. Number of Iterations
 
 Extra Features
 --------------
@@ -71,6 +77,11 @@ The random number seed is causing me a ton of trouble.  I'm not certain I fully 
 
 Problems
 --------
-* Artifacts
-* Noise (slow to converge)
-* Clipping issues
+### Artifacts
+![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/scene1.0.bmp)
+(see the squares on the back wall)
+### Noise (slow to converge)
+This one I'm not sure about.
+### Clipping issues
+![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/scene2.0.bmp)
+(the smaller spheres should be behind the large sphere on the left)
