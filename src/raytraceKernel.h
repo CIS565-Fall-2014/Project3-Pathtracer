@@ -14,6 +14,10 @@
 #include <cmath>
 #include "sceneStructs.h"
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool rayParallel);
+#define FOCALLENGTH 14
+#define JITTER 0.5
+
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, 
+						bool rayParallel, bool DOF/*, bool hasTexture, int textureW, int textureH, int* R, int *G, int *B*/);
 
 #endif

@@ -106,7 +106,8 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 // pixel parallelization
 __global__ void raytraceRayPP(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* cudaMaterials, int numberOfMaterials){
+                            staticGeom* geoms, int numberOfGeoms, material* cudaMaterials, int numberOfMaterials,
+							bool DOF/*, int textureW, int textureH, int* cudaR, int* cudaG, int* cudaB*/){
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -117,6 +118,13 @@ __global__ void raytraceRayPP(glm::vec2 resolution, float time, cameraData cam, 
 		glm::vec3 random = generateRandomNumberFromThread(cam.resolution, time, x, y);
 
 		ray r = raycastFromCameraKernel(resolution, time, x + (2.0 * random.x - 1.0), y + (2.0 * random.y - 1.0), cam.position, cam.view, cam.up, cam.fov);
+
+		if (DOF)
+		{
+			glm::vec3 pos = r.origin + (float)FOCALLENGTH * r.direction;
+			r.origin = cam.position + (float)JITTER *(2.0f * random - glm::vec3(1.0));
+			r.direction = glm::normalize(pos - r.origin);
+		}
 
 		int depth = 0;
 		glm::vec3 color(1.0f, 1.0f, 1.0f);
@@ -133,10 +141,16 @@ __global__ void raytraceRayPP(glm::vec2 resolution, float time, cameraData cam, 
 			}
 
 			material curMaterial = cudaMaterials[geoms[geomId].materialid];
+			glm::vec3 MRGB = curMaterial.color;
+			//if (geoms[geomId].materialid == 9)
+			//{
+			//	int tId = (int)(x * cudaTexture->width / resolution.x) + (int)(y * cudaTexture->height / resolution.y)* cudaTexture->width;
+			//	MRGB = glm::vec3(cudaR[0]/255.0f, cudaG[0]/255.0f, cudaB[0]/255.0f);
+			//}
 
 			if (curMaterial.emittance > 0.0f)  //light
 			{
-				color *= curMaterial.emittance * curMaterial.color;
+				color *= curMaterial.emittance * MRGB;
 				break;
 			}
 
@@ -151,12 +165,10 @@ __global__ void raytraceRayPP(glm::vec2 resolution, float time, cameraData cam, 
 			else if (curMaterial.hasReflective > EPSILON)  //reflection
 			{
 				r.direction = calculateReflectionDirection(normal, r.direction);	//normalized
-				color *= curMaterial.color;
+				color *= MRGB;
 			}
 			else if (curMaterial.hasRefractive > EPSILON)  //refraction
 			{
-				float inOrOut = glm::dot(r.direction, normal);
-
 				glm::vec3 refractedDirection = calculateTransmissionDirection(normal, r.direction, 1.0, curMaterial.indexOfRefraction);
 				r.direction = refractedDirection;
 				r.origin = intersect + 0.01f * r.direction;
@@ -165,7 +177,7 @@ __global__ void raytraceRayPP(glm::vec2 resolution, float time, cameraData cam, 
 			else		//diffuse
 			{
 				r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, random2.x, random2.y));
-				color *= curMaterial.color;
+				color *= MRGB;
 			}
 			r.origin = intersect + 0.001f * r.direction;
 		}
@@ -178,7 +190,8 @@ __global__ void raytraceRayPP(glm::vec2 resolution, float time, cameraData cam, 
 	}
 }
 
-__global__ void rayPixelInitialize(glm::vec2 resolution, float time, cameraData cam, rayPixel* rayPixels)
+__global__ void rayPixelInitialize(glm::vec2 resolution, float time, cameraData cam, rayPixel* rayPixels,
+									bool DOF)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -192,13 +205,22 @@ __global__ void rayPixelInitialize(glm::vec2 resolution, float time, cameraData 
 
 		glm::vec3 random = generateRandomNumberFromThread(cam.resolution, time, x, y);
 		rayPixels[index].r = raycastFromCameraKernel(resolution, time, x + (2.0 * random.x - 1.0), y + (2.0 * random.y - 1.0), cam.position, cam.view, cam.up, cam.fov);
+	
+		if (DOF)
+		{
+			glm::vec3 pos = rayPixels[index].r.origin + (float)FOCALLENGTH * rayPixels[index].r.direction;
+			rayPixels[index].r.origin = cam.position + (float)JITTER *(2.0f * random - glm::vec3(1.0));
+			rayPixels[index].r.direction = glm::normalize(pos - rayPixels[index].r.origin);
+		}
+
 	}
 }
 
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel, ray parallelization
 __global__ void raytraceRay(int numRays, float time, cameraData cam, int depth, int rayDepth, rayPixel* rayPixels,
-                            staticGeom* geoms, int numberOfGeoms, material* cudaMaterials, int numberOfMaterials){
+                            staticGeom* geoms, int numberOfGeoms, material* cudaMaterials, int numberOfMaterials/*,
+							int textureW, int textureH, int* cudaR, int* cudaG, int* cudaB*/){
 
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
@@ -248,18 +270,23 @@ __global__ void raytraceRay(int numRays, float time, cameraData cam, int depth, 
 		else if (curMaterial.hasReflective > EPSILON)  //reflection
 		{
 			rayP.r.direction = calculateReflectionDirection(normal, rayP.r.direction);	//normalized
+			rayP.color *= curMaterial.color;
 		}
 		else if (curMaterial.hasRefractive > EPSILON)  //refraction
 		{
-			rayP.r.direction = calculateTransmissionDirection(normal, rayP.r.direction, 1.0f, curMaterial.indexOfRefraction);
+			glm::vec3 refractedDirection = calculateTransmissionDirection(normal, rayP.r.direction, 1.0, curMaterial.indexOfRefraction);
+			rayP.r.direction = refractedDirection;
+			rayP.r.origin = intersect + 0.01f * rayP.r.direction;
+			rayPixels[index] = rayP;
+			return;
 		}
 		else		//diffuse
 		{
 			rayP.r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, random2.x, random2.y));
+			rayP.color *= curMaterial.color;
 		}
 		
 		rayP.r.origin = intersect + 0.001f * rayP.r.direction;
-		rayP.color *= curMaterial.color;
 		rayPixels[index] = rayP;
 	}
 }
@@ -282,7 +309,7 @@ __global__ void colorAccumulator(int numRays, rayPixel* rayPixels, glm::vec2 res
 // TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms,
-						bool rayParallel){
+						bool rayParallel, bool DOF/*, bool hasTexture, int textureW, int textureH, int* R, int *G, int *B*/){
   
   int traceDepth = 8; //determines how many bounces the raytracer traces
 
@@ -327,17 +354,30 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMalloc((void**)&cudaMaterials, numberOfMaterials*sizeof(material));
   cudaMemcpy( cudaMaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
 
-  cudaEvent_t startTime, stopTime;
-  cudaEventCreate(&startTime);
-  cudaEventCreate(&stopTime);
-  cudaEventRecord(startTime, 0);
+  //copy texture
+ /* int *cudaR = NULL, *cudaG = NULL, *cudaB = NULL;
+  if(hasTexture)
+  {
+	  cudaMalloc((void**)&cudaR, textureW*textureH*sizeof(int));
+	  cudaMemcpy( cudaR, R,  textureW*textureH*sizeof(int), cudaMemcpyHostToDevice);
+
+	  cudaMalloc((void**)&cudaG, textureW*textureH*sizeof(int));
+	  cudaMemcpy( cudaG, G,  textureW*textureH*sizeof(int), cudaMemcpyHostToDevice);
+
+	  cudaMalloc((void**)&cudaB, textureW*textureH*sizeof(int));
+	  cudaMemcpy( cudaB, B,  textureW*textureH*sizeof(int), cudaMemcpyHostToDevice);
+  }*/
+  //cudaEvent_t startTime, stopTime;
+  //cudaEventCreate(&startTime);
+  //cudaEventCreate(&stopTime);
+  //cudaEventRecord(startTime, 0);
 
   // kernel launches
   if (rayParallel)
   {
 	  rayPixel* rayPixels = NULL;
 	  cudaMalloc((void**)&rayPixels, renderCam->resolution.x * renderCam->resolution.y * sizeof(rayPixel));
-	  rayPixelInitialize<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, rayPixels);
+	  rayPixelInitialize<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, rayPixels, DOF);
 	  cudaThreadSynchronize();
 
 	  int depth = 0;
@@ -350,7 +390,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 		  fullBlocksPerGrid = dim3((int)ceil(numRays / float(tileSize*tileSize)));
 
-		  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(numRays, (float)iterations, cam, depth, traceDepth, rayPixels, cudageoms, numberOfGeoms, cudaMaterials, numberOfMaterials);
+		  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(numRays, (float)iterations, cam, depth, traceDepth, rayPixels, cudageoms, numberOfGeoms, 
+																cudaMaterials, numberOfMaterials/*, textureW, textureH, cudaR, cudaG, cudaB*/);
 		  colorAccumulator<<<fullBlocksPerGrid, threadsPerBlock>>>(numRays, rayPixels, renderCam->resolution, cudaimage, (float)iterations);
 		  
 		  //stream compaction
@@ -361,10 +402,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		  thrust::device_ptr<rayPixel> endItr = beginItr + numRays;
 		  endItr = thrust::remove_if(beginItr, endItr, isTerminated());
 		  numRays = (int)(endItr - beginItr);
-
-		  float duration = 0.0f;
-		  cudaEventElapsedTime(&duration, startTime, stopTime);
-		  std::cout << iterations << ": " << duration << std::endl;
 	  }
 
 	  dim3 threadsPerBlock(tileSize, tileSize);
@@ -374,19 +411,20 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   else
   {
 	  //pixel parallel
-	  raytraceRayPP<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudaMaterials, numberOfMaterials);
+	  raytraceRayPP<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, 
+															cudaMaterials, numberOfMaterials, DOF/*, textureW, textureH, cudaR, cudaG, cudaB*/);
 	  
 	  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
   }
 
-  cudaThreadSynchronize();
-  cudaEventRecord(stopTime, 0);
-  cudaEventSynchronize(stopTime);
+  //cudaThreadSynchronize();
+  //cudaEventRecord(stopTime, 0);
+  //cudaEventSynchronize(stopTime);
 
-  float duration = 0.0f;
-  cudaEventElapsedTime(&duration, startTime, stopTime);
+  //float duration = 0.0f;
+  //cudaEventElapsedTime(&duration, startTime, stopTime);
 
-  std::cout << iterations << ": " << duration << std::endl;
+  //std::cout << iterations << ": " << duration << std::endl;
   
   // retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
@@ -395,6 +433,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudaimage );
   cudaFree( cudageoms );
   cudaFree(cudaMaterials);
+  /*cudaFree(cudaR);
+  cudaFree(cudaG);
+  cudaFree(cudaB);*/
 
   delete geomList;
 

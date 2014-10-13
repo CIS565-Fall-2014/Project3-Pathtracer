@@ -19,6 +19,9 @@
     <Filter Include="Source Files\stb_image">
       <UniqueIdentifier>{f1a3a052-d6b3-4aff-a9f3-ac85b6c99146}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\BMP">
+      <UniqueIdentifier>{b54ec2fe-4631-45e4-8ffb-f92aae4cf692}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\cudaMat4.h">
@@ -70,6 +73,9 @@
     </ClCompile>
     <ClCompile Include="..\..\..\external\src\stb_image\stb_image.c">
       <Filter>Source Files\stb_image</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\external\include\BMP\EasyBMP.cpp">
+      <Filter>Source Files\BMP</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

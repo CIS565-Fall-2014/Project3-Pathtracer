@@ -29,6 +29,10 @@ scene::scene(string filename){
 				    loadCamera();
 				    cout << " " << endl;
 				}
+				/*else if (strcmp(tokens[0].c_str(), "TEXTURE")==0){
+					loadTexture();
+					cout << " " << endl;
+				}*/
 			}
 		}
 	}
@@ -263,3 +267,31 @@ int scene::loadMaterial(string materialid){
 		return 1;
 	}
 }
+
+//int scene::loadTexture()
+//{
+//	string line;
+//	utilityCore::safeGetline(fp_in,line);
+//	vector<string> tokens = utilityCore::tokenizeString(line);
+//	if(strcmp(tokens[0].c_str(), "FILE")==0)
+//	{
+//		BMP textureFile;
+//		textureFile.ReadFromFile(tokens[1].c_str());
+//
+//		texture.width = textureFile.TellWidth();
+//		texture.height = textureFile.TellHeight();
+//		texture.R = new int[texture.width*texture.height];
+//		texture.G = new int[texture.width*texture.height];
+//		texture.B = new int[texture.width*texture.height];
+//		for (int h = 0; h < texture.height; h++)
+//		{
+//			for (int w = 0; w < texture.width; w++)
+//			{
+//				texture.R[w + h * texture.width] = textureFile.GetPixel(w, h).Red;
+//				texture.G[w + h * texture.width] = textureFile.GetPixel(w, h).Green;
+//				texture.B[w + h * texture.width] = textureFile.GetPixel(w, h).Blue;
+//			}
+//		}
+//	}
+//	return 1;
+//}

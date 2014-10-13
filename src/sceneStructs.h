@@ -89,4 +89,12 @@ struct material{
 	float emittance;
 };
 
+struct Texture {
+	int width;
+	int height;
+	int *R;
+	int *G;
+	int *B;
+};
+
 #endif //CUDASTRUCTS_H

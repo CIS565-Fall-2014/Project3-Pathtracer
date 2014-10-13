@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include "BMP\EasyBMP.h"
 
 using namespace std;
 
@@ -22,6 +23,7 @@ private:
     int loadMaterial(string materialid);
     int loadObject(string objectid);
     int loadCamera();
+	//int loadTexture();
 public:
     scene(string filename);
     ~scene();
@@ -29,6 +31,7 @@ public:
     vector<geom> objects;
     vector<material> materials;
     camera renderCam;
+	//Texture texture;
 };
 
 #endif

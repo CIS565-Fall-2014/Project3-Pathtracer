@@ -38,6 +38,14 @@ The following image shows diffuse surface with soft shadow.
 
 * Frenel
 
-The following image shows reflective and refractive surface.
+The following image shows reflective and refractive surface. The left one is glass-like material with perfect refraction; and the right one is mirror-like material with perfect reflection.
 
 ![ScreenShot](https://github.com/liying3/Project3-Pathtracer/blob/master/img/fresnel.PNG)
+
+* Depth of Field
+
+Depth of field refers to the range of distance that appears acceptably sharp. Here're the images of different focal length and lens.
+
+![ScreenShot](https://github.com/liying3/Project3-Pathtracer/blob/master/img/DOF14_0.5.PNG)
+
+Focal length is 14 and lens is 0.5.
