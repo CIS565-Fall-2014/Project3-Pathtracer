@@ -64,23 +64,7 @@ __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 inciden
 
   fresnel.reflectionCoefficient = 1;
   fresnel.transmissionCoefficient = 0;
-  if (transmittedIOR == 0.0f)
-  {
-	  return fresnel;
-  }
-  float n12 = incidentIOR / transmittedIOR;
-  float cosI = glm::dot(incident, normal);
-  float sinT2 = (n12 * n12) * (1 - pow(cosI, 2));
-  if (1- sinT2 < 0.0f)
-  {
-	  return fresnel;
-  }
-  float cosT = sqrt(1.0f - sinT2);
-  float r1 = pow(((incidentIOR * cosI - transmittedIOR * cosT) / (incidentIOR * cosI + transmittedIOR * cosT)), 2);
-  float r2 = pow(((incidentIOR * cosT - transmittedIOR * cosI) / (incidentIOR * cosT + transmittedIOR * cosI)), 2);
-  fresnel.reflectionCoefficient = (r1 + r2) / 2.0f;
-  fresnel.transmissionCoefficient = 1.0f - fresnel.reflectionCoefficient;
-
+ 
   return fresnel;
 }
 
