@@ -12,10 +12,12 @@
 image::image(int x, int y){
     xSize = x;
     ySize = y;
+
     redChannel   = new float[x*y];
     greenChannel = new float[x*y];
     blueChannel  = new float[x*y];
     alphaChannel = new float[x*y];
+
     for(int i=0; i<(x*y); i++){
         redChannel[i]   = 0;
         greenChannel[i] = 0;

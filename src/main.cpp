@@ -9,6 +9,21 @@
 #include <cstring>
 #define GLEW_STATIC
 
+#include "SimpleTimer.h" // Timer.
+
+
+////////////////////////////////////////////////////
+// Constants
+////////////////////////////////////////////////////
+
+const std::string SCENE_FILE_NAME = "sampleScene_02.txt";
+const std::string OUTPUT_IMAGE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\renders\\";
+//const std::string TEXTURE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\data\\textures\\world_map.bmp";
+//const std::string SCENE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\data\\scenes\\sampleScene_02.txt";
+
+SimpleTimer timer; // Timer.
+
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -27,8 +42,9 @@ int main(int argc, char** argv){
     istringstream liness(argv[i]);
     getline(liness, header, '='); getline(liness, data, '=');
     if(strcmp(header.c_str(), "scene")==0){
-      renderScene = new scene(data);
-      loadedScene = true;
+		std::string full_scene_path = data + SCENE_FILE_NAME; // Danny was here.
+		renderScene = new scene(full_scene_path);
+		loadedScene = true;
     }else if(strcmp(header.c_str(), "frame")==0){
       targetFrame = atoi(data.c_str());
       singleFrameMode = true;
@@ -37,6 +53,7 @@ int main(int argc, char** argv){
 
   if(!loadedScene){
     cout << "Error: scene file needed!" << endl;
+	std::cin.ignore();
     return 0;
   }
 
@@ -61,11 +78,14 @@ int main(int argc, char** argv){
 }
 
 void mainLoop() {
+
+	timer.start(); // Timer.
+
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
     runCuda();
 
-    string title = "CIS565 Render | " + utilityCore::convertIntToString(iterations) + " Iterations";
+    string title = "Danny Rerucha's Pathtracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
 		glfwSetWindowTitle(window, title.c_str());
     
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
@@ -95,9 +115,10 @@ void runCuda(){
     iterations++;
     cudaGLMapBufferObject((void**)&dptr, pbo);
   
-    // pack geom and material arrays
+    // pack geom, material, and texture arrays
     geom* geoms = new geom[renderScene->objects.size()];
     material* materials = new material[renderScene->materials.size()];
+	simpleTexture *texture_images = new simpleTexture[renderScene->textures.size()];
     
     for (int i=0; i < renderScene->objects.size(); i++) {
       geoms[i] = renderScene->objects[i];
@@ -105,13 +126,29 @@ void runCuda(){
     for (int i=0; i < renderScene->materials.size(); i++) {
       materials[i] = renderScene->materials[i];
     }
-  
+    for (int i=0; i < renderScene->textures.size(); i++) {
+      texture_images[i] = renderScene->textures[i];
+    }
+
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore( dptr,
+					  renderCam,
+					  targetFrame,
+					  iterations,
+					  materials,
+					  renderScene->materials.size(),
+					  geoms,
+					  renderScene->objects.size(),
+					  texture_images,
+					  renderScene->textures.size() );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   } else {
+
+	  float elapsed_time = timer.stop();							// Timer.
+	  std::cout << "Elapsed time = " << elapsed_time << std::endl;	// Timer.
+	  std::cin.ignore();											// Timer.
 
     if (!finishedRender) {
       // output image file
@@ -120,7 +157,12 @@ void runCuda(){
       for (int x=0; x < renderCam->resolution.x; x++) {
         for (int y=0; y < renderCam->resolution.y; y++) {
           int index = x + (y * renderCam->resolution.x);
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
+		  glm::vec3 pixel_color = renderCam->image[index];
+		  pixel_color.x /= iterations;
+		  pixel_color.y /= iterations;
+		  pixel_color.z /= iterations;
+
+          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,pixel_color);
         }
       }
       
@@ -134,8 +176,9 @@ void runCuda(){
       stringstream out;
       out << targetFrame;
       s = out.str();
-      utilityCore::replaceString(filename, ".bmp", "."+s+".bmp");
+	  utilityCore::replaceString(filename, ".bmp", "."+s+".bmp");
       utilityCore::replaceString(filename, ".png", "."+s+".png");
+	  filename = OUTPUT_IMAGE_PATH + filename; // Danny was here.
       outputImage.saveImageRGB(filename);
       cout << "Saved frame " << s << " to " << filename << endl;
       finishedRender = true;
@@ -171,7 +214,7 @@ bool init(int argc, char* argv[]) {
 
   width = 800;
   height = 800;
-  window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
+  window = glfwCreateWindow(width, height, "Danny Rerucha's Pathtracer", NULL, NULL);
   if (!window){
       glfwTerminate();
       return false;

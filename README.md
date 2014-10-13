@@ -1,273 +1,89 @@
-CIS 565 Project3 : CUDA Pathtracer
+CIS 565 project 03 : CUDA path tracer
 ===================
 
-Fall 2014
-
-Due Wed, 10/8 (submit without penalty until Sun, 10/12)
-
 ## INTRODUCTION
-In this project, you will implement a CUDA based pathtracer capable of
-generating pathtraced rendered images extremely quickly. Building a pathtracer can be viewed as a generalization of building a raytracer, so for those of you who have taken 460/560, the basic concept should not be very new to you. For those of you that have not taken
-CIS460/560, raytracing is a technique for generating images by tracing rays of
-light through pixels in an image plane out into a scene and following the way
-the rays of light bounce and interact with objects in the scene. More
-information can be found here:
-http://en.wikipedia.org/wiki/Ray_tracing_(graphics). Pathtracing is a generalization of this technique by considering more than just the contribution of direct lighting to a surface.
 
-Since in this class we are concerned with working in generating actual images
-and less so with mundane tasks like file I/O, this project includes basecode
-for loading a scene description file format, described below, and various other
-things that generally make up the render "harness" that takes care of
-everything up to the rendering itself. The core renderer is left for you to
-implement.  Finally, note that while this basecode is meant to serve as a
-strong starting point for a CUDA pathtracer, you are not required to use this
-basecode if you wish, and you may also change any part of the basecode
-specification as you please, so long as the final rendered result is correct.
+This project is a CUDA-parallelized Monte Carlo path tracer implemented for CIS 565 during my fall 2014 semester at Penn. Given a scene file that defines a camera, materials, and geometry, my path tracer is capable of rendering images with full global illumination, including realistic diffuse surfaces, color bleeding, caustics, area lights, and soft shadows. Additionally, my path tracer supports Fresnel refractions for glass materials and texture mapping for both spheres and cubes.
 
-## CONTENTS
-The Project3 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio
-  solution and the OSX and Linux makefiles reference this folder for all 
-  source; the base source code compiles on Linux, OSX and Windows without 
-  modification.  If you are building on OSX, be sure to uncomment lines 4 & 5 of
-  the CMakeLists.txt in order to make sure CMake builds against clang.
-* data/scenes/ contains an example scene description file.
-* renders/ contains an example render of the given example scene file. 
-* windows/ contains a Windows Visual Studio 2010 project and all dependencies
-  needed for building and running on Windows 7. If you would like to create a
-  Visual Studio 2012 or 2013 projects, there are static libraries that you can
-  use for GLFW that are in external/bin/GLFW (Visual Studio 2012 uses msvc110, 
-  and Visual Studio 2013 uses msvc120)
-* external/ contains all the header, static libraries and built binaries for
-  3rd party libraries (i.e. glm, GLEW, GLFW) that we use for windowing and OpenGL
-  extensions
+## PARALLELIZATION SCHEME
 
-## RUNNING THE CODE
-The main function requires a scene description file (that is provided in data/scenes). 
-The main function reads in the scene file by an argument as such :
-'scene=[sceneFileName]'
+My path tracer is parallelized per ray rather than per pixel. At the start of each iteration, one ray is generated for each pixel in the image buffer and stored in a ray pool. At each trace depth (basically every time a ray intersects geometry), rays are checked to see if they should be retired from the ray pool. In my path tracer, rays are retired if they (A) do not intersect with any piece of geometry in the scene, or (B) intersect with a light source. A retired ray is removed from the ray pool and will not be considered during future kernel calls to the GPU.
 
-If you are using Visual Studio, you can set this in the Debugging > Command Arguments section
-in the Project properties.
+A per-ray parallelization scheme such as this prevents unwanted cases where some rays in a warp become inactive at a low trace depth while neighboring rays remain active until the max trace depth. In these circumstances, valuable GPU processing time is wasted on inactive rays that no longer contribute to the final rendered image result.
 
-## REQUIREMENTS
-In this project, you are given code for:
+## STREAM COMPACTION
 
-* Loading, reading, and storing the scene scene description format
-* Example functions that can run on both the CPU and GPU for generating random
-  numbers, spherical intersection testing, and surface point sampling on cubes
-* A class for handling image operations and saving images
-* Working code for CUDA-GL interop
+To support a per-ray parallelization scheme, stream compaction is used to cull retired rays from the ray pool. I use the thrust parallel algorithms library (https://code.google.com/p/thrust/) to perform my stream compaction. After all computations have been performed for rays at a certain trace depth, the ray pool is checked for retired rays (identified by a boolean member attached to each ray), and if a retired ray is found, I remove it from the ray pool with thrust's remove_if method. Then, during the next trace depth iteration, I send the current ray pool to the GPU which no longer contains any retired rays.
 
-You will need to implement the following features:
+## SUPPORTED GEOMETRY AND MATERIALS
 
-* Raycasting from a camera into a scene through a pixel grid
-* Diffuse surfaces
-* Perfect specular reflective surfaces
-* Cube intersection testing
-* Sphere surface point sampling
-* Stream compaction optimization
+Currently, my path tracer supports sphere and cube geometry and ideal diffuse, perfectly specular, and glass materials. In the future, I plan to support arbitrary mesh objects and more complex BRDF models.
 
-You are also required to implement at least 2 of the following features:
+## FRESNEL REFRACTION
 
-* Texture mapping 
-* Bump mapping
-* Depth of field
-* Refraction, i.e. glass
-* OBJ Mesh loading and rendering
-* Interactive camera
-* Motion blur
-* Subsurface scattering
+As can be seen in the image below, my path tracer supports glass materials. Transmission direction and probability of reflection and refraction are computed using the well-known Fresnel equations. An interesting implementation detail to note is that my parallelization scheme does not support recursion. This is due in part to my decision to never spawn new rays inside CUDA kernels which stems from my decision to initialize the ray pool with a fixed max size. In traditional path tracers and ray tracers, radiance at a point is often computed through recursion. This is especially important for refractive materials because when a ray intersects a refractive surface, often two rays are emitted from the intersection point--one reflective ray and one refractive ray. All these rays contribute to the final computed pixel color.
 
-The 'extra features' list is not comprehensive.  If you have a particular feature
-you would like to implement (e.g. acceleration structures, etc.) please contact us 
-first!
+In my path tracer, when rays intersect with a refractive surface, I use Fresnel's equations to determine the probability that a ray will either reflect or refract, but never both. In the future, I would like to explore methods in which I can retain my per-ray parallelization scheme while also dynamically spawning new rays when rays intersect refractive surfaces.
 
-For each 'extra feature' you must provide the following analysis :
-* overview write up of the feature
-* performance impact of the feature
-* if you did something to accelerate the feature, why did you do what you did
-* compare your GPU version to a CPU version of this feature (you do NOT need to 
-  implement a CPU version)
-* how can this feature be further optimized (again, not necessary to implement it, but
-  should give a roadmap of how to further optimize and why you believe this is the next
-  step)
+In the image below, some green artifacts can be seen (most prominently on the left side where the green and white walls meet). I suspect these artifacts are caused by an integer overflow when seeding my random number generators because they only appear after a large number of iterations (~4000). However, I have not spent much time looking into this issue, so I cannot be sure of the cause.
 
-## BASE CODE TOUR
-You will be working in three files: raytraceKernel.cu, intersections.h, and
-interactions.h. Within these files, areas that you need to complete are marked
-with a TODO comment. Areas that are useful to and serve as hints for optional
-features are marked with TODO (Optional). Functions that are useful for
-reference are marked with the comment LOOK.
+![alt tag](https://raw.githubusercontent.com/drerucha/Project3-Pathtracer/master/data/readme_pics/fresnel_refractions.jpg)
 
-* raytraceKernel.cu contains the core raytracing CUDA kernel. You will need to
-  complete:
-    * cudaRaytraceCore() handles kernel launches and memory management; this
-      function already contains example code for launching kernels,
-      transferring geometry and cameras from the host to the device, and transferring
-      image buffers from the host to the device and back. You will have to complete
-      this function to support passing materials and lights to CUDA.
-    * raycastFromCameraKernel() is a function that you need to implement. This
-      function once correctly implemented should handle camera raycasting. 
-    * raytraceRay() is the core raytracing CUDA kernel; all of your pathtracing
-      logic should be implemented in this CUDA kernel. raytraceRay() should
-      take in a camera, image buffer, geometry, materials, and lights, and should
-      trace a ray through the scene and write the resultant color to a pixel in the
-      image buffer.
+## TEXTURE MAPPING
 
-* intersections.h contains functions for geometry intersection testing and
-  point generation. You will need to complete:
-    * boxIntersectionTest(), which takes in a box and a ray and performs an
-      intersection test. This function should work in the same way as
-      sphereIntersectionTest().
-    * getRandomPointOnSphere(), which takes in a sphere and returns a random
-      point on the surface of the sphere with an even probability distribution.
-      This function should work in the same way as getRandomPointOnCube(). You can
-      (although do not necessarily have to) use this to generate points on a sphere
-      to use a point lights, or can use this for area lighting.
+I implemented texture mapping for spheres and cubes. When a piece of geometry with an applied texture is intersected, the intersection point is transformed to object-space where the uv-coordinates ([0, 1]) for the image are computed. These uv-coordinates are then multiplied by the texture dimensions to determine the desired pixel within the texture. It is this texture pixel's RGB information that is used when computing radiance instead of the geometry's material RGB.
 
-* interactions.h contains functions for ray-object interactions that define how
-  rays behave upon hitting materials and objects. You will need to complete:
-    * getRandomDirectionInSphere(), which generates a random direction in a
-      sphere with a uniform probability. This function works in a fashion
-      similar to that of calculateRandomDirectionInHemisphere(), which generates a
-      random cosine-weighted direction in a hemisphere.
-    * calculateBSDF(), which takes in an incoming ray, normal, material, and
-      other information, and returns an outgoing ray. You can either implement
-      this function for ray-surface interactions, or you can replace it with your own
-      function(s).
+For me, the most difficult part of implementing texture mapping was getting the texture information onto the GPU. First, I tried passing in a list of data structures representing each texture, but I ran into problems allocating memory on the GPU since each texture could theoretically have different dimensions, and thus have different memory requirements. To use a list of data structures, I needed to define a fixed, uniform maximum texture resolution for each texture. This ensured that each texture structure had the same memory requirements, and made GPU memory allocation straightforward. However, defining a maximum texture resolution was too limiting.
 
-You will also want to familiarize yourself with:
+Instead, I opted to "flatten" all my textures into a single array of glm::vec3s representing RGB values at runtime. Additionally, I created an array of ints at runtime that stored the dimensions for each texture as well as the starting index within the array of RGB values for each texture. Through my work implementing texture mapping, I've learned that while CUDA supports multidimensional data and complex data types, it is most happy with flat data and primitive data types, and I was happy to honor its preferences.
 
-* sceneStructs.h, which contains definitions for how geometry, materials,
-  lights, cameras, and animation frames are stored in the renderer. 
-* utilities.h, which serves as a kitchen-sink of useful functions
+Currently, my textures do not support any kind of transparency, but I would like to utilize image alpha channels in the future.
 
-## NOTES ON GLM
-This project uses GLM, the GL Math library, for linear algebra. You need to
-know two important points on how GLM is used in this project:
+![alt tag](https://raw.githubusercontent.com/drerucha/Project3-Pathtracer/master/data/readme_pics/texture_mapping.jpg)
 
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed
-  via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is
-  used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but
-  pre-Fermi cards do not play nice with GLM matrices. As such, in this project,
-  GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found
-  in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is
-  provided as multiplyMV() in intersections.h.
+![alt tag](https://raw.githubusercontent.com/drerucha/Project3-Pathtracer/master/data/readme_pics/texture_mapping_02.jpg)
 
-## SCENE FORMAT
-This project uses a custom scene description format.
-Scene files are flat text files that describe all geometry, materials,
-lights, cameras, render settings, and animation frames inside of the scene.
-Items in the format are delimited by new lines, and comments can be added at
-the end of each line preceded with a double-slash.
+## JITTERED SUPERSAMPLED ANTI-ALIASING
 
-Materials are defined in the following fashion:
+Supersampled anti-aliasing is a method to remove jagged edges that involves averaging multiple samples for every pixel where each sample (ray) originates from a different location from within a pixel (not just from the pixel's center). With a path tracer, since many rays (100+) must be processed for each pixel in order to create a physically plausible image, supersampled anti-aliasing comes for "free". Each ray shot through a pixel during one iteration of the path tracing algorithm is jittered, or moved ever-so-slightly, within the bounds of that pixel in relation to the ray sampled for that pixel during the previous iteration, and then the results for every iteration are averaged together. This results in edge pixels getting smoothed with their neighboring pixels which softens hard edges.
 
-* MATERIAL (material ID)								//material header
-* RGB (float r) (float g) (float b)					//diffuse color
-* SPECX (float specx)									//specular exponent
-* SPECRGB (float r) (float g) (float b)				//specular color
-* REFL (bool refl)									//reflectivity flag, 0 for
-  no, 1 for yes
-* REFR (bool refr)									//refractivity flag, 0 for
-  no, 1 for yes
-* REFRIOR (float ior)									//index of refraction
-  for Fresnel effects
-* SCATTER (float scatter)								//scatter flag, 0 for
-  no, 1 for yes
-* ABSCOEFF (float r) (float b) (float g)				//absorption
-  coefficient for scattering
-* RSCTCOEFF (float rsctcoeff)							//reduced scattering
-  coefficient
-* EMITTANCE (float emittance)							//the emittance of the
-  material. Anything >0 makes the material a light source.
+I say supersampled anti-aliasing comes for free to a path tracer, because very little overhead is required to take advantage of it. This is in contrast to other renderers, such as ray tracers, where only a single ray is required for each pixel to generate a complete image. For a ray tracer to take advantage of supersampled anti-aliasing, additional rays need to be generated for each pixel that are not needed for basic image generation. As a result, supersampled anti-aliasing in a ray tracer increases runtime considerably.
 
-Cameras are defined in the following fashion:
+In my implementation, I discretize each pixel into a pre-defined number of rows and columns, and at each iteration I sample a pixel at a random location within one of the cells formed by the grid of rows and columns. The sub-pixel cell I sample changes each iteration, and I cycle through the cells linearly. The results of my implementation can be seen in the two images below. The first image does not use anti-aliasing. The second image does. The benefits of anti-aliasing in these images are most evident in the base of the green wall and in the outline of the red sphere against the white wall behind it.
 
-* CAMERA 												//camera header
-* RES (float x) (float y)								//resolution
-* FOVY (float fovy)										//vertical field of
-  view half-angle. the horizonal angle is calculated from this and the
-  reslution
-* ITERATIONS (float interations)							//how many
-  iterations to refine the image, only relevant for supersampled antialiasing,
-  depth of field, area lights, and other distributed raytracing applications
-* FILE (string filename)									//file to output
-  render to upon completion
-* frame (frame number)									//start of a frame
-* EYE (float x) (float y) (float z)						//camera's position in
-  worldspace
-* VIEW (float x) (float y) (float z)						//camera's view
-  direction
-* UP (float x) (float y) (float z)						//camera's up vector
+![alt tag](https://raw.githubusercontent.com/drerucha/Project3-Pathtracer/master/data/readme_pics/aa_without.jpg)
 
-Objects are defined in the following fashion:
-* OBJECT (object ID)										//object header
-* (cube OR sphere OR mesh)								//type of object, can
-  be either "cube", "sphere", or "mesh". Note that cubes and spheres are unit
-  sized and centered at the origin.
-* material (material ID)									//material to
-  assign this object
-* frame (frame number)									//start of a frame
-* TRANS (float transx) (float transy) (float transz)		//translation
-* ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
-* SCALE (float scalex) (float scaley) (float scalez)		//scale
+![alt tag](https://raw.githubusercontent.com/drerucha/Project3-Pathtracer/master/data/readme_pics/aa_with.jpg)
 
-An example scene file setting up two frames inside of a Cornell Box can be
-found in the scenes/ directory.
+## PERFORMANCE ANALYSIS
 
-For meshes, note that the base code will only read in .obj files. For more 
-information on the .obj specification see http://en.wikipedia.org/wiki/Wavefront_.obj_file.
+Below, I ran a few performance tests to measure the usefulness of stream compaction in my implementation. The tests were performed over 100 iterations with a block size locked at 128 threads-per-block with a varying trace depth (the number of times a ray was allowed to bounce in the scene). As can be seen in the scatter plot, no stream compaction outperforms stream compaction until a trace depth of 7-8 is reached. After that, stream compaction far outperforms no stream compaction.
 
-An example of a mesh object is as follows:
+Considering what I wrote above about how stream compaction in concert with a per-ray parallelization scheme prevents rays of wildly varying "number-of-trace-depths-until-retirement" to share a warp on the GPU (see section labeled "Parallelization scheme" above for more information), these results make sense. With a low trace depth, the largest disparity between rays that retire at a trace depth of one vs. those that retire at the maximum trace depth is relatively small. As the maximum trace depth grows, this potential disparity grows as well, which results in more wasted GPU resources as kernel calls become filled with retired rays that can no longer contribute to the final render.
 
-OBJECT 0
-mesh tetra.obj
-material 0
-frame 0
-TRANS       0 5 -5
-ROTAT       0 90 0
-SCALE       .01 10 10 
+The second chart visualizes the optimum block size for my path tracer. As with the previous tests, these tests were performed over 100 iterations. As can be seen in the chart, a block size of 64 or 128 is recommended for highest performance.
 
-Check the Google group for some sample .obj files of varying complexity.
+![alt tag](https://raw.githubusercontent.com/drerucha/Project3-Pathtracer/master/data/readme_pics/chart_stream_compaction_performance.jpg)
 
-## THIRD PARTY CODE POLICY
-* Use of any third-party code must be approved by asking on our Google Group.  
-  If it is approved, all students are welcome to use it.  Generally, we approve 
-  use of third-party code that is not a core part of the project.  For example, 
-  for the ray tracer, we would approve using a third-party library for loading 
-  models, but would not approve copying and pasting a CUDA function for doing 
-  refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another
-  student's code, is an academic integrity violation, and will result in you
-  receiving an F for the semester.
+![alt tag](https://raw.githubusercontent.com/drerucha/Project3-Pathtracer/master/data/readme_pics/chart_block_size_comparison.jpg)
 
-## SELF-GRADING
-* On the submission date, email your grade, on a scale of 0 to 100, to Harmony,
-  harmoli+cis565@seas.upenn.com, with a one paragraph explanation.  Be concise and
-  realistic.  Recall that we reserve 30 points as a sanity check to adjust your
-  grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We
-  hope to only use this in extreme cases when your grade does not realistically
-  reflect your work - it is either too high or too low.  In most cases, we plan
-  to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as
-  the path tracer.  We will determine the weighting at the end of the semester
-  based on the size of each project.
+## FUTURE WORK
 
-## SUBMISSION
-Please change the README to reflect the answers to the questions we have posed
-above.  Remember:
-* this is a renderer, so include images that you've made!
-* be sure to back your claims for optimization with numbers and comparisons
-* if you reference any other material, please provide a link to it
-* you wil not e graded on how fast your path tracer runs, but getting close to
-  real-time is always nice
-* if you have a fast GPU renderer, it is good to show case this with a video to
-  show interactivity.  If you do so, please include a link.
+My next steps for this project include implementing:
+* Direct lighting samples so my renders converge more efficiently.
+* Bump maps.
+* Image-based emittance.
+* Depth of field.
+* An obj loader.
 
-Be sure to open a pull request and to send Harmony your grade and why you
-believe this is the grade you should get.
+## FUN
+
+During development, I noticed that restricting random number generation in nonsensical ways resulted in some interesting abstract image creation. The first image below is no way physically correct, but it is my favorite image generated with my path tracer so far.
+
+![alt tag](https://raw.githubusercontent.com/drerucha/Project3-Pathtracer/master/data/readme_pics/fun_01.jpg)
+
+![alt tag](https://raw.githubusercontent.com/drerucha/Project3-Pathtracer/master/data/readme_pics/fun_02.jpg)
+
+## SPECIAL THANKS
+
+I want to give a quick shout-out to Patrick Cozzi who led the fall 2014 CIS 565 course at Penn, Harmony Li who was the TA for the same course, and Yining Karl Li who constructed much of the framework my path tracer was built upon. Thanks guys!

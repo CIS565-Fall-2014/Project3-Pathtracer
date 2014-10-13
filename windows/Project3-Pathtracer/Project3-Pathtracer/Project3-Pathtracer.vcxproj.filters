@@ -48,6 +48,9 @@
     <ClInclude Include="..\..\..\src\utilities.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\SimpleTimer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\image.cpp">
@@ -70,6 +73,9 @@
     </ClCompile>
     <ClCompile Include="..\..\..\external\src\stb_image\stb_image.c">
       <Filter>Source Files\stb_image</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\SimpleTimer.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

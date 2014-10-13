@@ -14,8 +14,21 @@
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
 struct ray {
+	__host__
+	__device__
+	ray():
+		is_active( true ),
+		color( glm::vec3( 1.0f, 1.0f, 1.0f ) ),
+		index_of_refraction( 1.0f )
+	{}
+
 	glm::vec3 origin;
 	glm::vec3 direction;
+
+	glm::vec3 color;
+	glm::vec2 image_coords;
+	float index_of_refraction;
+	bool is_active;
 };
 
 struct geom {
@@ -27,6 +40,7 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+	int texture_id;
 };
 
 struct staticGeom {
@@ -37,6 +51,7 @@ struct staticGeom {
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+	int texture_id;
 };
 
 struct cameraData {
@@ -71,6 +86,12 @@ struct material{
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
+};
+
+struct simpleTexture {
+	int width;
+	int height;
+	glm::vec3 *rgb;
 };
 
 #endif //CUDASTRUCTS_H

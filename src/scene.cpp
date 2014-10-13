@@ -29,6 +29,10 @@ scene::scene(string filename){
 				    loadCamera();
 				    cout << " " << endl;
 				}
+				else if ( strcmp( tokens[0].c_str(), "TEXTURE" ) == 0 ) {
+					loadTextures( tokens[1] );
+					std::cout << " " << std::endl;
+				}
 			}
 		}
 	}
@@ -73,11 +77,21 @@ int scene::loadObject(string objectid){
        
 	//link material
     utilityCore::safeGetline(fp_in,line);
-	if(!line.empty() && fp_in.good()){
+	if(!line.empty() && fp_in.good()) {
 	    vector<string> tokens = utilityCore::tokenizeString(line);
 	    newObject.materialid = atoi(tokens[1].c_str());
 	    cout << "Connecting Object " << objectid << " to Material " << newObject.materialid << "..." << endl;
-        }
+	}
+
+	// Attach textures.
+	utilityCore::safeGetline( fp_in,line );
+	if( !line.empty() && fp_in.good() ) {
+		vector<string> tokens = utilityCore::tokenizeString( line );
+		if ( strcmp( tokens[0].c_str(), "texture" ) == 0 ) {
+			newObject.texture_id = atoi( tokens[1].c_str() );
+			cout << "Loading texture " << newObject.texture_id << " for object " << objectid << "..." << endl;
+		}
+	}
         
 	//load frames
     int frameCount = 0;
@@ -260,6 +274,65 @@ int scene::loadMaterial(string materialid){
 			}
 		}
 		materials.push_back(newMaterial);
+		return 1;
+	}
+}
+
+
+const std::string TEXTURE_PATH = "C:\\Users\\Danny\\Documents\\_projects\\cis565\\Project3-Pathtracer\\data\\textures\\";
+
+int scene::loadTextures( std::string texture_id )
+{
+	int id = atoi( texture_id.c_str() );
+	
+	if ( id != textures.size() ) {
+		std::cout << "ERROR: TEXTURE ID does not match expected number of textures." << std::endl;
+		return -1;
+	}
+	else{
+		cout << "Loading texture " << id << "..." << endl;
+
+		std::string line;
+        utilityCore::safeGetline( fp_in, line );
+		std::vector<std::string> tokens = utilityCore::tokenizeString( line );
+
+		std::string texture_filename = "";
+		if ( strcmp( tokens[0].c_str(), "FILE" ) == 0 ) {
+			texture_filename = tokens[1];
+		}
+
+		std::string texture_full_path = TEXTURE_PATH + texture_filename;
+
+		int i;
+		FILE *f = fopen( texture_full_path.c_str(), "rb" );
+		unsigned char info[54];
+		fread( info, sizeof( unsigned char ), 54, f ); // read the 54-byte header
+
+		// extract image height and width from header
+		int width = *( int* )&info[18];
+		int height = *( int* )&info[22];
+
+		int size = 3 * width * height;
+		unsigned char* data = new unsigned char[size]; // allocate 3 bytes per pixel
+		fread( data, sizeof( unsigned char ), size, f ); // read the rest of the data at once
+		fclose( f );
+
+		simpleTexture texture_image;
+		texture_image.width = width;
+		texture_image.height = height;
+
+		texture_image.rgb = new glm::vec3[width * height];
+
+		for ( int y = 0; y < height; ++y ) {
+			for ( int x = 0; x < width; ++x ) {
+				int linear_index = ( y * width ) + x;
+				int bmp_buffer_loc = linear_index * 3;
+				glm::vec3 rgb( data[bmp_buffer_loc + 1] / 255.0f, data[bmp_buffer_loc] / 255.0f, data[bmp_buffer_loc + 2] / 255.0f );
+				texture_image.rgb[linear_index] = rgb;
+			}
+		}
+
+		textures.push_back( texture_image );
 		return 1;
 	}
 }
