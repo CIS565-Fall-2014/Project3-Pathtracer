@@ -46,6 +46,7 @@ Extra Features
 ### Interactive Camera
 ![video](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/pathtracer_camera_demo.mp4)
 * Short video demo of the mouse camera controls.
+
 > see pathtracer_camera_demo.mp4
 >
 > Use the mouse to control the camera.
@@ -89,10 +90,12 @@ The current random "blur" factor seems to prefer a single direction.  This shoul
 Debugging
 ---------
 For now, I only have two images to show that I used during debugging:
+![normals debug](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/debug_normals.bmp)
 * Normals of the planes, +x/y/z = r/g/b respectively.
 
 > The first, and easiest, image to create, other than a basic collision test.  I wanted to make sure that the sphere collision was fully functional and the cube collision I implemented was working.  As it turned out, it wasn't at first, and for some reason that now escapes me, the cubes were being distorted.
 
+![first bounce debug](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/debug_bounce.bmp)
 * Single sample of the random rays obtained from the BSDF on the first bounce.
 
 > I created this image because initially, the back white wall was remaning pure white while the bottom and top were receiving global illumination from the red/green walls.  This image suggested that the bounced rays were correct, and I later found the issue in my color equation.
@@ -113,7 +116,7 @@ I am fairly certain that these artifacts are either being caused by float precis
 ### Noise (slow to converge)
 ![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/iter_comparison.bmp)
 * 20, 200, and 2000 iterations of the raytrace with depth of 7.
-This one I'm not sure about.  It could be a matter of simply allowing the rays to be more variable, but ultimately the images appear much more spotty than they should be, even after a reasonable number of iterations.
+This one I'm not sure about.  It could be a matter of simply allowing the rays to be more variable, but ultimately the images appear much more spotty than they should be, even after a reasonable number of iterations.  Making the light larger might solve the problem, but I'm not sure that's the right solution.
 
 ### Clipping issues
 ![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/scene2.0.bmp)
