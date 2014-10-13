@@ -8,6 +8,7 @@
 #include "main.h"
 #include <cstring>
 #define GLEW_STATIC
+//#define STREAM_COMPACTION
 
 //-------------------------------
 //-------------MAIN--------------
@@ -107,8 +108,12 @@ void runCuda(){
     }
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
-    
+#ifdef STREAM_COMPACTION
+	cudaRaytraceCoreSC(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size());
+#else
+	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size());
+#endif
+	
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   } else {
