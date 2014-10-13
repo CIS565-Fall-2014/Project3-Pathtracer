@@ -7,6 +7,7 @@
 #include <iostream>
 #include "scene.h"
 #include <cstring>
+#include "tiny_obj_loader.h"
 
 scene::scene(string filename){
 	cout << "Reading scene from " << filename << " ..." << endl;
@@ -64,6 +65,46 @@ int scene::loadObject(string objectid){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
 		    		newObject.type = MESH;
+
+					 std::vector<tinyobj::shape_t> shapes;
+					std::vector<tinyobj::material_t> materials;
+					std::string err =  tinyobj::LoadObj(shapes, materials, "diamond.obj", NULL);
+
+					for (size_t i = 0; i < shapes.size(); i++) {
+						  newObject.faces = new glm::vec3[shapes[0].mesh.indices.size()];
+						  newObject.normals = new glm::vec3[shapes[0].mesh.indices.size()];
+						  newObject.faceNum = shapes[0].mesh.indices.size()/3;
+						  printf("shape[%ld].indices: %ld\n", i, shapes[i].mesh.indices.size());
+						  printf(" normal: %d \n", shapes[i].mesh.normals.size());
+						  printf(" points: %d \n", shapes[i].mesh.positions.size());
+							for (size_t f = 0; f < shapes[i].mesh.indices.size()/3; f++) {
+							  /*printf("  idx[%ld] = %d, %d, %d. mat_id = %d\n", f, shapes[i].mesh.indices[3*f+0], 
+								                                                  shapes[i].mesh.indices[3*f+1], 
+																				  shapes[i].mesh.indices[3*f+2], 
+																				  shapes[i].mesh.material_ids[f]);*/
+							   int index1 = shapes[i].mesh.indices[3*f+0];
+							   int index2 = shapes[i].mesh.indices[3*f+1];
+							   int index3 = shapes[i].mesh.indices[3*f+2];
+							   newObject.faces[3*f + 0] = glm::vec3(shapes[i].mesh.positions[3*index1],
+								                                   shapes[i].mesh.positions[3*index1+1],
+																   shapes[i].mesh.positions[3*index1+2]);
+
+							    newObject.faces[3*f + 1] = glm::vec3(shapes[i].mesh.positions[3*index2],
+								                                   shapes[i].mesh.positions[3*index2+1],
+																   shapes[i].mesh.positions[3*index2+2]);
+
+							    newObject.faces[3*f + 2] = glm::vec3(shapes[i].mesh.positions[3*index3],
+								                                   shapes[i].mesh.positions[3*index3+1],
+																   shapes[i].mesh.positions[3*index3+2]);
+
+								glm::vec3 p1 = newObject.faces[3*f];
+								glm::vec3 p2 = newObject.faces[3*f+1];
+								glm::vec3 p3 = newObject.faces[3*f+2];
+
+								newObject.normals[f] = glm::normalize( glm::cross(p2-p1,p3-p1));
+							}
+					}
+	
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
@@ -172,7 +213,7 @@ int scene::loadCamera(){
         }
 	    
 	    //load camera properties
-	    for(int i=0; i<3; i++){
+	    for(int i=0; i<5; i++){
             //glm::vec3 translation; glm::vec3 rotation; glm::vec3 scale;
             utilityCore::safeGetline(fp_in,line);
             tokens = utilityCore::tokenizeString(line);
@@ -182,6 +223,12 @@ int scene::loadCamera(){
                 views.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }else if(strcmp(tokens[0].c_str(), "UP")==0){
                 ups.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
+            }
+			else if(strcmp(tokens[0].c_str(), "FOCL")==0){
+				newCamera.focl = atof(tokens[1].c_str());
+            }
+			else if(strcmp(tokens[0].c_str(), "APTR")==0){
+				newCamera.aperture = atof(tokens[1].c_str());
             }
 	    }
 	    
@@ -229,7 +276,7 @@ int scene::loadMaterial(string materialid){
 		material newMaterial;
 	
 		//load static properties
-		for(int i=0; i<10; i++){
+		for(int i=0; i<11; i++){
 			string line;
             utilityCore::safeGetline(fp_in,line);
 			vector<string> tokens = utilityCore::tokenizeString(line);
@@ -256,7 +303,8 @@ int scene::loadMaterial(string materialid){
 				newMaterial.reducedScatterCoefficient = atof(tokens[1].c_str());					  
 			}else if(strcmp(tokens[0].c_str(), "EMITTANCE")==0){
 				newMaterial.emittance = atof(tokens[1].c_str());					  
-			
+			}else if(strcmp(tokens[0].c_str(), "TEXTURE")==0){
+				newMaterial.isTextured = atof(tokens[1].c_str());	
 			}
 		}
 		materials.push_back(newMaterial);

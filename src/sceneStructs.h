@@ -10,12 +10,16 @@
 #include "cudaMat4.h"
 #include <cuda_runtime.h>
 #include <string>
+#include <stdlib.h>
+#include "tiny_obj_loader.h"
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	int id;
+	glm::vec3 rayColor;
 };
 
 struct geom {
@@ -27,6 +31,9 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+	glm::vec3* faces;
+	glm::vec3* normals;
+	int faceNum;
 };
 
 struct staticGeom {
@@ -37,6 +44,9 @@ struct staticGeom {
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+	glm::vec3 faces[27];
+	glm::vec3 normals[27];
+	int faceNum;
 };
 
 struct cameraData {
@@ -45,6 +55,8 @@ struct cameraData {
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+	float focl;
+	float aperture;
 };
 
 struct camera {
@@ -58,6 +70,8 @@ struct camera {
 	glm::vec3* image;
 	ray* rayList;
 	std::string imageName;
+	float focl;
+	float aperture;
 };
 
 struct material{
@@ -71,6 +85,8 @@ struct material{
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
+	int isTextured;
 };
+
 
 #endif //CUDASTRUCTS_H
