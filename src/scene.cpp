@@ -118,6 +118,7 @@ int scene::loadObject(string objectid){
 	newObject.scales = new glm::vec3[frameCount];
 	newObject.transforms = new cudaMat4[frameCount];
 	newObject.inverseTransforms = new cudaMat4[frameCount];
+	newObject.invTransposes = new cudaMat4[frameCount];
 	for(int i=0; i<frameCount; i++){
 		newObject.translations[i] = translations[i];
 		newObject.rotations[i] = rotations[i];
@@ -125,6 +126,7 @@ int scene::loadObject(string objectid){
 		glm::mat4 transform = utilityCore::buildTransformationMatrix(translations[i], rotations[i], scales[i]);
 		newObject.transforms[i] = utilityCore::glmMat4ToCudaMat4(transform);
 		newObject.inverseTransforms[i] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+		newObject.invTransposes[i] = utilityCore::glmMat4ToCudaMat4(glm::inverse(glm::transpose(transform)));
 	}
 	
         objects.push_back(newObject);
@@ -140,7 +142,7 @@ int scene::loadCamera(){
 	float fovy;
 	
 	//load static properties
-	for(int i=0; i<4; i++){
+	for(int i=0; i<7; i++){
 		string line;
         utilityCore::safeGetline(fp_in,line);
 		vector<string> tokens = utilityCore::tokenizeString(line);
@@ -152,7 +154,13 @@ int scene::loadCamera(){
 			newCamera.iterations = atoi(tokens[1].c_str());
 		}else if(strcmp(tokens[0].c_str(), "FILE")==0){
 			newCamera.imageName = tokens[1];
-		}
+		}else if(strcmp(tokens[0].c_str(), "DEPTH")==0){
+            newCamera.traceDepth = atoi(tokens[1].c_str());
+		}else if(strcmp(tokens[0].c_str(), "DOF_DIST")==0){
+            newCamera.dof_dist = atof(tokens[1].c_str());
+		}else if(strcmp(tokens[0].c_str(), "DOF_APER")==0){
+            newCamera.dof_aper = atof(tokens[1].c_str());
+        }
 	}
         
 	//load time variable properties (frames)
@@ -209,10 +217,10 @@ int scene::loadCamera(){
 	renderCam = newCamera;
 	
 	//set up render camera stuff
-	renderCam.image = new glm::vec3[(int)renderCam.resolution.x*(int)renderCam.resolution.y];
+	renderCam.image = new glm::vec4[(int)renderCam.resolution.x*(int)renderCam.resolution.y];
 	renderCam.rayList = new ray[(int)renderCam.resolution.x*(int)renderCam.resolution.y];
 	for(int i=0; i<renderCam.resolution.x*renderCam.resolution.y; i++){
-		renderCam.image[i] = glm::vec3(0,0,0);
+		renderCam.image[i] = glm::vec4(0,0,0,0);
 	}
 	
 	cout << "Loaded " << frameCount << " frames for camera!" << endl;

@@ -22,7 +22,7 @@ struct AbsorptionAndScatteringProperties{
 __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2);
 __host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance);
-__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR);
+__host__ __device__ glm::vec3 calculateTransmissionDirection(const glm::vec3 &normal, const glm::vec3 &incident, float incidentIOR, float transmittedIOR);
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2);
@@ -38,23 +38,30 @@ __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, Abs
   return false;
 }
 
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
-  return glm::vec3(0,0,0);
+__host__ __device__ glm::vec3 calculateTransmissionDirection(const glm::vec3 &normal, const glm::vec3 &incident, float incidentIOR, float transmittedIOR) {
+    glm::vec3 refr = glm::refract(incident, normal, incidentIOR / transmittedIOR);
+    if (glm::length(refr) < 0.0001f) {
+        // Total internal reflection
+        return calculateReflectionDirection(normal, incident);
+    }
+    return glm::normalize(refr);
 }
 
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
-  //nothing fancy here
-  return glm::vec3(0,0,0);
+  return glm::reflect(incident, normal);
 }
 
-// TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
   Fresnel fresnel;
 
-  fresnel.reflectionCoefficient = 1;
-  fresnel.transmissionCoefficient = 0;
+  float ratio = (incidentIOR - transmittedIOR) / (incidentIOR + transmittedIOR);
+  float r0 = ratio * ratio;
+  float theta = 0.5f * glm::acos(glm::dot(incident, -reflectionDirection));
+  float c = 1 - glm::cos(theta);
+  float r = r0 + (1 - r0) * c*c*c*c*c;
+
+  fresnel.reflectionCoefficient = r;
+  fresnel.transmissionCoefficient = 1 - r;
   return fresnel;
 }
 
@@ -86,12 +93,19 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
     
 }
 
-// TODO: IMPLEMENT THIS FUNCTION
+// TODO: TEST THIS FUNCTION
 // Now that you know how cosine weighted direction generation works, try implementing 
 // non-cosine (uniform) weighted random direction generation.
 // This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
-__host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
-  return glm::vec3(0,0,0);
+__host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2)
+{
+    float ph = glm::acos(xi1);
+    float th = xi2 * TWO_PI;
+
+    return glm::vec3(
+            glm::cos(ph) * glm::cos(th),
+            glm::cos(ph) * glm::sin(th),
+            glm::sin(ph));
 }
 
 // TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION

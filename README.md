@@ -1,273 +1,311 @@
-CIS 565 Project3 : CUDA Pathtracer
-===================
+CIS 565 Project 3: CUDA Pathtracer
+==================================
 
-Fall 2014
+* Kai Ninomiya (Arch Linux/Windows 8, Intel i5-4670, GTX 750)
 
-Due Wed, 10/8 (submit without penalty until Sun, 10/12)
 
-## INTRODUCTION
-In this project, you will implement a CUDA based pathtracer capable of
-generating pathtraced rendered images extremely quickly. Building a pathtracer can be viewed as a generalization of building a raytracer, so for those of you who have taken 460/560, the basic concept should not be very new to you. For those of you that have not taken
-CIS460/560, raytracing is a technique for generating images by tracing rays of
-light through pixels in an image plane out into a scene and following the way
-the rays of light bounce and interact with objects in the scene. More
-information can be found here:
-http://en.wikipedia.org/wiki/Ray_tracing_(graphics). Pathtracing is a generalization of this technique by considering more than just the contribution of direct lighting to a surface.
+Keybindings
+-----------
 
-Since in this class we are concerned with working in generating actual images
-and less so with mundane tasks like file I/O, this project includes basecode
-for loading a scene description file format, described below, and various other
-things that generally make up the render "harness" that takes care of
-everything up to the rendering itself. The core renderer is left for you to
-implement.  Finally, note that while this basecode is meant to serve as a
-strong starting point for a CUDA pathtracer, you are not required to use this
-basecode if you wish, and you may also change any part of the basecode
-specification as you please, so long as the final rendered result is correct.
+* Escape: save image and exit program
+* Space: save image early and continue rendering
+* Arrow keys: rotate camera
+* WASDRF keys: fly through space laterally (WASD) and vertically (RF) relative
+  to the camera orientation
 
-## CONTENTS
-The Project3 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio
-  solution and the OSX and Linux makefiles reference this folder for all 
-  source; the base source code compiles on Linux, OSX and Windows without 
-  modification.  If you are building on OSX, be sure to uncomment lines 4 & 5 of
-  the CMakeLists.txt in order to make sure CMake builds against clang.
-* data/scenes/ contains an example scene description file.
-* renders/ contains an example render of the given example scene file. 
-* windows/ contains a Windows Visual Studio 2010 project and all dependencies
-  needed for building and running on Windows 7. If you would like to create a
-  Visual Studio 2012 or 2013 projects, there are static libraries that you can
-  use for GLFW that are in external/bin/GLFW (Visual Studio 2012 uses msvc110, 
-  and Visual Studio 2013 uses msvc120)
-* external/ contains all the header, static libraries and built binaries for
-  3rd party libraries (i.e. glm, GLEW, GLFW) that we use for windowing and OpenGL
-  extensions
 
-## RUNNING THE CODE
-The main function requires a scene description file (that is provided in data/scenes). 
-The main function reads in the scene file by an argument as such :
-'scene=[sceneFileName]'
+Base Code Features
+------------------
 
-If you are using Visual Studio, you can set this in the Debugging > Command Arguments section
-in the Project properties.
+* Live display of render progress using OpenGL interop
+* Configuration file reading
+* Hemisphere sampling function (for diffuse)
+* Objects: sphere
 
-## REQUIREMENTS
-In this project, you are given code for:
 
-* Loading, reading, and storing the scene scene description format
-* Example functions that can run on both the CPU and GPU for generating random
-  numbers, spherical intersection testing, and surface point sampling on cubes
-* A class for handling image operations and saving images
-* Working code for CUDA-GL interop
+Features Implemented
+--------------------
 
-You will need to implement the following features:
+* Pathtracing algorithms
+* Materials: diffuse, reflective, **refractive with Fresnel reflection**
+* Camera: **movement** (controls above), **antialiasing**, **depth of field**
+* Objects: cube, sphere **with correct normals when scaled**
+* Performance: ray-level stream compaction
 
-* Raycasting from a camera into a scene through a pixel grid
-* Diffuse surfaces
-* Perfect specular reflective surfaces
-* Cube intersection testing
-* Sphere surface point sampling
-* Stream compaction optimization
+(Extras in **bold**.)
 
-You are also required to implement at least 2 of the following features:
 
-* Texture mapping 
-* Bump mapping
-* Depth of field
-* Refraction, i.e. glass
-* OBJ Mesh loading and rendering
-* Interactive camera
-* Motion blur
-* Subsurface scattering
+Renderings
+----------
 
-The 'extra features' list is not comprehensive.  If you have a particular feature
-you would like to implement (e.g. acceleration structures, etc.) please contact us 
-first!
+Combined test render (rendering time: 9 min on GTX 750):
+![](images/22_brighter_d16s2000.jpg)
 
-For each 'extra feature' you must provide the following analysis :
-* overview write up of the feature
-* performance impact of the feature
-* if you did something to accelerate the feature, why did you do what you did
-* compare your GPU version to a CPU version of this feature (you do NOT need to 
-  implement a CPU version)
-* how can this feature be further optimized (again, not necessary to implement it, but
-  should give a roadmap of how to further optimize and why you believe this is the next
-  step)
+Annotated:
+![](images/24_annotated.jpg)
 
-## BASE CODE TOUR
-You will be working in three files: raytraceKernel.cu, intersections.h, and
-interactions.h. Within these files, areas that you need to complete are marked
-with a TODO comment. Areas that are useful to and serve as hints for optional
-features are marked with TODO (Optional). Functions that are useful for
-reference are marked with the comment LOOK.
+Combined test render (rendering time: 9 min on GTX 750):
+![](images/23_ultimate_d16s2000.jpg)
 
-* raytraceKernel.cu contains the core raytracing CUDA kernel. You will need to
-  complete:
-    * cudaRaytraceCore() handles kernel launches and memory management; this
-      function already contains example code for launching kernels,
-      transferring geometry and cameras from the host to the device, and transferring
-      image buffers from the host to the device and back. You will have to complete
-      this function to support passing materials and lights to CUDA.
-    * raycastFromCameraKernel() is a function that you need to implement. This
-      function once correctly implemented should handle camera raycasting. 
-    * raytraceRay() is the core raytracing CUDA kernel; all of your pathtracing
-      logic should be implemented in this CUDA kernel. raytraceRay() should
-      take in a camera, image buffer, geometry, materials, and lights, and should
-      trace a ray through the scene and write the resultant color to a pixel in the
-      image buffer.
 
-* intersections.h contains functions for geometry intersection testing and
-  point generation. You will need to complete:
-    * boxIntersectionTest(), which takes in a box and a ray and performs an
-      intersection test. This function should work in the same way as
-      sphereIntersectionTest().
-    * getRandomPointOnSphere(), which takes in a sphere and returns a random
-      point on the surface of the sphere with an even probability distribution.
-      This function should work in the same way as getRandomPointOnCube(). You can
-      (although do not necessarily have to) use this to generate points on a sphere
-      to use a point lights, or can use this for area lighting.
+Performance
+-----------
 
-* interactions.h contains functions for ray-object interactions that define how
-  rays behave upon hitting materials and objects. You will need to complete:
-    * getRandomDirectionInSphere(), which generates a random direction in a
-      sphere with a uniform probability. This function works in a fashion
-      similar to that of calculateRandomDirectionInHemisphere(), which generates a
-      random cosine-weighted direction in a hemisphere.
-    * calculateBSDF(), which takes in an incoming ray, normal, material, and
-      other information, and returns an outgoing ray. You can either implement
-      this function for ray-surface interactions, or you can replace it with your own
-      function(s).
+### Stream Compaction
 
-You will also want to familiarize yourself with:
+In order to perform ray-level stream compaction, it was necessary to refactor
+the rendering kernel into a single-ray step along the path. The result of this
+is significantly more overhead, due primarily to performing stream compaction
+between every step. At low path depths (e.g. 4), performance is lower with
+stream compaction. However, stream compaction allows for extremely high path
+depths (tested up to 1000) without very significant performance degradation.
+This is because the vast majority of paths have terminated, and dead paths no
+longer use kernel threads.
 
-* sceneStructs.h, which contains definitions for how geometry, materials,
-  lights, cameras, and animation frames are stored in the renderer. 
-* utilities.h, which serves as a kitchen-sink of useful functions
+| Path Depth |    Before |     After |
+| ----------:| ---------:| ---------:|
+|          2 |  33.20 ms |  49.86 ms |
+|          4 |  66.54 ms |  83.20 ms |
+|          8 | 116.55 ms | 116.56 ms |
+|         16 | 216.54 ms | 133.20 ms |
+|         64 | 327.1x ms | 149.90 ms |
+|        256 | 418.xx ms | 183.22 ms |
+|       1024 | 660.xx ms | 300.23 ms |
 
-## NOTES ON GLM
-This project uses GLM, the GL Math library, for linear algebra. You need to
-know two important points on how GLM is used in this project:
+![](plots/compaction.png)
+![](plots/compaction_depth_mirror.png)
+![](plots/compaction_depth_nomirror.png)
 
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed
-  via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is
-  used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but
-  pre-Fermi cards do not play nice with GLM matrices. As such, in this project,
-  GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found
-  in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is
-  provided as multiplyMV() in intersections.h.
+### Block sizes (with compaction)
 
-## SCENE FORMAT
-This project uses a custom scene description format.
-Scene files are flat text files that describe all geometry, materials,
-lights, cameras, render settings, and animation frames inside of the scene.
-Items in the format are delimited by new lines, and comments can be added at
-the end of each line preceded with a double-slash.
+This plot is remarkably uninteresting (beyond the expected low performance of
+block sizes which are not multiples of the warp size of 32).
+This is probably due to the fact that shared memory was not used at all.
 
-Materials are defined in the following fashion:
+With a block size of 512, performance becomes marginally worse.
+This may be due to the increased number of registers used, since the number of
+registers per thread is high (111).  This may be also due to caching effects:
+at this block size, a lot of data is being loaded for each block, so the cache
+may not be able to hold everything effectively.
 
-* MATERIAL (material ID)								//material header
-* RGB (float r) (float g) (float b)					//diffuse color
-* SPECX (float specx)									//specular exponent
-* SPECRGB (float r) (float g) (float b)				//specular color
-* REFL (bool refl)									//reflectivity flag, 0 for
-  no, 1 for yes
-* REFR (bool refr)									//refractivity flag, 0 for
-  no, 1 for yes
-* REFRIOR (float ior)									//index of refraction
-  for Fresnel effects
-* SCATTER (float scatter)								//scatter flag, 0 for
-  no, 1 for yes
-* ABSCOEFF (float r) (float b) (float g)				//absorption
-  coefficient for scattering
-* RSCTCOEFF (float rsctcoeff)							//reduced scattering
-  coefficient
-* EMITTANCE (float emittance)							//the emittance of the
-  material. Anything >0 makes the material a light source.
+With a block size of 1024, the kernel does not run due to insufficient
+resources.
 
-Cameras are defined in the following fashion:
+| Block size |    Time  |
+| ----------:| --------:|
+|         16 | 399.9 ms |
+|         32 | 266.5 ms |
+|         33 | 416.5 ms |
+|         48 | 316.5 ms |
+|         64 | 266.5 ms |
+|         65 | 349.3 ms | 
+|         80 | 299.9 ms |
+|         96 | 266.5 ms |
+|        128 | 266.5 ms |
+|        256 | 266.5 ms |
+|        512 | 271.3 ms |
 
-* CAMERA 												//camera header
-* RES (float x) (float y)								//resolution
-* FOVY (float fovy)										//vertical field of
-  view half-angle. the horizonal angle is calculated from this and the
-  reslution
-* ITERATIONS (float interations)							//how many
-  iterations to refine the image, only relevant for supersampled antialiasing,
-  depth of field, area lights, and other distributed raytracing applications
-* FILE (string filename)									//file to output
-  render to upon completion
-* frame (frame number)									//start of a frame
-* EYE (float x) (float y) (float z)						//camera's position in
-  worldspace
-* VIEW (float x) (float y) (float z)						//camera's view
-  direction
-* UP (float x) (float y) (float z)						//camera's up vector
+![](plots/blocksize.png)
 
-Objects are defined in the following fashion:
-* OBJECT (object ID)										//object header
-* (cube OR sphere OR mesh)								//type of object, can
-  be either "cube", "sphere", or "mesh". Note that cubes and spheres are unit
-  sized and centered at the origin.
-* material (material ID)									//material to
-  assign this object
-* frame (frame number)									//start of a frame
-* TRANS (float transx) (float transy) (float transz)		//translation
-* ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
-* SCALE (float scalex) (float scaley) (float scalez)		//scale
+### Cube Intersection
 
-An example scene file setting up two frames inside of a Cornell Box can be
-found in the scenes/ directory.
+Initially I did cube intersection naively, but this turned out to use 
+many GPU registers and had very bad performance. Rewriting based on Kay and
+Kayjia's slab method increased performance significantly:
 
-For meshes, note that the base code will only read in .obj files. For more 
-information on the .obj specification see http://en.wikipedia.org/wiki/Wavefront_.obj_file.
+|    Naive |    Slabs |
+| --------:| --------:|
+|  102 reg |   95 reg |
+| 83.21 ms | 66.54 ms |
 
-An example of a mesh object is as follows:
 
-OBJECT 0
-mesh tetra.obj
-material 0
-frame 0
-TRANS       0 5 -5
-ROTAT       0 90 0
-SCALE       .01 10 10 
+Features
+--------
 
-Check the Google group for some sample .obj files of varying complexity.
+### Diffuse materials
 
-## THIRD PARTY CODE POLICY
-* Use of any third-party code must be approved by asking on our Google Group.  
-  If it is approved, all students are welcome to use it.  Generally, we approve 
-  use of third-party code that is not a core part of the project.  For example, 
-  for the ray tracer, we would approve using a third-party library for loading 
-  models, but would not approve copying and pasting a CUDA function for doing 
-  refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another
-  student's code, is an academic integrity violation, and will result in you
-  receiving an F for the semester.
+Rays bounced randomly according to provided hemisphere sampling method.
 
-## SELF-GRADING
-* On the submission date, email your grade, on a scale of 0 to 100, to Harmony,
-  harmoli+cis565@seas.upenn.com, with a one paragraph explanation.  Be concise and
-  realistic.  Recall that we reserve 30 points as a sanity check to adjust your
-  grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We
-  hope to only use this in extreme cases when your grade does not realistically
-  reflect your work - it is either too high or too low.  In most cases, we plan
-  to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as
-  the path tracer.  We will determine the weighting at the end of the semester
-  based on the size of each project.
+**Performance:**
 
-## SUBMISSION
-Please change the README to reflect the answers to the questions we have posed
-above.  Remember:
-* this is a renderer, so include images that you've made!
-* be sure to back your claims for optimization with numbers and comparisons
-* if you reference any other material, please provide a link to it
-* you wil not e graded on how fast your path tracer runs, but getting close to
-  real-time is always nice
-* if you have a fast GPU renderer, it is good to show case this with a video to
-  show interactivity.  If you do so, please include a link.
+|   Before |    After |
+| --------:| --------:|
+|   55 reg |  103 reg |
+| 16.55 ms | 66.55 ms |
 
-Be sure to open a pull request and to send Harmony your grade and why you
-believe this is the grade you should get.
+### Reflective materials (non-Fresnel)
+
+Rays always reflected perfectly.
+
+**Performance:**
+
+|   Before |    After |
+| --------:| --------:|
+|  103 reg |  102 reg |
+| 66.55 ms | 66.55 ms |
+
+### Refractive materials (non-Fresnel)
+
+Rays always refracted perfectly. Required some additions to the intersection
+code
+
+**Performance:**
+
+|   Before |    After |
+| --------:| --------:|
+|  102 reg |  101 reg |
+| 66.55 ms | 99.88 ms |
+
+
+Extras
+------
+
+### Antialiasing
+
+Samples are taken randomly from within each pixel. See Earlier Renders section
+for comparison.
+
+**Performance:** Negligible impact.
+
+**Mean rendering time per iteration for an arbitrary example scene**
+
+|   Before |    After |
+| --------:| --------:|
+|   95 reg |   95 reg |
+| 33.19 ms | 33.19 ms |
+
+
+### Depth of Field
+
+Origin and direction of camera rays is varied randomly (in a uniform circular
+distribution) to emulate a physical aperture.
+
+**Performance:** Some impact per-sample when adding the implementation.
+This is due to additional randomness calculations and vector math for computing
+random rays.  Depth of field also increases the number
+of samples needed for visual smoothness due to the extreme variation between
+samples. Implementation-wise, this is identical to analogous CPU code.
+
+**Mean rendering time per iteration for an arbitrary example scene**
+
+|   Before |    After |
+| --------:| --------:|
+|   95 reg |   95 reg |
+| 49.87 ms | 61.6x ms |
+
+### Fresnel Reflection/Refraction
+
+I used Schlick's approximation to compute the fractions of light
+reflected/refracted, then used that as a probability for the next path ray.
+
+Reflection is implemented using glm::reflect.  Refraction uses glm::refract and
+handles total internal reflection. Intersection code was modified to report
+whether the intersection was inside or outside the object, which allows correct
+handling of indices of refraction at interfaces. (This technically could have
+been done by adopting a different normal direction convention and checking
+dot products with that, but this is more readable.)
+
+(See debug render in the Debug Renders section below.)
+
+**Performance:** Some performance impact per-sample. This is probably due to
+the additional Fresnel factor computation and the additional random branch
+calculation based on that factor.
+
+**Mean rendering time per iteration for an arbitrary example scene**
+
+|   Before |    After |
+| --------:| --------:|
+|  101 reg |  101 reg |
+| 233.2 ms | 249.9 ms |
+
+### Camera movement
+
+Keys for this are listed in the Keybindings section. This is implemented by
+simply modifying the location of the camera, clearing the render, and starting
+again.
+
+### Scaled Sphere Normals
+
+This is a minor thing, but I fixed the provided code to use inverse transpose
+transformations to calculate the sphere normals.
+
+(Error image in bloopers.)
+
+|   Before |    After |
+| --------:| --------:|
+|  101 reg |  111 reg |
+| 250.2 ms | 266.5 ms |
+
+
+Parameter Comparison Renderings
+-------------------------------
+
+Higher iteration counts always improved image smoothness, since more samples
+were averaged over time. Higher path depths seem to cause fireflies, which
+seem to have a hard time getting reduced. This is (probably) due to randomly
+directly sampling the light more than nearby pixels (despite the very low
+probability of doing so; probably 1 sample instead of 0 or 2 instead of 1).
+
+Depth 16, 500 samples:
+![](images/23_ultimate_d16s500.jpg)
+
+Depth 16, 2000 samples:
+![](images/23_ultimate_d16s2000.jpg)
+
+Depth 256, 500 samples:
+![](images/23_ultimate_d256s500.jpg)
+
+Depth 256, 2000 samples:
+![](images/23_ultimate_d256s2000.jpg)
+
+
+Earlier Renders
+---------------
+
+Diffuse-only:
+![](images/08_diffuse_5000.jpg)
+
+Diffuse + Reflective:
+![](images/12_refactored.jpg)
+
+With Direct Lighting, depth=8 (not included in final version):
+![](images/15_slightly_better_depth8.jpg)
+
+With Direct Lighting, depth=1 (not included in final version):
+![](images/15_slightly_better_depth1.jpg)
+
+Same image with antialiasing:
+![](images/16_antialiasing_depth1.jpg)
+
+
+Debug Renders
+-------------
+
+Normals:
+![](images/01_debug_nor.jpg)
+
+Positions:
+![](images/02_debug_pos.jpg)
+
+Materials/emittance:
+![](images/04_debug_emit.jpg)
+
+Direct lighting lit areas (not included in final version):
+![](images/14_direct_lighting_depth1.jpg)
+
+Fresnel reflected light factor (shown here for all reflective surfaces, but to
+be only applied to refractive surfaces):
+![](images/20_fresnel_debug_d16s500.jpg)
+
+
+Bloopers
+--------
+
+Seed error:
+![](images/06_seed_error_500.jpg)
+
+Code refactoring error:
+![](images/10_refactor_error.jpg)
+
+Sphere normal error (from provided code):
+![](images/22_bad_sphere_scaling_d16s500.jpg)

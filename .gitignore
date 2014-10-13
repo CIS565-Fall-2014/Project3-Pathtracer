@@ -1,5 +1,6 @@
 # General
 builds/
+build/
 
 # Compiled objects
 *.o
@@ -32,3 +33,6 @@ windows/src/
 # Exceptions
 !external/lib/*/*.lib
 !external/bin/*
+
+# LibreOffice
+.~lock.*#

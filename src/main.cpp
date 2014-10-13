@@ -9,6 +9,10 @@
 #include <cstring>
 #define GLEW_STATIC
 
+static bool camchanged = 0;
+static float theta = 0, phi = 0;
+static glm::vec3 cammove;
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -60,6 +64,34 @@ int main(int argc, char** argv){
   return 0;
 }
 
+void saveImage() {
+    // output image file
+    image outputImage(renderCam->resolution.x, renderCam->resolution.y);
+
+    for (int x=0; x < renderCam->resolution.x; x++) {
+        for (int y=0; y < renderCam->resolution.y; y++) {
+            int index = x + (y * renderCam->resolution.x);
+            glm::vec4 pix = renderCam->image[index];
+            outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,glm::vec3(pix) / pix.w);
+        }
+    }
+
+    gammaSettings gamma;
+    gamma.applyGamma = true;
+    gamma.gamma = 1.0;
+    gamma.divisor = 1.0; 
+    outputImage.setGammaSettings(gamma);
+    string filename = renderCam->imageName;
+    string s;
+    stringstream out;
+    out << targetFrame;
+    s = out.str();
+    utilityCore::replaceString(filename, ".bmp", "."+s+".bmp");
+    utilityCore::replaceString(filename, ".png", "."+s+".png");
+    outputImage.saveImageRGB(filename);
+    cout << "Saved frame " << s << " to " << filename << endl;
+}
+
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
@@ -86,6 +118,22 @@ void mainLoop() {
 //-------------------------------
 
 void runCuda(){
+    
+    if (camchanged) {
+        iterations = 0;
+        for (int i = 0; i < renderCam->frames; ++i) {
+            glm::vec3 v = renderCam->views[i];
+            glm::vec3 u = renderCam->ups[i];
+            glm::vec3 r = glm::cross(v, u);
+            glm::mat4 rotmat = glm::rotate(theta, r) * glm::rotate(phi, u);
+            renderCam->views[i] = glm::vec3(rotmat * glm::vec4(v, 0.f));
+            renderCam->ups  [i] = glm::vec3(rotmat * glm::vec4(u, 0.f));
+            renderCam->positions[i] += cammove.x * r + cammove.y * u + cammove.z * v;
+        }
+        theta = phi = 0;
+        cammove = glm::vec3();
+        camchanged = false;
+    }
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
@@ -114,35 +162,12 @@ void runCuda(){
   } else {
 
     if (!finishedRender) {
-      // output image file
-      image outputImage(renderCam->resolution.x, renderCam->resolution.y);
-
-      for (int x=0; x < renderCam->resolution.x; x++) {
-        for (int y=0; y < renderCam->resolution.y; y++) {
-          int index = x + (y * renderCam->resolution.x);
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
-        }
-      }
-      
-      gammaSettings gamma;
-      gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; 
-      outputImage.setGammaSettings(gamma);
-      string filename = renderCam->imageName;
-      string s;
-      stringstream out;
-      out << targetFrame;
-      s = out.str();
-      utilityCore::replaceString(filename, ".bmp", "."+s+".bmp");
-      utilityCore::replaceString(filename, ".png", "."+s+".png");
-      outputImage.saveImageRGB(filename);
-      cout << "Saved frame " << s << " to " << filename << endl;
+      saveImage();
       finishedRender = true;
-      if (singleFrameMode==true) {
+      //if (singleFrameMode==true) {
         cudaDeviceReset(); 
         exit(0);
-      }
+      //}
     }
     if (targetFrame < renderCam->frames-1) {
 
@@ -150,7 +175,7 @@ void runCuda(){
       targetFrame++;
       iterations = 0;
       for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
-        renderCam->image[i] = glm::vec3(0,0,0);
+        renderCam->image[i] = glm::vec4(0,0,0,0);
       }
       cudaDeviceReset(); 
       finishedRender = false;
@@ -318,7 +343,23 @@ void errorCallback(int error, const char* description){
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
-    if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
-        glfwSetWindowShouldClose(window, GL_TRUE);
+    if (action == GLFW_PRESS) {
+        switch (key) {
+            break; case GLFW_KEY_ESCAPE:
+                saveImage();
+                glfwSetWindowShouldClose(window, GL_TRUE);
+            break; case GLFW_KEY_SPACE:
+                saveImage();
+            break; case GLFW_KEY_DOWN : camchanged = true; theta = -0.1f;
+            break; case GLFW_KEY_UP   : camchanged = true; theta = +0.1f;
+            break; case GLFW_KEY_RIGHT: camchanged = true;  phi = -0.1f;
+            break; case GLFW_KEY_LEFT : camchanged = true;  phi = +0.1f;
+            break; case GLFW_KEY_A    : camchanged = true; cammove -= glm::vec3(.1f, 0, 0);
+            break; case GLFW_KEY_D    : camchanged = true; cammove += glm::vec3(.1f, 0, 0);
+            break; case GLFW_KEY_W    : camchanged = true; cammove += glm::vec3(0, 0, .1f);
+            break; case GLFW_KEY_S    : camchanged = true; cammove -= glm::vec3(0, 0, .1f);
+            break; case GLFW_KEY_R    : camchanged = true; cammove += glm::vec3(0, .1f, 0);
+            break; case GLFW_KEY_F    : camchanged = true; cammove -= glm::vec3(0, .1f, 0);
+        }
     }
 }
