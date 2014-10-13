@@ -162,7 +162,7 @@ material 4
 frame 0
 TRANS       0 2 0
 ROTAT       0 180 0
-SCALE       1 1 1
+SCALE       3 3 3
 
 OBJECT 6
 sphere
@@ -170,7 +170,7 @@ material 3
 frame 0
 TRANS       2 5 2
 ROTAT       0 180 0
-SCALE       1.5 1.5 1.5
+SCALE       2.5 2.5 2.5
 
 OBJECT 7
 sphere
@@ -178,18 +178,10 @@ material 6
 frame 0
 TRANS       -2 5 -2
 ROTAT       0 180 0
-SCALE       2 2 2
+SCALE       3 3 3
+
 
 OBJECT 8
-sphere
-material 5
-frame 0
-TRANS       -4 2 -1
-ROTAT       0 180 0
-SCALE       1 1 1
-
-
-OBJECT 9
 cube
 material 8 
 frame 0

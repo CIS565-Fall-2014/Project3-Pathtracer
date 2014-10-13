@@ -194,6 +194,7 @@ __host__ __device__ int calculateBSDF(float randseed, ray& Ray, staticGeom* geom
 				Ray.origin=intersectPoint+random_shift*normal;
 				Ray.direction=transmissionDirection;
 				Ray.color=Ray.color*M.color;
+				
 				return 2;
 			}
 			else if(M.hasReflective&& M.hasRefractive)

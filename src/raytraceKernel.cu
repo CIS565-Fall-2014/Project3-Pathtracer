@@ -21,7 +21,7 @@
 
 
 #define	 MAX_TRAVEL_DIST	9999999.99f
-
+#define  ENABLE_AA			1
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -40,8 +40,21 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   glm::vec3 image_x_direction=glm::cross(view,up);
   glm::vec3 image_y_direction=-up;
   glm::vec3 image_center=eye+view;
-  float image_x=((float)x-(float)resolution.x/2)/((float)resolution.x/2);
-  float image_y=((float)y-(float)resolution.y/2)/((float)resolution.y/2);
+  float px=float(x);
+  float py=float(y);
+   if(ENABLE_AA)
+  {
+	  thrust::default_random_engine rng(hash((time+1.0f)*(x+2.0f)*(y+3.0f)));
+	  thrust::uniform_real_distribution<float> u01(-2.0f,2.0f);
+	  px=px+u01(rng);
+	  py=py+u01(rng);
+  }
+  float image_x=((float)px-(float)resolution.x/2)/((float)resolution.x/2);
+  float image_y=((float)py-(float)resolution.y/2)/((float)resolution.y/2);
+  //http://en.wikipedia.org/wiki/Supersampling for Anti Aliasing
+ 
+
+
   float angle_x=fov.x;
   float angle_y=fov.y;
   glm::vec3 image_pos=image_center+image_x*glm::length(view)*tan(angle_x)*glm::normalize(image_x_direction)+image_y*glm::length(view)*tan(angle_y)*glm::normalize(image_y_direction);
@@ -200,6 +213,20 @@ __global__ void raytraceRay(ray* activeRays,int N,int current_depth,glm::vec2 re
 		  else
 		  {
 			  float randSeed=((float)time+1.0f)*((float)index+2.0f)*((float)current_depth+3.0f);
+			  //int flag;
+			  //flag=calculateBSDF(randSeed, activeRays[index], geoms,ObjectID,intersectionPoint,normal,M);
+			  /*if(flag==0)
+			  {
+				  activeRays[index].color=glm::vec3(1.0f,0.0f,0.0f);
+			  }
+			  else if(flag==1)
+			  {
+				  activeRays[index].color=glm::vec3(0.0f,1.0f,0.0f);
+			  }
+			  else
+			  {
+				  activeRays[index].color=glm::vec3(0.0f,0.0f,1.0f);
+			  }*/
 			  calculateBSDF(randSeed, activeRays[index], geoms,ObjectID,intersectionPoint,normal,M);
 			  return;
 		  }
@@ -276,6 +303,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
  
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  bool stream_compact=true;
   int traceDepth=10;
   // set up crucial magic
   int tileSize = 16;
@@ -285,15 +313,18 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   InitRays<<<fullBlocksPerGrid,threadsPerBlock>>>(activeRays, renderCam->resolution,(float)iterations,cam);
 
   // kernel launches
-  int blockSize=32;
+  int blockSize=64;
   for(int i=0;i<traceDepth;i++)
   {
+	if(stream_compact)
+	{
 	thrust::device_ptr<ray> current_rays(activeRays);
 	thrust::device_ptr<ray> new_rays=thrust::remove_if(current_rays,current_rays+Num_rays,ray_isActive());
 	Num_rays=new_rays.get()-current_rays.get();
 	//printf("%d\n",Num_rays);
 	if(Num_rays<1.0f)
 		break;
+	}
 	raytraceRay<<<ceil((float)Num_rays/blockSize),blockSize>>>(activeRays,Num_rays,i,renderCam->resolution, (float)iterations, cam, current_cudaimage, cudageoms, numberOfGeoms,cudamaterials,numberOfMaterials);
   }
 
