@@ -10,8 +10,8 @@ Implemented features:
 * Cube intersection testing
 * Sphere surface point sampling
 * Stream compaction optimization (using Thrust)
-** Interactive camera (pan, zoom, tilt)
-** Depth of field
+*+ Interactive camera (pan, zoom, tilt)
+*+ Depth of field
 
 Nonworking features (base code is there):
 -----------------------------------------
@@ -25,9 +25,14 @@ Extra Features
 --------------
 * Interactive Camera
 
+> see pathtracer_camera_demo.mp4
+>
 > Use the mouse to control the camera.
+>
 > Left click-drag will move the camera.
+>
 > Right click-drag will tilt the camera.
+>
 > Middle click-drag will move the camera forward/backward.
 
 * Depth of Field
