@@ -21,6 +21,7 @@ additional features:
 * Fresnel Refraction and Reflection
 * Supersampled antialiasing
 * Motion blur
+* 
 
 ##Implementation
 *First version of pathtracer
