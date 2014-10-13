@@ -21,6 +21,9 @@ Nonworking features (base code is there):
 
 > Refraction code has been added to BSDF, but it turns up black.  May be due to intersection tests being incompatible with rays originating from inside the 
 
+![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/depth_comparison.bmp)
+* A comparison of the same scene with different raytrace depths (4, 7, 20)
+
 Performance
 -----------
 There are three main contributors to runtime that I would like to focus on:
@@ -41,7 +44,8 @@ Since this is mostly independent of the GPU (it's based a looped call by the hos
 Extra Features
 --------------
 ### Interactive Camera
-
+![video](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/pathtracer_camera_demo.mp4)
+* Short video demo of the mouse camera controls.
 > see pathtracer_camera_demo.mp4
 >
 > Use the mouse to control the camera.
@@ -102,7 +106,8 @@ Problems
 --------
 ### Artifacts
 ![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/scene1.0.bmp)
-(see the squares on the back wall)
+
+* (see the squares on the back wall)
 I am fairly certain that these artifacts are either being caused by float precision (though I think I use epsilon equality everywhere) or the random number generator seed.  Putting in a different seed results in vastly different results, some completely wrong.
 
 ### Noise (slow to converge)
@@ -112,9 +117,13 @@ This one I'm not sure about.  It could be a matter of simply allowing the rays t
 
 ### Clipping issues
 ![alt tag](https://raw.githubusercontent.com/JivingTechnostic/Project3-Pathtracer/master/windows/Project3-Pathtracer/Project3-Pathtracer/scene2.0.bmp)
-(the smaller spheres should be behind the large sphere on the left)
+* (the smaller spheres should be behind the large sphere on the left)
+I honestly have no idea what's causing this right now.  I will have to take a look at the code later to figure out what's causing this.  Strangely enough, they do not clip behind the sphere to the right, only the one on the left.  It may be directional, but I doubt that.
 
 Future Work
 -----------
-
-
+#### Priority 0
+* Finish refraction
+* Fix clipping issues
+* Implement meshes
+* Implement acceleration data structure
