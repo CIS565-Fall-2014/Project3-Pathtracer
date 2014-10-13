@@ -12,8 +12,9 @@ Radium Yang's Pathtracer
 	* Sphere surface point sampling
 	* Stream compaction optimization
 - Extra
+	* Supersampling Anti-Alisasing
 	* Depth of field
-	* Refraction, i.e. glass
+	* Refraction
 
 ###Feature Overview
 For the Pathtracing Algorithm and basic features' implementations, I mainly followed the raytracing slides in CIS 560 and pathtracing slices in CIS 565.
@@ -37,6 +38,9 @@ Extra Features:
 - Stream compaction
   * reference: http://wiki.thrust.googlecode.com/hg-history/312700376feeadec0b1a679a259d66ff8512d5b3/html/group__stream__compaction.html#ga517b17ceafe31a9fc70ac5127bd626de
   * To accelerate the performance, using thrust to do stream compaction to delete rays which have already been hit to the background or light from the raypool. Thus, after each iteration, the valid rays in the ray pool will be decreased, which will help improve the performance.
+
+-  Supersampling Anti-Alisasing
+ * When casting the ray, jittered the pixel position on the image plane. (use thrust random number engine)
 
 ## Performance Analysis
 ![alt tag](https://github.com/radiumyang/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/performance_iterations.JPG)
