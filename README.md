@@ -31,16 +31,19 @@ There are three main contributors to runtime that I would like to focus on:
 #### Expectation
 I expect that this step takes the longest in the code, and should, ignoring issues with block size/memory, result in linear increases in runtime proportional to the number of geometric bodies in the scene.  This is only with spheres and cubes, and will create significantly more overhead once meshes are implemented.  I believe this should be highest priority for optimization, preferably first with some acceleration structure such as a kd-tree (detailed in "Future Work").
 #### Results
+--postponed--
 
 ### 2. Raytrace Depth
 #### Expectation
 This is fairly straightforward, but I wanted to see the slope of the runtime increase due to higher raytrace depth.  I would expect that it is slightly less than linear (assuming that the blocks are set up optimally for stream compaction, which they may not be), since the number of threads needed per level decreases every level.
 #### Results
+--postponed--
 
 ### 3. Number of Iterations
 #### Expectation
 Since this is mostly independent of the GPU (it's based a looped call by the host), it should be expected to be linear.  I want to see if it slows down or speeds up over time, if at all (time/#iterations).
 #### Results
+--postponed--
 
 
 Extra Features
@@ -127,4 +130,4 @@ Future Work
 * Finish refraction
 * Fix clipping issues
 * Implement meshes
-* Implement acceleration data structure
+* Implement acceleration data structure (octtree would probably be simplest)
