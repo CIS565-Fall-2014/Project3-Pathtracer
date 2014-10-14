@@ -93,5 +93,16 @@ For each 'extra feature' you must provide the following analysis :
 * how can this feature be further optimized (again, not necessary to implement it, but
   should give a roadmap of how to further optimize and why you believe this is the next
   step)
+/***************************************************************************************************************/
+## Implementation
+All required features are implemented;
+2 extra features, Refraction and Subsurface scattering are also provided. 
 
+![Alt text](https://github.com/chiwsy/Project3-Pathtracer/blob/master/test.png)
+
+![Alt text](https://github.com/chiwsy/Project3-Pathtracer/blob/master/test_mark.png)
+
+![Alt text](https://github.com/chiwsy/Project3-Pathtracer/blob/master/compare.png)
+
+These 3 images show the features implemented and the performance of the render with and without stream compaction.
 
