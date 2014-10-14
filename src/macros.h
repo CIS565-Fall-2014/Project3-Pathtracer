@@ -7,8 +7,8 @@
 #define EPSILON                     .000000001
 #define ZERO_ABSORPTION_EPSILON     0.00001
 #define RAY_BIAS_AMOUNT             0.0002
-#define traceDepth  5
+#define traceDepth  20
 
-//#define _STREAM_COMPACT
+#define _STREAM_COMPACT
 
 #endif
