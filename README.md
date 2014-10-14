@@ -94,9 +94,10 @@ For each 'extra feature' you must provide the following analysis :
   should give a roadmap of how to further optimize and why you believe this is the next
   step)
 
-  
+
 ## Implementation
 All required features are implemented;
+
 2 extra features, Refraction and Subsurface scattering are also provided. 
 
 ![Alt text](https://github.com/chiwsy/Project3-Pathtracer/blob/master/test.png)
@@ -107,3 +108,16 @@ All required features are implemented;
 
 These 3 images show the features implemented and the performance of the render with and without stream compaction.
 
+The second figure marks the features. 
+
+For the performance parts, I tested various parameters of trace depth and plot an curve to show the relationship of the stream compaction have on the overall performance. We can see that with larger trace depth, larger than 10, using stream compact can largely reduce the rendering time. This is because that most of the rays are killed before they reached the trace depth.
+
+As the images are very noise, especially when the iteration is very low, I think we can use some simple filter to improve the quality of the image. Even in the final version, after 5000 iteration, there exists irregular points on the output image. 
+
+![Alt text](https://github.com/chiwsy/Project3-Pathtracer/blob/master/MedianNoise.png)
+
+This image shows the initial condition when there are only 20 iterations. The original image on the left is very noisy and we can see a number of yellow dots on the reflective surface. In order to remove such salt-and-pepper-like noise, a common method is using median filter. The filtered image has a better PSNR value, the objective criteria for image quality. However, the visual effect is no much better than the original one. If we use this image instead of the original one, I think we can have a faster convergence towards the referrence image which iterated for 5000 times. 
+
+![Alt text](https://github.com/chiwsy/Project3-Pathtracer/blob/master/MedianSubjectBetter.png)
+
+This image shows using median filter on the final result. After 5000 iteration, the quality of the image is relatively high but still, there are irregular points. The right side has relatively low PSNR value but as far as I am concered, I think the right image has better quality since the image is more clean than the left one. 
