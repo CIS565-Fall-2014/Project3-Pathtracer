@@ -98,7 +98,7 @@ ROTAT       0 0 0
 SCALE       4 4 4  
 
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best4_Diamond.bmp)
-![](windows/Project3-Pathtracer/Project3-Pathtracer/Best5_Crystal.bmp)
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best5b_Crystal.bmp)
 
 ##Interactive camera  
 Interactive Camera is implemented to provide flexible in rendering angles, including pan, tilt, zoom, everything. 
