@@ -37,6 +37,9 @@ int main(int argc, char** argv){
 
   if(!loadedScene){
     cout << "Error: scene file needed!" << endl;
+	ofstream fout("findme.me");
+	fout<<"I am here!"<<endl;
+	fout.close();
     return 0;
   }
 
@@ -62,7 +65,16 @@ int main(int argc, char** argv){
 
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
-    glfwPollEvents();
+    LARGE_INTEGER  large_interger;
+	__int64 start, end;
+	double diff;
+	QueryPerformanceFrequency(&large_interger);
+	diff = large_interger.QuadPart;
+	
+	QueryPerformanceCounter(&large_interger);
+	start = large_interger.QuadPart;
+
+	glfwPollEvents();
     runCuda();
 
     string title = "CIS565 Render | " + utilityCore::convertIntToString(iterations) + " Iterations";
@@ -76,6 +88,10 @@ void mainLoop() {
     // VAO, shader program, and texture already bound
     glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
     glfwSwapBuffers(window);
+
+	end = large_interger.QuadPart;
+	
+	//printf("GPU One Loop:\t %f ms:\n", 1000 * (end - start)/diff);
   }
   glfwDestroyWindow(window);
   glfwTerminate();
@@ -89,7 +105,8 @@ void runCuda(){
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
+	
+
   if(iterations < renderCam->iterations){
     uchar4 *dptr=NULL;
     iterations++;
@@ -112,7 +129,6 @@ void runCuda(){
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   } else {
-
     if (!finishedRender) {
       // output image file
       image outputImage(renderCam->resolution.x, renderCam->resolution.y);
@@ -156,6 +172,7 @@ void runCuda(){
       finishedRender = false;
     }
   }
+	
 }
 
 //-------------------------------
