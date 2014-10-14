@@ -1,3 +1,9 @@
+# VS
+Debug/
+Release/
+ipch/
+*.sdf
+
 # General
 builds/
 

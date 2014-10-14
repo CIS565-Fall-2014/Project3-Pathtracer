@@ -11,12 +11,96 @@
 #include <cuda_runtime.h>
 #include <string>
 
+#include "macros.h"
+
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
+
+//class RenderCre{
+//	static RenderCre* Inst;
+//public:
+//	static RenderCre* GetInstance(){
+//		if(!Inst) //return Inst;
+//			Inst=new RenderCre;
+//		return Inst;
+//	}
+//	RenderCre(){
+//	}
+//};
+//
+//RenderCre* RenderCre::Inst=NULL;
 
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	__host__ __device__ ray(){}
+	__host__ __device__ ray(glm::vec3& o, glm::vec3& d){
+		origin=o+d*0.001f;
+		direction=glm::normalize(d);
+	}
+	__host__ __device__ ray(glm::vec3& o, glm::vec3& d, glm::vec3& n){
+		//origin=o;
+		direction=glm::dot(d,n)<0?d:-d;
+		direction=glm::normalize(direction);
+		origin=o+direction*0.001f;
+	}
 };
+struct pathray{
+	bool isDead;
+	int depth;
+	ray curray;
+	glm::vec2 onscreen;
+	//int geoId[traceDepth];
+	//float blnPng[traceDepth];
+	__host__ __device__ pathray(){
+		depth=0;
+		isDead=false;
+		//memset(geoId,-1,traceDepth*sizeof(int));		
+	}
+	__host__ __device__ pathray(int x, int y, glm::vec3& o,glm::vec3& d):onscreen(x,y),curray(o,d){
+		depth=0;
+		isDead=false;
+		//memset(geoId,-1,traceDepth*sizeof(int));
+	}
+	__host__ __device__ pathray(int x, int y, glm::vec3& o,glm::vec3& d, glm::vec3& n):onscreen(x,y),curray(o,d,n){
+		depth=0;
+		isDead=false;
+		//memset(geoId,-1,traceDepth*sizeof(int));
+	}
+	
+	__host__ __device__ ray& operator=(ray& r){
+		curray=r;
+		return r;
+	};
+	__host__ __device__ void pushback(int id,ray& r,glm::vec3& n){
+		//geoId[depth]=id;
+		//blnPng[depth]=0;//glm::clamp(glm::abs(glm::dot(n,glm::normalize(glm::normalize(r.direction)-glm::normalize(curray.direction))))/*/glm::dot(curray.origin-r.origin,curray.origin-r.origin)*/,0.0f,1.0f);
+		//blnPng[depth]=blnPng[depth]>0?blnPng[depth]:0;
+		/*depth++;
+		curray=r;
+		isDead=(depth>=traceDepth);*/
+	}
+	__host__ __device__ int getback(){
+		//return depth>0?geoId[--depth]:-1;
+	}
+	__host__ __device__ void getback(int& id, float& phg){
+		if(depth>0){
+			//id=geoId[--depth];
+			//phg=blnPng[depth];
+		}
+		else{
+			id=-1;
+			phg=0;
+		}
+
+	}
+};
+
+struct IsDead{
+	__host__ __device__ bool operator()(const pathray r){
+		return r.isDead;
+	}
+};
+
 
 struct geom {
 	enum GEOMTYPE type;

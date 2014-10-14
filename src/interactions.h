@@ -40,13 +40,23 @@ __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, Abs
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
-  return glm::vec3(0,0,0);
+  float n12 = incidentIOR / transmittedIOR;
+
+	float tmp = 1.0f - n12 * n12 * (1.0f - pow(glm::dot(normal, incident), 2));
+
+	if(tmp >= 0.0f){
+		return glm::normalize((-n12 * glm::dot(normal, incident) - sqrt(tmp)) * normal + n12 * incident);	
+	}
+	else
+	{
+		return calculateReflectionDirection(normal, incident);		
+	}
 }
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
   //nothing fancy here
-  return glm::vec3(0,0,0);
+  return glm::normalize(incident - 2.0f * normal * (glm::dot(incident, normal)));;
 }
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
@@ -55,6 +65,25 @@ __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 inciden
 
   fresnel.reflectionCoefficient = 1;
   fresnel.transmissionCoefficient = 0;
+  if(transmittedIOR == 0.0f)
+	  return fresnel;
+
+  float n1_n2 = incidentIOR / transmittedIOR;
+
+  float cosI =  - glm::dot(incident, normal);
+  float sin = (n1_n2 * n1_n2) * (1 - pow(cosI,2));
+
+  if(1 - sin < 0.f)
+	  return fresnel;
+
+  float cos = sqrt(1.0f - sin);
+
+  float r1 = pow(((incidentIOR * cosI - transmittedIOR * cos) / (incidentIOR * cosI + transmittedIOR * cos)), 2);
+  
+  float r2 = pow(((incidentIOR * cos - transmittedIOR * cosI) / (incidentIOR * cos + transmittedIOR * cos)), 2);
+  fresnel.reflectionCoefficient = (r1 + r2) / 2.0f;
+  fresnel.transmissionCoefficient = 1.0f - fresnel.reflectionCoefficient;
+
   return fresnel;
 }
 

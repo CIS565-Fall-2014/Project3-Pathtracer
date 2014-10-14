@@ -27,6 +27,10 @@
 #include "utilities.h"
 #include "scene.h"
 
+#include<ctime>
+#include <windows.h>
+#include<stdlib.h>
+
 using namespace std;
 
 //-------------------------------

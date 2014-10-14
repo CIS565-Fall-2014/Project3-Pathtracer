@@ -57,7 +57,15 @@ __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
   r.z = (m.z.x*v.x)+(m.z.y*v.y)+(m.z.z*v.z)+(m.z.w*v.w);
   return r;
 }
+__host__ __device__ cudaMat4 transpose(cudaMat4 mat){
+	glm::mat4 mm=glm::transpose(glm::mat4(mat.x,mat.y,mat.z,mat.w));
+	mat.x=mm[0];
+	mat.y=mm[1];
+	mat.z=mm[2];
+	mat.w=mm[3];
 
+	return mat;
+}
 // Gets 1/direction for a ray
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r){
   return glm::vec3(1.0/r.direction.x, 1.0/r.direction.y, 1.0/r.direction.z);
@@ -69,11 +77,187 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
+__host__ __device__ bool rayBoxIntersect(ray r, float t[2])
+{
+	float t_min,t_max;
+
+	t[0] = FLT_MIN;//t_near
+
+	t[1] = FLT_MAX;//t_far
+
+	glm::vec3 min_box = glm::vec3(-.5,-.5,-.5);
+	glm::vec3 max_box = glm::vec3(.5,.5,.5);
+
+	bool intersectFlag = true;
+
+	for(int i = 0;i<3;i++){
+		if(r.direction[i] == 0){
+			if(r.origin[i] < min_box[i] || r.origin[i] >max_box[i]){
+				intersectFlag = false;
+			}
+		}
+		else{
+			t_min = (min_box[i] - r.origin[i]) / r.direction[i];
+			t_max = (max_box[i] - r.origin[i]) / r.direction[i];
+			
+			if(t_min > t_max){
+				float temp = t_min;
+				t_min = t_max;
+				t_max = temp;
+			}
+			if(t_min > t[0])
+				t[0] = t_min;
+			if(t_max < t[1]){
+				t[1] = t_max;
+			}
+			if(t[0]>t[1]){				
+				intersectFlag = false;
+			}					
+			if(t[1]<0){				
+				intersectFlag = false;
+			}
+		}
+	}
+	return intersectFlag;
+}
+
+__host__ __device__ glm::vec3 getUnitBoxNommal(glm::vec3& p)
+{
+	glm::vec3 normal;
+	float eps = 0.001f;
+	if(abs(p.x - 0.5) < eps)
+		normal = glm::vec3(1,0,0);
+	else if(abs(p.x + 0.5) < eps){
+		normal = glm::vec3(-1,0,0);
+	}
+	else if(abs(p.y - 0.5) < eps){
+		normal = glm::vec3(0,1,0);
+	}
+	else if(abs(p.y + 0.5) < eps){
+		normal = glm::vec3(0,-1,0);		
+	}
+	else if(abs(p.z - 0.5) < eps){
+		normal = glm::vec3(0,0,1);
+	}
+	else if(abs(p.z + 0.5) < eps){
+		normal = glm::vec3(0,0,-1);
+	}
+	return normal;
+}
+
 // TODO: IMPLEMENT THIS FUNCTION
 // Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+	glm::vec3 ro = multiplyMV(box.inverseTransform, glm::vec4(r.origin,1.0f));
+	glm::vec3 rd = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction,0.0f)));
 
-    return -1;
+	ray rt; rt.origin = ro; rt.direction = rd;
+
+	float t[2] = {FLT_MIN, FLT_MAX};
+	//float t[2] = {0};
+	bool isIntersect = rayBoxIntersect(rt, t);
+
+	float ti;
+	if(isIntersect)
+	{			
+		if(t[0]<=0){
+			ti = t[1];			
+		}
+		else
+			ti = t[0];		
+
+
+		glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(rt, ti), 1.0));
+		glm::vec3 realOrigin = multiplyMV(box.transform, glm::vec4(0,0,0,1));
+
+		glm::vec3 unitNormal = getUnitBoxNommal(getPointOnRay(rt, ti));				
+
+		intersectionPoint = realIntersectionPoint;				
+
+		glm::vec3 realNormal = multiplyMV(box.transform, glm::vec4(unitNormal, 1));
+		
+		normal = glm::normalize(realNormal - realOrigin);
+
+		//normal = glm::normalize(realOrigin - realNormal);
+			
+		return glm::length(r.origin - realIntersectionPoint);
+	}
+	else
+		return -1;
+
+	//glm::vec3 newP0 = multiplyMV(box.inverseTransform, glm::vec4(r.origin,1.0f));
+	//glm::vec3 newV0 = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction,0.0f)));
+	//if (newV0[0] == 0 && newV0[1] == 0 && newV0[2] == 0) {
+	//		return -1.0f;
+	//}
+	//ray rt; rt.origin = newP0; rt.direction = newV0;
+	//for (int i = 0; i < 3; i++) {
+	//		if (newP0[i] > .5f && newV0[i] > 0)
+	//			return -1;
+	//		if (newP0[i] < -.5f && newV0[i] < 0)
+	//			return -1;
+	//	}
+
+	//	glm::vec3 face(0.0f);
+	//	for (int i = 0; i < 3; i++) {
+	//		if (newV0[i] > 0) {
+	//			if (newP0[i] >= -.5f)
+	//				face[i] = .5f;
+	//			else
+	//				face[i] = -.5f;
+	//		} else {
+	//			if (newP0[i] <= .5f)
+	//				face[i] = -.5f;
+	//			else
+	//				face[i] = .5f;
+	//		}
+	//	}
+	//	glm::vec3 t(-1.0f,-1.0f,-1.0f);
+	//	glm::vec3 IntNom(0.0f);
+	//	float minT = -1.0f;
+	//	float tmp1 = 0.0f, tmp2 = 0.0f;
+	//	for (int i = 0; i < 3; i++) {
+	//		if (newV0[i] == 0.0f)
+	//			continue;
+	//		t[i] = (face[i] - newP0[i]) / newV0[i];
+	//		if (t[i] > 0) {
+	//			tmp1 = newP0[(i + 1) % 3] + t[i] * newV0[(i + 1) % 3];
+	//			tmp2 = newP0[(i + 2) % 3] + t[i] * newV0[(i + 2) % 3];
+	//		}
+	//		if (!(tmp1 >= -.5f && tmp1 <= .5f && tmp2 >= -.5f && tmp2 <= .5f))
+	//			t[i] = -1.0f;
+	//	}
+	//	minT = -1.0f;
+	//	for (int i = 0; i < 3; i++) {
+	//		if (minT <= 0.0f) {
+	//			if (t[i] > 0.0f) {
+	//				minT = t[i];
+	//				IntNom[i] = 2.0f*face[i];
+	//				IntNom[(i + 1) % 3] = 0.0f;
+	//				IntNom[(i + 2) % 3] = 0.0f;
+	//			}
+	//		} 
+	//		else if (t[i] <= 0.0f)
+	//			continue;
+	//		else {
+	//			if (t[i] < minT) {
+	//				minT = t[i];
+	//				IntNom[i] = 2.0f*face[i];
+	//				IntNom[(i + 1) % 3] = 0.0f;
+	//				IntNom[(i + 2) % 3] = 0.0f;
+	//			}
+	//		}
+
+	//	}
+	//if(minT<0) return minT;
+
+	//glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(rt, minT), 1.0f));
+	//glm::vec3 realOrigin = multiplyMV(box.transform, glm::vec4(0,0,0,1.0f));
+
+	//intersectionPoint = realIntersectionPoint;
+	////normal = glm::normalize(realIntersectionPoint - realOrigin);
+	//normal=multiplyMV(transpose(box.inverseTransform),glm::vec4(IntNom,1.0f));
+	//return minT;
 }
 
 // LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
@@ -177,10 +361,34 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 // TODO: IMPLEMENT THIS FUNCTION
 // Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
+	//Marsaglia (1972) uniform distribution of points on sphere
+	thrust::default_random_engine rng(hash(randomSeed));
+    thrust::uniform_real_distribution<float> u1(-1.0f,1.0f);
+    //thrust::uniform_real_distribution<float> u02(0,2.0f);
+	float x1=1.0f;
+	float x2=1.0f;
+	while(x1*x1+x2*x2>=1.0f){
+		x1=u1(rng);
+		x2=u1(rng);
+	}
 
-  return glm::vec3(0,0,0);
+	return multiplyMV(sphere.transform,glm::vec4(x1*sqrt(1-x1*x1-x2*x2),x2*sqrt(1-x1*x1-x2*x2),.5f-(x1*x1+x2*x2),1.0));
 }
 
+__host__ __device__ glm::vec3 getRandomPointOnSphere(float randomSeed){
+	//Marsaglia (1972) uniform distribution of points on sphere
+	thrust::default_random_engine rng(hash(randomSeed));
+    thrust::uniform_real_distribution<float> u1(-1.0f,1.0f);
+    //thrust::uniform_real_distribution<float> u02(0,2.0f);
+	float x1=1.0f;
+	float x2=1.0f;
+	while(x1*x1+x2*x2>=1.0f){
+		x1=u1(rng);
+		x2=u1(rng);
+	}
+
+	return glm::vec3(x1*sqrt(1-x1*x1-x2*x2),x2*sqrt(1-x1*x1-x2*x2),.5f-(x1*x1+x2*x2));
+}
 #endif
 
 

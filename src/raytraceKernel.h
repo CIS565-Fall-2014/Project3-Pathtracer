@@ -10,9 +10,16 @@
 
 #include <stdio.h>
 #include <thrust/random.h>
+
+#include <thrust/device_vector.h>
+
 #include <cuda.h>
 #include <cmath>
 #include "sceneStructs.h"
+
+#include "macros.h"
+
+
 
 void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
 
