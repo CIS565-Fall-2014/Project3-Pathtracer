@@ -5,6 +5,21 @@ CIS 565 Project3 : CUDA Pathtracer
 In this project, I implemented a CUDA based pathtracer capable of
 generating pathtraced rendered images extremely quickly. 
 
+## Features 
+I implemented the following basic features:
+
+* Raycasting from a camera into a scene through a pixel grid
+* Diffuse surfaces
+* Perfect specular reflective surfaces
+* Cube intersection testing
+* Sphere surface point sampling
+* Stream compaction optimization
+
+And the following two extra features:
+
+* Depth of field
+* Refraction, i.e. glass
+
 ## Performance 
 I implemented path tracing with pixel parallelization and ray parallelization.
 
@@ -29,7 +44,7 @@ Here is the timing comparation between pixel parallelization and ray paralleliza
 ![ScreenShot](https://github.com/liying3/Project3-Pathtracer/blob/master/img/SC.JPG)
 
 
-## Features
+## Render Images
 * Diffuse surface
 
 The following image shows diffuse surface with soft shadow.
@@ -49,3 +64,9 @@ Depth of field refers to the range of distance that appears acceptably sharp. He
 ![ScreenShot](https://github.com/liying3/Project3-Pathtracer/blob/master/img/DOF14_0.5.PNG)
 
 Focal length is 14 and lens is 0.5.
+
+## Optimization
+When implementing the ray-box intersection, I used the following method first. But it runs pretty slow.
+![ScreenShot](https://github.com/liying3/Project3-Pathtracer/blob/master/img/code%20v2.PNG)
+Then I change to the following version two. It runs 10 times faster. In this version, I used a boolean variable to store whether the ray is intersected with the box, and only one return at the end of the function. 
+![ScreenShot](https://github.com/liying3/Project3-Pathtracer/blob/master/img/code%20v1.PNG)
