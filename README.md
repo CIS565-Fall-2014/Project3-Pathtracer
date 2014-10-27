@@ -70,4 +70,5 @@ When implementing the ray-box intersection, I used the following method first. B
 ![ScreenShot](https://github.com/liying3/Project3-Pathtracer/blob/master/img/code%20v2.PNG)
 
 Then I change to the following version two. It runs 10 times faster. In this version, I used a boolean variable to store whether the ray is intersected with the box, and only one return at the end of the function. 
+
 ![ScreenShot](https://github.com/liying3/Project3-Pathtracer/blob/master/img/code%20v1.PNG)
