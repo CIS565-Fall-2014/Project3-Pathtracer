@@ -18,6 +18,22 @@ struct ray {
 	glm::vec3 direction;
 };
 
+struct rayPixel{
+	ray r;
+	int x;
+	int y;
+	glm::vec3 color;
+	bool isTerminated;
+};
+
+struct isTerminated {
+	__host__ __device__
+	bool operator()(const rayPixel rayP)
+	{
+		return (rayP.isTerminated);
+	}
+};
+
 struct geom {
 	enum GEOMTYPE type;
 	int materialid;
@@ -71,6 +87,14 @@ struct material{
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
+};
+
+struct Texture {
+	int width;
+	int height;
+	int *R;
+	int *G;
+	int *B;
 };
 
 #endif //CUDASTRUCTS_H
