@@ -9,6 +9,8 @@
 #include <cstring>
 #define GLEW_STATIC
 
+
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -120,7 +122,7 @@ void runCuda(){
       for (int x=0; x < renderCam->resolution.x; x++) {
         for (int y=0; y < renderCam->resolution.y; y++) {
           int index = x + (y * renderCam->resolution.x);
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
+          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,(renderCam->image[index])/(float)iterations);
         }
       }
       
@@ -169,8 +171,8 @@ bool init(int argc, char* argv[]) {
       return false;
   }
 
-  width = 800;
-  height = 800;
+  width = 1000;
+  height = 1000;
   window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
   if (!window){
       glfwTerminate();
@@ -226,11 +228,12 @@ void initCuda(){
 }
 
 void initTextures(){
-    glGenTextures(1, &displayImage);
+	glGenTextures(1, &displayImage);
     glBindTexture(GL_TEXTURE_2D, displayImage);
+	
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, width, height, 0, GL_BGR, GL_UNSIGNED_BYTE, NULL);
 }
 
 void initVAO(void){
