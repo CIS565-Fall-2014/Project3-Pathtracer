@@ -8,10 +8,14 @@ Features implemented:
 * Sphere surface point sampling
 * Stream compaction optimization
 
+![alt tag](https://github.com/zxm5010/Project3-Pathtracer/blob/master/test.0.jpg)
+
 Extra Features:
 * Depth of field
+![alt tag](https://github.com/zxm5010/Project3-Pathtracer/blob/master/depth_field.jpg)
 * Refraction, i.e. glass
 * OBJ Mesh loading and rendering
+![alt tag](https://github.com/zxm5010/Project3-Pathtracer/blob/master/obj_loader.jpg)
 
 Third parth software:
 
