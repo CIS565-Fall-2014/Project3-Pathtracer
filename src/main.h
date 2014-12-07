@@ -27,6 +27,12 @@
 #include "utilities.h"
 #include "scene.h"
 
+//Add screen shot headers
+#include "stb_image.h"
+#include "stb_image_write.h"
+
+#include "fps.h" 
+mmc::FpsTracker theFpsTracker;
 using namespace std;
 
 //-------------------------------
@@ -101,5 +107,16 @@ void deleteTexture(GLuint* tex);
 void mainLoop();
 void errorCallback(int error, const char *description);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+
+
+//GrabScreen
+bool isRecording=false;
+void grabScreen(void);
+string scenename;
+bool streamcompact_b = true;
+bool texturemap_b = false;//true;
+bool bumpmap_b = false;//true;
+bool DOF_b = false;//true;
+bool MB_b = false;//true;
 
 #endif

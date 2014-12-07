@@ -10,12 +10,35 @@
 #include "cudaMat4.h"
 #include <cuda_runtime.h>
 #include <string>
+#include <vector>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	bool exist;
+	glm::vec3 raycolor;
+	int initindex;
+	float IOR; //REFRIOR
+};
+
+//Mesh struct 
+struct triangle{
+	glm::vec3 p1,p2,p3,normal;
+	triangle()
+	{
+		p1= glm::vec3(0,0,0); p2= glm::vec3(0,0,0); p3= glm::vec3(0,0,0); normal= glm::vec3(0,0,0);
+	};
+	triangle(glm::vec3 t1,glm::vec3 t2,glm::vec3 t3,glm::vec3 n)
+	{
+		p1 = t1;
+		p2 = t2;
+		p3 = t3;
+		normal = n;
+	}
 };
 
 struct geom {
@@ -27,7 +50,28 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+	cudaMat4* transinverseTransforms;
+
+    //data for Motion Blur
+	glm::vec3* MBV;
+
+	//data for obj
+	triangle tri;
+
+	//To accelerate
+	int trinum;
+
+	//Texture map data
+	int texindex;
+	int theight;
+	int twidth;
+
+	//Bump map data
+	int bumpindex;
+	int bheight;
+	int bwidth;
 };
+
 
 struct staticGeom {
 	enum GEOMTYPE type;
@@ -37,6 +81,25 @@ struct staticGeom {
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+	cudaMat4 transinverseTransform;
+
+	//data for Motion Blur
+	glm::vec3 MBV;
+
+	//data for obj
+	int trinum;
+	//To accelerate
+	triangle tri;
+
+	//Texture map data
+	int texindex;
+	int theight;
+	int twidth;
+
+	//Bump map data
+	int bumpindex;
+	int bheight;
+	int bwidth;
 };
 
 struct cameraData {
@@ -45,6 +108,10 @@ struct cameraData {
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+
+	//Added for DOF
+	float focallength;
+	float blurradius;
 };
 
 struct camera {
@@ -58,6 +125,10 @@ struct camera {
 	glm::vec3* image;
 	ray* rayList;
 	std::string imageName;
+
+	//Added for DOF
+	float focall;
+	float blurr;
 };
 
 struct material{

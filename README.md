@@ -1,273 +1,251 @@
-CIS 565 Project3 : CUDA Pathtracer
-===================
+
+
+CUDA Pathtracer
+===============
 
 Fall 2014
+=========
 
-Due Wed, 10/8 (submit without penalty until Sun, 10/12)
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_AllEffects.png)
 
-## INTRODUCTION
-In this project, you will implement a CUDA based pathtracer capable of
-generating pathtraced rendered images extremely quickly. Building a pathtracer can be viewed as a generalization of building a raytracer, so for those of you who have taken 460/560, the basic concept should not be very new to you. For those of you that have not taken
-CIS460/560, raytracing is a technique for generating images by tracing rays of
-light through pixels in an image plane out into a scene and following the way
-the rays of light bounce and interact with objects in the scene. More
-information can be found here:
-http://en.wikipedia.org/wiki/Ray_tracing_(graphics). Pathtracing is a generalization of this technique by considering more than just the contribution of direct lighting to a surface.
+PROJECT DESCRIPTION
+-------------------
 
-Since in this class we are concerned with working in generating actual images
-and less so with mundane tasks like file I/O, this project includes basecode
-for loading a scene description file format, described below, and various other
-things that generally make up the render "harness" that takes care of
-everything up to the rendering itself. The core renderer is left for you to
-implement.  Finally, note that while this basecode is meant to serve as a
-strong starting point for a CUDA pathtracer, you are not required to use this
-basecode if you wish, and you may also change any part of the basecode
-specification as you please, so long as the final rendered result is correct.
+This is a GPU path tracing program, with following features:
 
-## CONTENTS
-The Project3 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio
-  solution and the OSX and Linux makefiles reference this folder for all 
-  source; the base source code compiles on Linux, OSX and Windows without 
-  modification.  If you are building on OSX, be sure to uncomment lines 4 & 5 of
-  the CMakeLists.txt in order to make sure CMake builds against clang.
-* data/scenes/ contains an example scene description file.
-* renders/ contains an example render of the given example scene file. 
-* windows/ contains a Windows Visual Studio 2010 project and all dependencies
-  needed for building and running on Windows 7. If you would like to create a
-  Visual Studio 2012 or 2013 projects, there are static libraries that you can
-  use for GLFW that are in external/bin/GLFW (Visual Studio 2012 uses msvc110, 
-  and Visual Studio 2013 uses msvc120)
-* external/ contains all the header, static libraries and built binaries for
-  3rd party libraries (i.e. glm, GLEW, GLFW) that we use for windowing and OpenGL
-  extensions
+###1.Basic Features:
+- Raycasting from a camera into a scene through a ray grid
+- Diffuse surfaces
+- Perfect specular reflective surfaces
+- Cube intersection testing
+- Sphere surface point sampling
+- Stream compaction optimization
 
-## RUNNING THE CODE
-The main function requires a scene description file (that is provided in data/scenes). 
-The main function reads in the scene file by an argument as such :
-'scene=[sceneFileName]'
+#### Stream compaction
+I use thrust to do stream compaction, that after each iteration in path trace, only valid rays are kept to pass on in next iteration. With stream compaction, the renderer won't run the empty thread any more and much time can be saved. To make comparison, I set blocksize as 64 and then record the renderer's run time for 100 iterations with/without stream compaction with different max trace depth and the plot shows the result:<br />
 
-If you are using Visual Studio, you can set this in the Debugging > Command Arguments section
-in the Project properties.
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/Performance%20Evaluation.bmp)
 
-## REQUIREMENTS
-In this project, you are given code for:
+We can see that the higher the max trace depth is, the more time stream compaction will save.
 
-* Loading, reading, and storing the scene scene description format
-* Example functions that can run on both the CPU and GPU for generating random
-  numbers, spherical intersection testing, and surface point sampling on cubes
-* A class for handling image operations and saving images
-* Working code for CUDA-GL interop
+###2.Extra Features:
+- Super sample anti-alisasing
+- Refraction, i.e. glass
+- OBJ Mesh loading and rendering
+- Motion blur
+- Bump mapping
+- Texture mapping 
+- Depth of field
+- Interactive camera
 
-You will need to implement the following features:
 
-* Raycasting from a camera into a scene through a pixel grid
-* Diffuse surfaces
-* Perfect specular reflective surfaces
-* Cube intersection testing
-* Sphere surface point sampling
-* Stream compaction optimization
+####(1) Super sample anti-alisasing
+- Reference: http://en.wikipedia.org/wiki/Supersampling
 
-You are also required to implement at least 2 of the following features:
+- Overview write up and performance impact:
+  
+I add super sample anti-alisasing, which makes my render result smoother. To do this, I just jitter the initial rays randomly in each iteration. And here is the comparison between the scene with SSAA and the scene without SSAA:
 
-* Texture mapping 
-* Bump mapping
-* Depth of field
-* Refraction, i.e. glass
-* OBJ Mesh loading and rendering
-* Interactive camera
-* Motion blur
-* Subsurface scattering
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/DetailWithSSAA.bmp)
 
-The 'extra features' list is not comprehensive.  If you have a particular feature
-you would like to implement (e.g. acceleration structures, etc.) please contact us 
-first!
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/DetailWithNoSSAA.bmp)
 
-For each 'extra feature' you must provide the following analysis :
-* overview write up of the feature
-* performance impact of the feature
-* if you did something to accelerate the feature, why did you do what you did
-* compare your GPU version to a CPU version of this feature (you do NOT need to 
-  implement a CPU version)
-* how can this feature be further optimized (again, not necessary to implement it, but
-  should give a roadmap of how to further optimize and why you believe this is the next
-  step)
+- Accelerate the feature: NULL
 
-## BASE CODE TOUR
-You will be working in three files: raytraceKernel.cu, intersections.h, and
-interactions.h. Within these files, areas that you need to complete are marked
-with a TODO comment. Areas that are useful to and serve as hints for optional
-features are marked with TODO (Optional). Functions that are useful for
-reference are marked with the comment LOOK.
+- Compare to a CPU version: 
+  
+In CPU version we may use grid algorithm to jitter the initial rays, but in GPU version we jitter the rays randomly. Their results are almost the same.
 
-* raytraceKernel.cu contains the core raytracing CUDA kernel. You will need to
-  complete:
-    * cudaRaytraceCore() handles kernel launches and memory management; this
-      function already contains example code for launching kernels,
-      transferring geometry and cameras from the host to the device, and transferring
-      image buffers from the host to the device and back. You will have to complete
-      this function to support passing materials and lights to CUDA.
-    * raycastFromCameraKernel() is a function that you need to implement. This
-      function once correctly implemented should handle camera raycasting. 
-    * raytraceRay() is the core raytracing CUDA kernel; all of your pathtracing
-      logic should be implemented in this CUDA kernel. raytraceRay() should
-      take in a camera, image buffer, geometry, materials, and lights, and should
-      trace a ray through the scene and write the resultant color to a pixel in the
-      image buffer.
+- Further optimized: NULL
 
-* intersections.h contains functions for geometry intersection testing and
-  point generation. You will need to complete:
-    * boxIntersectionTest(), which takes in a box and a ray and performs an
-      intersection test. This function should work in the same way as
-      sphereIntersectionTest().
-    * getRandomPointOnSphere(), which takes in a sphere and returns a random
-      point on the surface of the sphere with an even probability distribution.
-      This function should work in the same way as getRandomPointOnCube(). You can
-      (although do not necessarily have to) use this to generate points on a sphere
-      to use a point lights, or can use this for area lighting.
 
-* interactions.h contains functions for ray-object interactions that define how
-  rays behave upon hitting materials and objects. You will need to complete:
-    * getRandomDirectionInSphere(), which generates a random direction in a
-      sphere with a uniform probability. This function works in a fashion
-      similar to that of calculateRandomDirectionInHemisphere(), which generates a
-      random cosine-weighted direction in a hemisphere.
-    * calculateBSDF(), which takes in an incoming ray, normal, material, and
-      other information, and returns an outgoing ray. You can either implement
-      this function for ray-surface interactions, or you can replace it with your own
-      function(s).
+####(2) Refraction
+- Reference: http://en.wikipedia.org/wiki/Fresnel_equations
 
-You will also want to familiarize yourself with:
+- Overview write up and performance impact:
+  
+I add fresnel reflection and refraction. And it enables me to add transparent objects in my scene. To do this, I just use the fresnel equations to compute the reflective and refractive coefficients whenever the ray hits a refractive object, and get the reflect ray and refract ray. However, as my cuda path tracer works iteratively, I can just return one ray each time. So I generate a random number to decide which ray to return, based on the reflective and refractive coefficients. And here the  upper left sphere is refractive:
 
-* sceneStructs.h, which contains definitions for how geometry, materials,
-  lights, cameras, and animation frames are stored in the renderer. 
-* utilities.h, which serves as a kitchen-sink of useful functions
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_WithRefraction.png)
 
-## NOTES ON GLM
-This project uses GLM, the GL Math library, for linear algebra. You need to
-know two important points on how GLM is used in this project:
+- Accelerate the feature: NULL
 
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed
-  via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is
-  used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but
-  pre-Fermi cards do not play nice with GLM matrices. As such, in this project,
-  GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found
-  in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is
-  provided as multiplyMV() in intersections.h.
+- Compare to a CPU version: 
+  
+I think the main difference with CPU version is that I use a random number to decide which ray to pass on. But in CPU version(recursive), we pass both reflect ray and refract ray  and add their results together. However, I think the result is the same.
 
-## SCENE FORMAT
-This project uses a custom scene description format.
-Scene files are flat text files that describe all geometry, materials,
-lights, cameras, render settings, and animation frames inside of the scene.
-Items in the format are delimited by new lines, and comments can be added at
-the end of each line preceded with a double-slash.
+- Further optimized: NULL
 
-Materials are defined in the following fashion:
 
-* MATERIAL (material ID)								//material header
-* RGB (float r) (float g) (float b)					//diffuse color
-* SPECX (float specx)									//specular exponent
-* SPECRGB (float r) (float g) (float b)				//specular color
-* REFL (bool refl)									//reflectivity flag, 0 for
-  no, 1 for yes
-* REFR (bool refr)									//refractivity flag, 0 for
-  no, 1 for yes
-* REFRIOR (float ior)									//index of refraction
-  for Fresnel effects
-* SCATTER (float scatter)								//scatter flag, 0 for
-  no, 1 for yes
-* ABSCOEFF (float r) (float b) (float g)				//absorption
-  coefficient for scattering
-* RSCTCOEFF (float rsctcoeff)							//reduced scattering
-  coefficient
-* EMITTANCE (float emittance)							//the emittance of the
-  material. Anything >0 makes the material a light source.
+####(3) OBJ Mesh loading and rendering
+- Reference: http://www.cplusplus.com/forum/general/87738/
 
-Cameras are defined in the following fashion:
+- Overview write up and performance impact:
+  
+I add OBJ Mesh reader and render obj in my scene. To do this, I firstly learned the format of obj files and then  wirte a obj reader by myself. And due to the different size of the objs I load into my scene, I scale all of the objs to the size of (1,1,1).(Maybe smaller, as the obj's length,width,height aren't always the same) After that, I load each triangle mesh as a new object in my scene to do path trace and thus the more meshes the obj file has, the slower the render will be. Here is the scene with an obj loaded(I just use a tetra obj as it has only four meshes and can be rendered faster):
 
-* CAMERA 												//camera header
-* RES (float x) (float y)								//resolution
-* FOVY (float fovy)										//vertical field of
-  view half-angle. the horizonal angle is calculated from this and the
-  reslution
-* ITERATIONS (float interations)							//how many
-  iterations to refine the image, only relevant for supersampled antialiasing,
-  depth of field, area lights, and other distributed raytracing applications
-* FILE (string filename)									//file to output
-  render to upon completion
-* frame (frame number)									//start of a frame
-* EYE (float x) (float y) (float z)						//camera's position in
-  worldspace
-* VIEW (float x) (float y) (float z)						//camera's view
-  direction
-* UP (float x) (float y) (float z)						//camera's up vector
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_WithOBJ.png)
 
-Objects are defined in the following fashion:
-* OBJECT (object ID)										//object header
-* (cube OR sphere OR mesh)								//type of object, can
-  be either "cube", "sphere", or "mesh". Note that cubes and spheres are unit
-  sized and centered at the origin.
-* material (material ID)									//material to
-  assign this object
-* frame (frame number)									//start of a frame
-* TRANS (float transx) (float transy) (float transz)		//translation
-* ROTAT (float rotationx) (float rotationy) (float rotationz)		//rotation
-* SCALE (float scalex) (float scaley) (float scalez)		//scale
+- Accelerate the feature:
+  
+I add bounding box to the obj object to accelerate the ray intersect part. 
 
-An example scene file setting up two frames inside of a Cornell Box can be
-found in the scenes/ directory.
+- Compare to a CPU version: NULL
 
-For meshes, note that the base code will only read in .obj files. For more 
-information on the .obj specification see http://en.wikipedia.org/wiki/Wavefront_.obj_file.
+- Further optimized:
 
-An example of a mesh object is as follows:
+If the objs are complex, I still need long time to render each frame even I add BB for them. So, I think maybe I should use more accelerate methods like kd-tree to make the renderer faster.
+ 
+ 
+####(4) Motion blur
+- Reference: http://www.cs.cmu.edu/afs/cs/academic/class/15462-s09/www/lec/13/lec13.pdf
 
-OBJECT 0
-mesh tetra.obj
-material 0
-frame 0
-TRANS       0 5 -5
-ROTAT       0 90 0
-SCALE       .01 10 10 
+- Overview write up and performance impact:
+  
+I add motion blur for objects. To do this, I add a new attribute for each object called MBV, and the object will move its position according to this velocity vector(this part is hard-coded in cudaRaytraceCore). And here the green sphere has the motion blur effect:
 
-Check the Google group for some sample .obj files of varying complexity.
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_MotionBlur.png)
 
-## THIRD PARTY CODE POLICY
-* Use of any third-party code must be approved by asking on our Google Group.  
-  If it is approved, all students are welcome to use it.  Generally, we approve 
-  use of third-party code that is not a core part of the project.  For example, 
-  for the ray tracer, we would approve using a third-party library for loading 
-  models, but would not approve copying and pasting a CUDA function for doing 
-  refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another
-  student's code, is an academic integrity violation, and will result in you
-  receiving an F for the semester.
+- Accelerate the feature: NULL
 
-## SELF-GRADING
-* On the submission date, email your grade, on a scale of 0 to 100, to Harmony,
-  harmoli+cis565@seas.upenn.com, with a one paragraph explanation.  Be concise and
-  realistic.  Recall that we reserve 30 points as a sanity check to adjust your
-  grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We
-  hope to only use this in extreme cases when your grade does not realistically
-  reflect your work - it is either too high or too low.  In most cases, we plan
-  to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as
-  the path tracer.  We will determine the weighting at the end of the semester
-  based on the size of each project.
+- Compare to a CPU version: NULL
 
-## SUBMISSION
-Please change the README to reflect the answers to the questions we have posed
-above.  Remember:
-* this is a renderer, so include images that you've made!
-* be sure to back your claims for optimization with numbers and comparisons
-* if you reference any other material, please provide a link to it
-* you wil not e graded on how fast your path tracer runs, but getting close to
-  real-time is always nice
-* if you have a fast GPU renderer, it is good to show case this with a video to
-  show interactivity.  If you do so, please include a link.
+- Further optimized:
 
-Be sure to open a pull request and to send Harmony your grade and why you
-believe this is the grade you should get.
+The users can only set the velocity for each object, I think I can add more parameters and let users control how the object move in each frame.
+
+
+####(5) Bump mapping
+- Reference: 
+
+http://www.paulsprojects.net/tutorials/simplebump/simplebump.html
+
+http://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
+
+- Overview write up and performance impact:
+  
+I try to add bump map for objects, but can only realize normal map now. To do this, I add a new attribute for each object called BUMP, and when renderer reads the scene file, it also stores the normal map's color to a buffer. When it does ray intersect, it returns the intersect normal according to the corresponding color in the buffer. And here is the scene with normal map(See the details on the sphere and floor):
+
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_NormalMap.png)
+
+- Accelerate the feature: NULL
+
+- Compare to a CPU version: NULL
+
+- Further optimized:
+
+Bump mapping is the combine of normal mapping and height mapping(which changes points position according to the map color). And I need to add height map, or get height map from the normal map to finish bump mapping.
+
+
+
+####(6) Texture mapping
+- Reference:  http://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
+
+- Overview write up and performance impact:
+  
+I add texture for cubes and spheres. To do this, I add a new attribute for each object called MAP, and when renderer reads the scene file, it also reads in the texture map's color to a buffer. When the program does path trace, it gets the color from this buffer according to the intersect point's position. And here is the scene with texture map(Much more colorful):
+
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_TextureMap.png)
+
+- Accelerate the feature: NULL
+
+- Compare to a CPU version: NULL
+
+- Further optimized:
+
+Right now the same texture map will be stored several times in the color buffer if it is assigned to different objects, as the map is an attribute of object. I think it will be better to give each texture map an index and read in the texrure map when a new texture index appears. In this way, much memory space can be saved.
+
+
+####(7) Depth of field
+- Reference:  http://www.keithlantz.net/2013/03/path-tracer-depth-of-field/
+
+- Overview write up and performance impact:
+  
+I add depth of field in my scene. To do this, I add two new attributes for camera, DOFL and DOFR. DOFL decides the camera's distance to focal plane(on z axis) and DOFR decides the blurradius(The higher, the more blurred the scene will be). According to these two parameters, in each iteration before the path tracer begins, the camera's position and the initial rays' direction will be jittered. In this way, I get a scene picture with depth of field:
+
+![Alt text](https://github.com/wulinjiansheng/Project3-Pathtracer/blob/master/windows/Project3-Pathtracer/Project3-Pathtracer/Final%20Images/FinalScene_DepthOfField.png)
+
+- Accelerate the feature: NULL
+
+- Compare to a CPU version: NULL
+
+- Further optimized:
+
+Maybe I can add more focal length to let the camera focus on more focal planes. Although it is not correct physically, we may get some fantastic results.
+
+
+####(8) Interactive camera
+- Reference:  NULL
+
+- Overview write up and performance impact:
+  
+This one is the easiest one and I just defines more keys in keyCallback function. When the key is pressed, renderer will clear the screen and redo the path trace based on the new camera's position. See more detail in the video link.
+
+- Accelerate the feature: NULL
+
+- Compare to a CPU version: NULL
+
+- Further optimized:
+
+Using mouse to control the camera is more convenient, but to do this, I must speed my renderer up at first.
+
+
+###3.Scene Format
+
+The scene format has changed due to the features I add.<br />
+
+- Materials: Unchanged<br />
+
+- Cameras: Add two new parameters<br />
+DOFL(focal length)  //The camera's distance to focal plane(on z axis)  <br />
+DOFR(blur radius)   //The blur extent<br />
+
+Example:<br />
+CAMERA<br />
+RES         800 800<br />
+FOVY        25<br />
+ITERATIONS  5000<br />
+FILE        test.bmp<br />
+frame 0<br />
+EYE         0 4.5 14<br />
+VIEW        0 0 -1<br />
+UP          0 1 0<br />
+DOFL        14.0<br />
+DOFR        0.7<br />
+
+
+- Objects:  Add three new parameters<br />
+MBV(Motion blur velocity)  //The velocity the object has <br />
+MAP(Texture map)           //The object's texture map's path<br />
+BUMP(Bump map)           //The object's bump map's path<br />
+
+
+Example:<br />
+OBJECT0<br />
+cube<br />
+material	 0<br />
+frame 	0<br />
+TRANS 	  0 0 0<br />
+ROTAT  	   0 0 90<br />
+SCALE  	   .01 10 10   <br />
+MBV  	 0 0 0<br />
+MAP  	texture/wood.jpg<br />
+BUMP 	texture/bumpmap.jpg<br />
+
+
+###4.Scene Control
+|Key | Function
+|------|----------
+|Directional keys | `Move camera up/down/left/right`
+|Z/C |  `Zoom in/out`
+|D | `Enable/Disable depth of field`
+|M| `Enable/Disable motion blur`
+|N| `Enable/Disable bump map`
+|T| ` Enable/Disable texture map`
+|Space| `Enable/Disable stream compact`
+|Esc| `Exit renderer`
+
+
+###5.Video Link<br />
+http://youtu.be/AwxrfiRXsPQ
+

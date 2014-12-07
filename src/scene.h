@@ -14,6 +14,12 @@
 #include <fstream>
 #include <iostream>
 
+//OBJ
+#include "objreader.h"
+
+//Add bmp read headers
+#include "FreeImage.h"
+
 using namespace std;
 
 class scene{
@@ -29,6 +35,14 @@ public:
     vector<geom> objects;
     vector<material> materials;
     camera renderCam;
+
+	//Data for texture map
+	vector<int> lastnum;
+	vector<uint3> colors;
+
+	//Data for bump map
+	vector<int> bump_lastnum;
+	vector<uint3> bump_colors;
 };
 
 #endif
