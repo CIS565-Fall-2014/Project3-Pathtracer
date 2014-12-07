@@ -53,35 +53,35 @@ __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm
 
 // TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 rdirect, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
-  Fresnel fresnel;
-  float n1 = incidentIOR;
-  float n2 = transmittedIOR;
-  float n = n1 / n2;
+	Fresnel fresnel;
+	float n1 = incidentIOR;
+	float n2 = transmittedIOR;
+	float n = n1 / n2;
 
-  rdirect = glm::normalize(rdirect);
-  normal = glm::normalize(normal);
-  float c1 = glm::dot(-rdirect, normal);
-  float c2 = 1 - (n*n)*(1 - c1*c1);
+	rdirect = glm::normalize(rdirect);
+	normal = glm::normalize(normal);
+	float c1 = glm::dot(-rdirect, normal);
+	float c2 = 1 - (n*n)*(1 - c1*c1);
 
-  if(c2>=0)
-  {
-	  c2 = sqrt(c2);
-	  float R1 = glm::abs( (n1*c1 - n2*c2) / (n1*c1 + n2*c2) ) * glm::abs( (n1*c1 - n2*c2) / (n1*c1 + n2*c2) );
-	  float R2 = glm::abs( (n1*c2 - n2*c1) / (n1*c2 + n2*c1) ) * glm::abs( (n1*c2 - n2*c1) / (n1*c2 + n2*c1) );
+	if(c2>=0)
+	{
+		c2 = sqrt(c2);
+		float R1 = glm::abs( (n1*c1 - n2*c2) / (n1*c1 + n2*c2) ) * glm::abs( (n1*c1 - n2*c2) / (n1*c1 + n2*c2) );
+		float R2 = glm::abs( (n1*c2 - n2*c1) / (n1*c2 + n2*c1) ) * glm::abs( (n1*c2 - n2*c1) / (n1*c2 + n2*c1) );
 
-	  float R = (R1 + R2) / 2.0f;
-	  float T = 1.0 - R;
+		float R = (R1 + R2) / 2.0f;
+		float T = 1.0 - R;
 
-	  fresnel.reflectionCoefficient   = R;
-	  fresnel.transmissionCoefficient = T;
-  }
-  else
-  {
-	  fresnel.reflectionCoefficient   = 1.0f;
-	  fresnel.transmissionCoefficient = 0;
-  }
+		fresnel.reflectionCoefficient   = R;
+		fresnel.transmissionCoefficient = T;
+	}
+	else
+	{
+		fresnel.reflectionCoefficient   = 1.0f;
+		fresnel.transmissionCoefficient = 0;
+	}
 
-  return fresnel;
+	return fresnel;
 }
 
 // LOOK: This function demonstrates cosine weighted random direction generation in a sphere!
@@ -135,6 +135,8 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 InterSectP,glm::vec3 Int
 	//if(depth>5 && russianRoulette < 0.2){   //Stop the recursion randomly based on the surface reflectivity
 	//	r.exist = false;
 	//}
+
+
 
 	//Only diffuse
 	if(m.hasReflective<MINNUM&&m.hasRefractive<MINNUM)	

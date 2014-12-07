@@ -57,6 +57,15 @@
     <ClInclude Include="..\..\..\src\objreader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="fps.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="clock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="timer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\image.cpp">
@@ -81,6 +90,9 @@
       <Filter>Source Files\stb_image</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\objreader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fps.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

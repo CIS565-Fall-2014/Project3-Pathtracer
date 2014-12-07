@@ -31,8 +31,8 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
-
-
+#include "fps.h" 
+mmc::FpsTracker theFpsTracker;
 using namespace std;
 
 //-------------------------------
@@ -114,9 +114,9 @@ bool isRecording=false;
 void grabScreen(void);
 string scenename;
 bool streamcompact_b = true;
-bool texturemap_b = true;
-bool bumpmap_b = true;
-bool DOF_b = true;
-bool MB_b = true;
+bool texturemap_b = false;//true;
+bool bumpmap_b = false;//true;
+bool DOF_b = false;//true;
+bool MB_b = false;//true;
 
 #endif

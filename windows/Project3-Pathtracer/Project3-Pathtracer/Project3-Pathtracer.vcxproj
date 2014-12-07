@@ -84,6 +84,9 @@
     <ClInclude Include="..\..\..\src\stb_image.h" />
     <ClInclude Include="..\..\..\src\stb_image_write.h" />
     <ClInclude Include="..\..\..\src\utilities.h" />
+    <ClInclude Include="clock.h" />
+    <ClInclude Include="fps.h" />
+    <ClInclude Include="timer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\external\src\glslUtil\glslUtility.cpp" />
@@ -94,6 +97,7 @@
     <ClCompile Include="..\..\..\src\objreader.cpp" />
     <ClCompile Include="..\..\..\src\scene.cpp" />
     <ClCompile Include="..\..\..\src\utilities.cpp" />
+    <ClCompile Include="fps.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\..\..\src\raytraceKernel.cu">

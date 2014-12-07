@@ -65,8 +65,12 @@ void mainLoop() {
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
     runCuda();
-
-    string title = "CIS565 Render | " + utilityCore::convertIntToString(iterations) + " Iterations";
+	theFpsTracker.timestamp();
+	string FPS;
+	stringstream ss;
+	ss<<theFpsTracker.fpsAverage();
+	ss>>FPS;
+    string title = "CIS565 Render | " + utilityCore::convertIntToString(iterations) + " Iterations" + "  AverageFPS:" + FPS;
 		glfwSetWindowTitle(window, title.c_str());
     
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
