@@ -7,6 +7,7 @@
 
 #include "main.h"
 #define GLEW_STATIC
+#pragma   comment(lib,"FreeImage.lib")
 
 __host__ __device__ glm::vec3 multiplyMVMain(cudaMat4 m, glm::vec4 v){
   glm::vec3 r(1,1,1);
@@ -130,7 +131,8 @@ void runCuda(){
     }
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, 
+		materials, renderScene->materials.size(), geoms, renderScene->objects.size(), textureColor );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -216,7 +218,9 @@ bool init(int argc, char* argv[]) {
   initCuda();
   initPBO();
   
-  
+  //initialize texture
+  initTextureMap("C:/Users/AppleDu/Documents/GitHub/Project3-Pathtracer/data/texture/wood.jpg");
+
   GLuint passthroughProgram;
   passthroughProgram = initShader();
 
@@ -476,6 +480,66 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		renderCam->ups[0] = newUp;
 		cameraReset();
 	}
+}
+
+//------------------------------
+//-------TEXTURE STUFF---------
+//------------------------------
+//http://www.mingw.org/
+//http://freeimage.sourceforge.net/download.html
+//https://www.opengl.org/discussion_boards/showthread.php/163929-image-loading?p=1158293#post1158293
+//http://inst.eecs.berkeley.edu/~cs184/fa09/resources/sec_UsingFreeImage.pdf
+
+//loading and initializing texture map
+void initTextureMap(char* textureFileName){
+	int h = 0,  w = 0;
+	int tmp = loadTexture(textureFileName,textureColor,h,w);
+	if( tmp != -1){
+		textureMap.id = tmp;   //start index, point to textureColor
+		textureMap.h = h;   //height
+		textureMap.w = w;   //width
+	}
+}
+
+int loadTexture(char* file, std::vector<glm::vec3> &c, int &h,int &w){
+	FIBITMAP* image = FreeImage_Load( FreeImage_GetFileType(file, 0), file);
+	if(!image){
+		printf("Error: fail to open texture file %s\n", file );
+		FreeImage_Unload(image);
+		return -1;
+	}
+	image = FreeImage_ConvertTo32Bits(image);
+	 
+	w = FreeImage_GetWidth(image);
+	h = FreeImage_GetHeight(image);
+	if( w == 0 && h == 0 ) {
+		printf("Error: texture file is empty\n");
+		FreeImage_Unload(image);
+		return -1;
+	}
+
+	int start = c.size();
+	//int total = w * h;
+	//if(n.size()>0)  //useful when load multiple picture of texture
+		//total += n[n.size()-1];
+	//n.push_back(total);
+
+	//int k = 0;
+	for(int i = 0; i < w; i++){
+	   for(int j = 0;j < h; j++){
+		   RGBQUAD color;
+		   FreeImage_GetPixelColor( image, i, j, &color );
+		   glm::vec3 nc(color.rgbRed, color.rgbGreen, color.rgbBlue);
+	       c.push_back(nc);
+	
+		   //printf("color @ %d is %.2f, %.2f, %.2f\n",k, c[k].r, c[k].g, c[k].b);
+		  // k++;
+	   }
+	}
+	
+	FreeImage_Unload(image);
+	printf("Loaded texture %s with %dx%d pixels\n", file,w,h );
+	return start;
 }
 
 

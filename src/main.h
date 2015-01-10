@@ -26,8 +26,8 @@
 #include "raytraceKernel.h"
 #include "cudaMat4.h"
 #include "utilities.h"
-
 #include "scene.h"
+#include "FreeImage.h"  //for loading texture from ".jpg", ".png", ".bmp"
 
 //#include <helper_cuda.h>
 //#include <helper_cuda_gl.h>  //gpuGetMaxGflopsDeviceId()
@@ -107,5 +107,23 @@ void deleteMesh();
 void mainLoop();
 void errorCallback(int error, const char *description);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+
+
+//------------------------------
+//-------TEXTURE STUFF---------
+//------------------------------
+class tex{
+
+public:
+	tex(){}  //default constructor
+	int id;
+	int h;
+	int w;
+
+};
+tex textureMap;
+std::vector<glm::vec3> textureColor;
+void initTextureMap(char* textureFileName);
+int loadTexture(char* file, std::vector<glm::vec3> &c, int &h,int &w );
 
 #endif

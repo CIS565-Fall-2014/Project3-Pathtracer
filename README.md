@@ -46,6 +46,9 @@ Both clear glass or colored glass can be handled here. Wondering doing some fros
 The picture below shows three material - diffuse, highly reflective, and refractive glass.
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best6_Materials.bmp) 
 
+##Texture Mapping  
+Image loading is done through FreeImage. Basic texture mapping for cube and sphere is done.  
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best0_SharpTexture2.bmp) 
 
 ##Depth of field  
 Depth of filed was achieved by offsetting initial pinhole ray origin based on camera aperture, and re-calculate the ray direction based on previous focal plane intersecting point.

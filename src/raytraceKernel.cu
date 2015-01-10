@@ -212,6 +212,24 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 	return chosenLight;
  }
 
+
+ __device__ __host__ glm::vec3 getTextureColor(glm::vec3* cudatexs, glm::vec3 &intersect, staticGeom& geom){
+	 if(geom.type == CUBE){
+		 float u = (intersect.x * 0.2f + 1.0f)*0.5f;
+		 float v = (intersect.z * 0.2f + 1.0f)*0.5f;
+		 int i = u * 512.0f;
+		 int j = v * 512.0f;
+		 int idx = i + j * 512.0f;
+		//  printf("x=%f, z=%f, u=%f, v=%f, idx = %d\n",intersect.x * 0.2f,intersect.z * 0.2f, u, v, idx);
+		 if(idx < 512*512){
+			glm::vec3 color(cudatexs[idx].r/255.0, cudatexs[idx].g/255.0, cudatexs[idx].b/255.0);
+			return color;
+		 }	 
+	 }
+
+	return intersect;
+}
+
  //calculates the direct lighting for a certain hit point and modify color of that hit
 __device__ __host__ void directLighting(float seed, glm::vec3& theColor, glm::vec3& theIntersect, glm::vec3& theNormal, int geoID, 
 	int* lights, int numOfLights, material* cudamats, staticGeom* geoms, int numOfGeoms, triangle * cudatris){
@@ -233,12 +251,11 @@ __device__ __host__ void directLighting(float seed, glm::vec3& theColor, glm::ve
 }
 
 
-
 // TODO: IMPLEMENT THIS FUNCTION
 // Core raytracer kernel
 __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms, material* cudamats, int* lights, int numOfLights, 
-							cameraData cam, triangle* cudatris){
+							cameraData cam, triangle* cudatris, glm::vec3* cudatexs){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -338,7 +355,11 @@ __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, 
 						r.direction = calculateCosWeightedRandomDirInHemisphere(Pnormal, (float) u01(rng), (float) u01(rng));
 						r.origin = Pintersect + (float)EPSILON * r.direction ;
 						float diffuseTerm = glm::clamp( glm::dot( Pnormal,r.direction ), 0.0f, 1.0f);
-						r.color *=  diffuseTerm * curMat.color;	
+						if(geoms[hitGeoID].materialid == 12){  //texture
+							r.color *=  diffuseTerm * getTextureColor(cudatexs, Pintersect, geoms[hitGeoID]);	
+						}else{
+							r.color *=  diffuseTerm * curMat.color;	
+						}
 					}
 				}
 
@@ -417,9 +438,14 @@ __global__ void initialRayPool(ray * rayPool, cameraData cam, float iterations,g
 
 // TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, 
+	material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, std::vector<glm::vec3> &textures){
+	
 	//frame: current frame number
 	//iterations: current iteration of rendering <  (cam.iterations)
+	/*if(iterations == 572 || iterations == 46 ){
+		printf("problem");
+	}*/
 
 	// send image to GPU
   glm::vec3* cudaimage = NULL;
@@ -509,6 +535,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaMalloc((void**)&cudalightIDs, numberOfLights*sizeof(int));
 	cudaMemcpy( cudalightIDs, lightIDs, numberOfLights*sizeof(int), cudaMemcpyHostToDevice);
 
+	//set up textures
+	int numberOfPixels = textures.size();
+	glm::vec3 *texs = new glm::vec3[numberOfPixels];
+	for(int i = 0; i < numberOfPixels; ++i){
+		texs[i] = textures[i];
+	}
+	glm::vec3 *cudatexs = NULL;
+	cudaMalloc((void**)&cudatexs,numberOfPixels * sizeof(glm::vec3));
+	cudaMemcpy( cudatexs, texs,  numberOfPixels * sizeof(glm::vec3),  cudaMemcpyHostToDevice);
 
 	//set up ray pool on device
 	ray* cudarays = NULL;
@@ -534,7 +569,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		int yBlocks = (int) ceil( sqrt((float)numOfRays)/(float)(tileSize) );
 		dim3 newBlocksPerGrid(xBlocks,yBlocks);
 		
-		raytraceRay<<<newBlocksPerGrid, threadsPerBlock>>>(cudarays, (float)iterations, k, (int)numOfRays, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightIDs, numberOfLights, cam, cudatris);
+		raytraceRay<<<newBlocksPerGrid, threadsPerBlock>>>(cudarays, (float)iterations, k, (int)numOfRays, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightIDs, numberOfLights, cam, cudatris, cudatexs);
 
 	}
 
@@ -549,14 +584,16 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudageoms );
   cudaFree( cudamats );
   cudaFree( cudarays );
+  cudaFree( cudatexs );
   cudaFree( cudalightIDs );
-  if(meshID>-1){
+  if(meshID >-1 ){
 	cudaFree( cudatris );
   }
 
   delete geomList;
   //delete matList;
   delete lightIDs;
+  delete texs;
 
   // make certain the kernel has completed
   cudaThreadSynchronize();
