@@ -97,5 +97,17 @@ struct material{
 };
 
 
+class tex{
+
+public:
+	tex(){}  //default constructor
+	int id;
+	int start;
+	int specularExponent;
+	int h;
+	int w;
+
+};
+
 
 #endif //CUDASTRUCTS_H

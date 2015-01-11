@@ -132,7 +132,8 @@ void runCuda(){
   
     // execute the kernel
     cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, 
-		materials, renderScene->materials.size(), geoms, renderScene->objects.size(), textureColor );
+		materials, renderScene->materials.size(), geoms, renderScene->objects.size(), 
+		textureColor, textureMap );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -219,8 +220,10 @@ bool init(int argc, char* argv[]) {
   initPBO();
   
   //initialize texture
-  initTextureMap("C:/Users/AppleDu/Documents/GitHub/Project3-Pathtracer/data/texture/wood.jpg");
-
+  initTextureMap(-1, "C:/Users/AppleDu/Documents/GitHub/Project3-Pathtracer/data/texture/wood2.jpg");
+  initTextureMap(-2, "C:/Users/AppleDu/Documents/GitHub/Project3-Pathtracer/data/texture/earthmap1024.png");
+  initTextureMap(-3, "C:/Users/AppleDu/Documents/GitHub/Project3-Pathtracer/data/texture/checker.jpg");
+  initTextureMap(-4, "C:/Users/AppleDu/Documents/GitHub/Project3-Pathtracer/data/texture/wall.jpg");
   GLuint passthroughProgram;
   passthroughProgram = initShader();
 
@@ -491,13 +494,16 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 //http://inst.eecs.berkeley.edu/~cs184/fa09/resources/sec_UsingFreeImage.pdf
 
 //loading and initializing texture map
-void initTextureMap(char* textureFileName){
+void initTextureMap(int id, char* textureFileName){
 	int h = 0,  w = 0;
 	int tmp = loadTexture(textureFileName,textureColor,h,w);
 	if( tmp != -1){
-		textureMap.id = tmp;   //start index, point to textureColor
-		textureMap.h = h;   //height
-		textureMap.w = w;   //width
+		tex newTex;
+		newTex.id = id;
+		newTex.start = tmp;   //start index, point to textureColor
+		newTex.h = h;   //height
+		newTex.w = w;   //width
+		textureMap.push_back(newTex);
 	}
 }
 

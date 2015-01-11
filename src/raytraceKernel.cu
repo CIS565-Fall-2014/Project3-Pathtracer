@@ -172,7 +172,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 	//printf("shadow ray: [%f,%f,%f], [%f,%f,%f]\n", sr.origin.x,sr.origin.y,sr.origin.z,sr.direction.x,sr.direction.y,sr.direction.z);
 	int geoID = findHitGeo(sr, intersPoint, intersNormal, geoms, numberOfGeoms, cudatris); 
-	if( geoID>-1 && materials[geoms[geoID].materialid].emittance > 0){   //hit light soource
+	if( geoID>-1 && geoms[geoID].materialid >= 0 &&materials[geoms[geoID].materialid].emittance > 0){   //hit light soource
 		return true;
 	}
 	else{
@@ -213,20 +213,38 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
  }
 
 
- __device__ __host__ glm::vec3 getTextureColor(glm::vec3* cudatexs, glm::vec3 &intersect, staticGeom& geom){
+ __device__ __host__ glm::vec3 getTextureColor(glm::vec3* cudatexs, tex* cudatexIDs, glm::vec3 &intersect, staticGeom& geom){
+	 tex theTex = cudatexIDs[abs(geom.materialid)-1];
+	// printf("theTex: h=%d, w=%d, start=%d\n", theTex.h, theTex.w, theTex.start);
+	 glm::vec3 p = multiplyMV(geom.inverseTransform, glm::vec4(intersect,1.0f));
+	 float u,v;
 	 if(geom.type == CUBE){
-		 float u = (intersect.x * 0.2f + 1.0f)*0.5f;
-		 float v = (intersect.z * 0.2f + 1.0f)*0.5f;
-		 int i = u * 512.0f;
-		 int j = v * 512.0f;
-		 int idx = i + j * 512.0f;
-		//  printf("x=%f, z=%f, u=%f, v=%f, idx = %d\n",intersect.x * 0.2f,intersect.z * 0.2f, u, v, idx);
-		 if(idx < 512*512){
-			glm::vec3 color(cudatexs[idx].r/255.0, cudatexs[idx].g/255.0, cudatexs[idx].b/255.0);
-			return color;
-		 }	 
+		 // printf("p.x=%f, p.y = %f, p.z=%f, intersect.x=%f, intersect.y=%f, intersect.z=%f\n",p.x, p.y, p.z, intersect.x, intersect.y, intersect.z);
+		 if(std::abs(0.5f - abs(p.x)) < EPSILON){   //left or right face
+			 u = p.z + 0.5f;
+			 v = p.y + 0.5f;
+		 }else if(std::abs(0.5f - abs(p.y)) < EPSILON){  // top or bottom face
+			 u = p.x + 0.5f;
+			 v = p.z + 0.5f;
+		 }else if(std::abs(0.5f - abs(p.z)) < EPSILON){  //front or back face
+			 u = p.x + 0.5f;
+			 v = p.y + 0.5f; v = 1.0f - v;
+		 }
+	 }else if(geom.type == SPHERE){
+		 glm::vec3 d = glm::vec3(0.0)- glm::vec3(p.x, p.y, p.z);
+		// printf("p.x=%f, p.y = %f, p.z=%f, intersect.x=%f, intersect.y=%f, intersect.z=%f\n",p.x, p.y, p.z, intersect.x, intersect.y, intersect.z);
+		 u = 0.5f + atan2(d.z, d.x) * 0.5f / PI;
+		 v = 0.5f - asin(d.y) / PI;	
 	 }
-
+	int i,j,idx = -1;
+	i = u * (float)theTex.w;
+	j = v * (float)theTex.h;
+	idx = i + j * theTex.w + theTex.start;
+	//  printf("x=%f, z=%f, u=%f, v=%f, idx = %d\n",intersect.x * 0.2f,intersect.z * 0.2f, u, v, idx);
+	if( idx <= theTex.w * theTex.h + theTex.start && idx>=theTex.start ){
+		glm::vec3 color(cudatexs[idx].r/255.0, cudatexs[idx].g/255.0, cudatexs[idx].b/255.0);
+		return color;
+	}	
 	return intersect;
 }
 
@@ -239,14 +257,15 @@ __device__ __host__ void directLighting(float seed, glm::vec3& theColor, glm::ve
 	int lightID = getRandomShadowRayDirection(seed, theIntersect, lights, numOfLights, geoms, shadowRay, rayLen, lightNormal, lightArea);
 
 	// ****************** shading if direct illumination ****************** //
-	material curMat = cudamats[geoms[geoID].materialid];  //material of the hit goemetry
-	if(ShadowRayTest(shadowRay, geoms, numOfGeoms, cudamats, cudatris)  ){
-		float cosTerm = glm::clamp( glm::dot( theNormal, shadowRay.direction ), 0.0f, 1.0f);  //proportion of facing light
-		float cosTerm2 = glm::clamp( glm::dot( lightNormal, -shadowRay.direction ), 0.0f, 1.0f);  //proportion of incoming light
-		float areaSampling =  lightArea / (float) pow( rayLen, 2.0f) ;   // dA/r^2
-     	theColor += cudamats[lightID].emittance * curMat.color * cosTerm * cosTerm2 * areaSampling ;
+	if(geoms[geoID].materialid >= 0 ){
+		material curMat = cudamats[geoms[geoID].materialid];  //material of the hit goemetry
+		if(ShadowRayTest(shadowRay, geoms, numOfGeoms, cudamats, cudatris)  ){
+			float cosTerm = glm::clamp( glm::dot( theNormal, shadowRay.direction ), 0.0f, 1.0f);  //proportion of facing light
+			float cosTerm2 = glm::clamp( glm::dot( lightNormal, -shadowRay.direction ), 0.0f, 1.0f);  //proportion of incoming light
+			float areaSampling =  lightArea / (float) pow( rayLen, 2.0f) ;   // dA/r^2
+     		theColor += cudamats[lightID].emittance * curMat.color * cosTerm * cosTerm2 * areaSampling ;
+		}
 	}
-
 	//don't kill any ray in direct lighting calculation
 }
 
@@ -255,7 +274,7 @@ __device__ __host__ void directLighting(float seed, glm::vec3& theColor, glm::ve
 // Core raytracer kernel
 __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms, material* cudamats, int* lights, int numOfLights, 
-							cameraData cam, triangle* cudatris, glm::vec3* cudatexs){
+							cameraData cam, triangle* cudatris, glm::vec3* cudatexs, tex* cudatexIDs){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -272,7 +291,9 @@ __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, 
 		int hitGeoID = findHitGeo(r, Pintersect, Pnormal, geoms, numberOfGeoms, cudatris);
 
 		if(hitGeoID!=-1){
-			material curMat = cudamats[geoms[hitGeoID].materialid];
+			material curMat;
+			if(geoms[hitGeoID].materialid >= 0)
+				curMat = cudamats[geoms[hitGeoID].materialid];
 			if( curMat.emittance > 0 ){   //end when hit light source
 				if(glm::length(r.color)>0.6f){
 			//	printf("ray color:[%f, %f, %f]", r.color.r,r.color.g,r.color.b);
@@ -355,8 +376,8 @@ __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, 
 						r.direction = calculateCosWeightedRandomDirInHemisphere(Pnormal, (float) u01(rng), (float) u01(rng));
 						r.origin = Pintersect + (float)EPSILON * r.direction ;
 						float diffuseTerm = glm::clamp( glm::dot( Pnormal,r.direction ), 0.0f, 1.0f);
-						if(geoms[hitGeoID].materialid == 12){  //texture
-							r.color *=  diffuseTerm * getTextureColor(cudatexs, Pintersect, geoms[hitGeoID]);	
+						if(geoms[hitGeoID].materialid < 0){  //texture
+							r.color *=  diffuseTerm * getTextureColor(cudatexs, cudatexIDs, Pintersect, geoms[hitGeoID]);	
 						}else{
 							r.color *=  diffuseTerm * curMat.color;	
 						}
@@ -364,7 +385,7 @@ __global__ void raytraceRay(ray* rays, float time, int rayDepth, int numOfRays, 
 				}
 
 				//----------------------------------------- Other Effects ----------------------------------------------//
-				if(curMat.specularExponent > 0){   //specularity  & glossiness
+				if(curMat.specularExponent > 0 ){   //specularity  & glossiness
 					thrust::default_random_engine rng( hash( seed ) );
 					thrust::uniform_real_distribution<float> u01(0,1);
 					ray shadowRay;
@@ -439,13 +460,14 @@ __global__ void initialRayPool(ray * rayPool, cameraData cam, float iterations,g
 // TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, 
-	material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, std::vector<glm::vec3> &textures){
+	material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, 
+	std::vector<glm::vec3> &textures, std::vector<tex> &textureIDs){
 	
 	//frame: current frame number
 	//iterations: current iteration of rendering <  (cam.iterations)
-	/*if(iterations == 572 || iterations == 46 ){
+	if(iterations == 572 || iterations == 46 || iterations == 7){
 		printf("problem");
-	}*/
+	}
 
 	// send image to GPU
   glm::vec3* cudaimage = NULL;
@@ -518,7 +540,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
    //lights setup
 	int numberOfLights = 0;
 	for(int i = 0; i < numberOfGeoms; ++i){
-		if(materials[geoms[i].materialid].emittance > 0){
+		if( geoms[i].materialid >= 0 && materials[geoms[i].materialid].emittance > 0){
 			numberOfLights ++ ;
 		}
 	}
@@ -526,7 +548,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	int *lightIDs = new int[numberOfLights];
 	int k = 0;
 	for(int i = 0; i < numberOfGeoms; ++i){
-		if(materials[geoms[i].materialid].emittance > 0){
+		if( geoms[i].materialid >= 0 && materials[geoms[i].materialid].emittance > 0){
 			lightIDs[k] = i;
 			k++;
 		}
@@ -544,6 +566,16 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	glm::vec3 *cudatexs = NULL;
 	cudaMalloc((void**)&cudatexs,numberOfPixels * sizeof(glm::vec3));
 	cudaMemcpy( cudatexs, texs,  numberOfPixels * sizeof(glm::vec3),  cudaMemcpyHostToDevice);
+
+	//set up textures id
+	int numOfTextures = textureIDs.size();
+	tex *texIDs = new tex[numOfTextures];
+	for(int i = 0; i < numOfTextures; ++i){
+		texIDs[i] = textureIDs[i];
+	}
+	tex *cudatexIDs = NULL;
+	cudaMalloc((void**)&cudatexIDs, numOfTextures * sizeof(tex));
+	cudaMemcpy( cudatexIDs, texIDs, numOfTextures* sizeof(tex),  cudaMemcpyHostToDevice);
 
 	//set up ray pool on device
 	ray* cudarays = NULL;
@@ -569,7 +601,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		int yBlocks = (int) ceil( sqrt((float)numOfRays)/(float)(tileSize) );
 		dim3 newBlocksPerGrid(xBlocks,yBlocks);
 		
-		raytraceRay<<<newBlocksPerGrid, threadsPerBlock>>>(cudarays, (float)iterations, k, (int)numOfRays, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightIDs, numberOfLights, cam, cudatris, cudatexs);
+		raytraceRay<<<newBlocksPerGrid, threadsPerBlock>>>(cudarays, (float)iterations, k, (int)numOfRays, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightIDs, numberOfLights, cam, cudatris, cudatexs, cudatexIDs);
 
 	}
 
@@ -585,6 +617,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudamats );
   cudaFree( cudarays );
   cudaFree( cudatexs );
+  cudaFree( cudatexIDs );
   cudaFree( cudalightIDs );
   if(meshID >-1 ){
 	cudaFree( cudatris );
@@ -594,6 +627,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   //delete matList;
   delete lightIDs;
   delete texs;
+  delete texIDs;
 
   // make certain the kernel has completed
   cudaThreadSynchronize();

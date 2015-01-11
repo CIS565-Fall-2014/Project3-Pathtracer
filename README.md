@@ -49,6 +49,7 @@ The picture below shows three material - diffuse, highly reflective, and refract
 ##Texture Mapping  
 Image loading is done through FreeImage. Basic texture mapping for cube and sphere is done.  
 ![](windows/Project3-Pathtracer/Project3-Pathtracer/Best0_Sharp_Texture2.bmp) 
+![](windows/Project3-Pathtracer/Project3-Pathtracer/Best7_Texture.bmp) 
 
 ##Depth of field  
 Depth of filed was achieved by offsetting initial pinhole ray origin based on camera aperture, and re-calculate the ray direction based on previous focal plane intersecting point.

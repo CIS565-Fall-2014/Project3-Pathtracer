@@ -25,6 +25,7 @@
 #define DEPTH_OF_FIELD 0
 
 void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, 
-	material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, std::vector<glm::vec3> &textures);
+	material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, 
+	std::vector<glm::vec3> &textures, std::vector<tex> &textureIDs);
 
 #endif

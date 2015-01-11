@@ -112,18 +112,10 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 //------------------------------
 //-------TEXTURE STUFF---------
 //------------------------------
-class tex{
-
-public:
-	tex(){}  //default constructor
-	int id;
-	int h;
-	int w;
-
-};
-tex textureMap;
+std::vector<tex> textureMap;
 std::vector<glm::vec3> textureColor;
-void initTextureMap(char* textureFileName);
+void initTextureMap(int id,char* textureFileName);
 int loadTexture(char* file, std::vector<glm::vec3> &c, int &h,int &w );
 
 #endif
+ 
