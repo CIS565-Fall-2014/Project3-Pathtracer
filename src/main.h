@@ -24,11 +24,17 @@
 #include "sceneStructs.h"
 #include "image.h"
 #include "raytraceKernel.h"
+#include "cudaMat4.h"
 #include "utilities.h"
 #include "scene.h"
+#include "FreeImage.h"  //for loading texture from ".jpg", ".png", ".bmp"
+
+//#include <helper_cuda.h>
+//#include <helper_cuda_gl.h>  //gpuGetMaxGflopsDeviceId()
+
 
 using namespace std;
-
+#define STEP_SIZE 0.6f   //step size of camera movement
 //-------------------------------
 //----------PATHTRACER-----------
 //-------------------------------
@@ -86,7 +92,7 @@ void initCuda();
 void initTextures();
 void initVAO();
 GLuint initShader();
-
+void initMesh();
 //-------------------------------
 //---------CLEANUP STUFF---------
 //-------------------------------
@@ -94,7 +100,7 @@ GLuint initShader();
 void cleanupCuda();
 void deletePBO(GLuint* pbo);
 void deleteTexture(GLuint* tex);
-
+void deleteMesh();
 //------------------------------
 //-------GLFW CALLBACKS---------
 //------------------------------
@@ -102,4 +108,14 @@ void mainLoop();
 void errorCallback(int error, const char *description);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
+
+//------------------------------
+//-------TEXTURE STUFF---------
+//------------------------------
+std::vector<tex> textureMap;
+std::vector<glm::vec3> textureColor;
+void initTextureMap(int id,char* textureFileName);
+int loadTexture(char* file, std::vector<glm::vec3> &c, int &h,int &w );
+
 #endif
+ 

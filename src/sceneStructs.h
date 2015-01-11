@@ -6,19 +6,33 @@
 #ifndef CUDASTRUCTS_H
 #define CUDASTRUCTS_H
 
+#include <vector>
 #include "glm/glm.hpp"
 #include "cudaMat4.h"
 #include <cuda_runtime.h>
 #include <string>
 
+
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
 struct ray {
+	glm::vec3 attenuate;
+	bool isDead;
+	int pixel;
+	glm::vec3 color;
 	glm::vec3 origin;
 	glm::vec3 direction;
 };
 
+struct triangle{
+	glm::vec3 p1,p2,p3; 
+};
+
 struct geom {
+	glm::vec3 bBoxMax;
+	glm::vec3 bBoxMin;
+	triangle* tris;
+	int numOfTris;
 	enum GEOMTYPE type;
 	int materialid;
 	int frames;
@@ -30,6 +44,10 @@ struct geom {
 };
 
 struct staticGeom {
+	glm::vec3 bBoxMin;
+	glm::vec3 bBoxMax;
+	triangle* tris;
+	int numOfTris;
 	enum GEOMTYPE type;
 	int materialid;
 	glm::vec3 translation;
@@ -45,6 +63,9 @@ struct cameraData {
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+	float aperture;
+	float focalLength;
+	int time;
 };
 
 struct camera {
@@ -58,6 +79,8 @@ struct camera {
 	glm::vec3* image;
 	ray* rayList;
 	std::string imageName;
+	float focalLength;
+	float aperture;   //rounded aperture
 };
 
 struct material{
@@ -72,5 +95,19 @@ struct material{
 	float reducedScatterCoefficient;
 	float emittance;
 };
+
+
+class tex{
+
+public:
+	tex(){}  //default constructor
+	int id;
+	int start;
+	int specularExponent;
+	int h;
+	int w;
+
+};
+
 
 #endif //CUDASTRUCTS_H

@@ -62,7 +62,7 @@ MATERIAL 5 				//glass
 RGB         0 0 0    
 SPECEX      0      
 SPECRGB     1 1 1      
-REFL        0       
+REFL        1       
 REFR        1        
 REFRIOR     2.2       
 SCATTER     0        
@@ -74,7 +74,7 @@ MATERIAL 6 				//green glossy
 RGB         .15 .48 .09      
 SPECEX      0      
 SPECRGB     1 1 1     
-REFL        0       
+REFL        1       
 REFR        0        
 REFRIOR     2.6       
 SCATTER     0        
@@ -106,15 +106,28 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   15
 
+MATERIAL 9 				//yellow diffuse
+RGB         .9 .9 .04        
+SPECEX      0      
+SPECRGB     1 1 1      
+REFL        0       
+REFR        0        
+REFRIOR     0       
+SCATTER     0        
+ABSCOEFF    0 0 0      
+RSCTCOEFF   0
+EMITTANCE   0
+
+
 CAMERA
 RES         800 800
-FOVY        25
+FOVY        35
 ITERATIONS  5000
 FILE        test.bmp
 FOCAL 8.2
 APERTURE 1.3
 frame 0
-EYE         0 4.5 12
+EYE         0 4.5 8
 VIEW        0 0 -1
 UP          0 1 0
 
@@ -144,7 +157,7 @@ SCALE       .01 10 10
 
 OBJECT 3
 cube
-material 1
+material 2
 frame 0
 TRANS       -5 5 0
 ROTAT       0 0 0
@@ -152,23 +165,23 @@ SCALE       .01 10 10
 
 OBJECT 4
 cube
-material 2
+material 1
 frame 0
 TRANS       5 5 0
 ROTAT       0 0 0
 SCALE       .01 10 10
 
 OBJECT 5
-sphere
-material 4
+cube
+material 9
 frame 0
 TRANS       0 2 0
-ROTAT       0 180 0
-SCALE       3 3 3
+ROTAT       0 45 45
+SCALE       2 2 2
 
 OBJECT 6
 sphere
-material 3
+material 6
 frame 0
 TRANS       2 5 2
 ROTAT       0 180 0
@@ -176,7 +189,7 @@ SCALE       2.5 2.5 2.5
 
 OBJECT 7
 sphere
-material 6
+material 5
 frame 0
 TRANS       -2 5 -2
 ROTAT       0 180 0
